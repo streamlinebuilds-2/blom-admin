@@ -15,15 +15,56 @@ const handler: Handler = async (event) => {
     const q = url.searchParams.get('q') ?? undefined
     const orderBy = url.searchParams.get('order_by') ?? 'placed_at'
     const dir = (url.searchParams.get('dir') ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc'
+    const offset = (page - 1) * limit
 
-    // Prefer admin_orders view if present; fallback to orders
-    let from = 'orders'
-    try {
-      const { data, error } = await sb.from('admin_orders').select('id').limit(1)
-      if (!error && data) from = 'admin_orders'
-    } catch { /* view not present */ }
+    // Select with nested items and payments
+    const sel = `
+      id,
+      merchant_payment_id,
+      order_number,
+      customer_name,
+      customer_email,
+      customer_phone,
+      status,
+      payment_status,
+      fulfillment_status,
+      delivery_method,
+      shipping_address,
+      collection_slot,
+      collection_location,
+      subtotal_cents,
+      shipping_cents,
+      discount_cents,
+      tax_cents,
+      total_cents,
+      currency,
+      tracking_number,
+      tracking_url,
+      notes_admin,
+      placed_at,
+      paid_at,
+      fulfilled_at,
+      created_at,
+      updated_at,
+      order_items (
+        id,
+        sku,
+        name,
+        variant,
+        qty,
+        unit_price_cents,
+        line_total_cents
+      ),
+      payments (
+        id,
+        provider,
+        amount_cents,
+        status,
+        created_at
+      )
+    `
 
-    let query = sb.from(from).select('*', { count: 'exact' })
+    let query = sb.from('orders').select(sel, { count: 'exact' })
 
     if (status)          query = query.eq('status', status)
     if (payment_status)  query = query.eq('payment_status', payment_status)
@@ -31,33 +72,35 @@ const handler: Handler = async (event) => {
     if (email)           query = query.eq('customer_email', email)
 
     if (q) {
-      if (from === 'orders') {
-        query = query.or([
-          `merchant_payment_id.ilike.%${q}%`,
-          `customer_email.ilike.%${q}%`,
-          `customer_name.ilike.%${q}%`
-        ].join(','))
-      } else {
-        query = query.or([
-          `merchant_payment_id.ilike.%${q}%`,
-          `email.ilike.%${q}%`,
-          `first_name.ilike.%${q}%`,
-          `last_name.ilike.%${q}%`
-        ].join(','))
-      }
+      query = query.or([
+        `merchant_payment_id.ilike.%${q}%`,
+        `customer_email.ilike.%${q}%`,
+        `customer_name.ilike.%${q}%`,
+        `order_number.ilike.%${q}%`
+      ].join(','))
     }
 
     query = query
-      .order(orderBy as any, { ascending: dir === 'asc' })
-      .range((page - 1) * limit, page * limit - 1)
+      .order(orderBy as any, { ascending: dir === 'asc', nullsFirst: false })
+      .range(offset, offset + limit - 1)
 
     const { data, error, count } = await query
     if (error) throw error
 
+    // Normalize item fields (supports old price_cents/total_cents)
+    const normalizedData = (data ?? []).map((order: any) => {
+      const items = (order.order_items ?? []).map((i: any) => ({
+        ...i,
+        unit_price_cents: i.unit_price_cents ?? i.price_cents ?? 0,
+        line_total_cents: i.line_total_cents ?? i.total_cents ?? ((i.qty ?? 0) * (i.unit_price_cents ?? i.price_cents ?? 0)),
+      }))
+      return { ...order, order_items: items }
+    })
+
     return {
       statusCode: 200,
       headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
-      body: JSON.stringify({ rows: data ?? [], meta: { page, limit, total: count ?? 0, orderBy, dir, source: from } })
+      body: JSON.stringify({ rows: normalizedData, meta: { page, limit, total: count ?? 0, orderBy, dir } })
     }
   } catch (err: any) {
     return {

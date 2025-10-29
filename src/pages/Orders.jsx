@@ -10,10 +10,16 @@ export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: ordersData, isLoading } = useQuery({
     queryKey: ['orders'],
-    queryFn: () => base44.entities.Order.list('-created_date', 200),
+    queryFn: async () => {
+      const res = await fetch('/api/admin/orders?limit=200')
+      const json = await res.json()
+      return json.rows || []
+    },
   });
+
+  const orders = ordersData || []
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
