@@ -1,44 +1,19 @@
 [build]
-  command = "pnpm run build"
+  command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "18"
-  PNPM_VERSION = "9"
-  PNPM_FLAGS = "--include=dev --no-optional"
+  NODE_VERSION = "20"
 
-[functions]
-  node_bundler = "esbuild"
-  included_files = ["src/**"]
-
-[[redirects]]
-  from = "/api/admin/orders"
-  to   = "/.netlify/functions/admin-orders"
-  status = 200
-
-[[redirects]]
-  from = "/api/admin/orders/:id"
-  to   = "/.netlify/functions/admin-order?id=:id"
-  status = 200
-
-# PayFast payment integration
-[[redirects]]
-  from = "/api/payfast/checkout"
-  to   = "/.netlify/functions/payfast-checkout"
-  status = 200
-
-[[redirects]]
-  from = "/api/payfast/itn"
-  to   = "/.netlify/functions/payfast-itn"
-  status = 200
-
-[[redirects]]
-  from = "/api/orders/create"
-  to   = "/.netlify/functions/create-order"
-  status = 200
-
-# SPA catch-all: redirect all non-file requests to index.html
+# Single Page App routing (React Router / Vite)
 [[redirects]]
   from = "/*"
-  to   = "/index.html"
+  to = "/index.html"
   status = 200
+
+# API routes – never hijack function requests
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"

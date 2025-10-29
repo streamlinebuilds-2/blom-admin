@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
         }
       }
     ].filter(Boolean),
+    base: '/', // Important: ensure correct routing on deployment
+    define: { 'process.env': {} }, // Prevent process.env crashes in browser
     server: {
       host: '0.0.0.0', // Bind to all interfaces for container access
       port: 5173,
