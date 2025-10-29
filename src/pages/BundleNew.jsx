@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import BundleEditor from "../components/BundleEditor";
 
 export default function BundleNew() {

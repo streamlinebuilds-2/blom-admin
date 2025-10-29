@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, Plus, Calendar, Target, TrendingDown } from "lucide-react";
 import { moneyZAR, dateTime } from "../components/formatUtils";
 import { calcSpecialPrice } from "../components/helpers";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner"; // This component is imported but not used in the provided code, keeping it for completeness.
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

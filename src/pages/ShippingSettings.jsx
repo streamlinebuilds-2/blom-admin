@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { settingsStore } from "../components/settingsStore";
 import { api } from "../components/data/api";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import { Save, Truck, Calculator } from "lucide-react";
 import { moneyZAR } from "../components/formatUtils";
 

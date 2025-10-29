@@ -6,7 +6,7 @@ import { api } from "../components/data/api"; // Updated path for api
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, Search } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");

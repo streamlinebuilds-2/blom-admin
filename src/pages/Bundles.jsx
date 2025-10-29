@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Plus, Edit2, Trash2, Search, Package } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

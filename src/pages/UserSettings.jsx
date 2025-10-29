@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { settingsStore } from "../components/settingsStore";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import { Users, Plus, Trash2, Shield } from "lucide-react";
 
 export default function UserSettings() {

@@ -4,7 +4,7 @@ import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Mail, Phone, Calendar, User, ExternalLink, Paperclip } from "lucide-react";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 
 export default function MessageDetail() {

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ToastProvider } from "./components/ui/Toast";
+import { ToastProvider } from "./components/ui/ToastProvider";
 import { setAPI } from './components/data/api';
 import { createMockAdapter } from './components/data/mockAdapter';
 import {

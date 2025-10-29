@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { CreditCard, X, ExternalLink } from "lucide-react";
 import { moneyZAR, dateTime } from "../components/formatUtils";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 
 export default function Payments() {

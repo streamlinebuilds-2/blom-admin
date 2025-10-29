@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Package, Plus, Minus, AlertCircle } from "lucide-react";
 import { moneyZAR, dateTime } from "../components/formatUtils";
-import { useToast } from "../components/ui/Toast";
+import { useToast } from "../components/ui/ToastProvider";
 import { api } from "../components/data/api";
 
 export default function Stock() {
