@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/use-toast";
 
 export default function ProductEdit() {
   const { id } = useParams();
@@ -20,11 +21,15 @@ export default function ProductEdit() {
     category: "",
     tags: [],
     thumbnail: "",
+    images: [],
     shortDescription: "",
+    descriptionHtml: "",
+    seo: { title: "", description: "" },
   });
   const [prices, setPrices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [saveResult, setSaveResult] = useState<any>(null);
 
   useEffect(() => {
     if (!isNew && id) {
@@ -48,8 +53,9 @@ export default function ProductEdit() {
   async function save() {
     setLoading(true);
     setError("");
+    setSaveResult(null);
     try {
-      const res = await fetch("/.netlify/functions/save-product", {
+      const res = await fetch("/.netlify/functions/save-product-and-pr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -58,16 +64,18 @@ export default function ProductEdit() {
         const text = await res.text();
         throw new Error("Save failed: " + text);
       }
-      const { product, prUrl, previewUrl, branch } = await res.json();
-      
-      // Show success with links if available
-      if (prUrl || previewUrl) {
-        alert(
-          `Product saved!\n\n${prUrl ? `PR: ${prUrl}\n` : ""}${previewUrl ? `Preview: ${previewUrl}\n` : ""}${branch ? `Branch: ${branch}` : ""}`
-        );
+      const result = await res.json();
+      const { product, prUrl, previewUrl, branch } = result;
+
+      // Show toast with branch info
+      if (branch) {
+        toast({
+          title: "Product Saved",
+          description: `Committed to branch: ${branch}`,
+        });
       }
-      
-      nav(`/admin/products/${product.id}`);
+
+      setSaveResult({ product, prUrl, previewUrl, branch });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -75,7 +83,7 @@ export default function ProductEdit() {
     }
   }
 
-  if (error && isNew === false) {
+  if (error && !isNew) {
     return (
       <div className="p-6">
         <div className="text-red-600">Error: {error}</div>
@@ -84,12 +92,52 @@ export default function ProductEdit() {
   }
 
   return (
-    <div className="p-6 space-y-4 max-w-3xl">
+    <div className="p-6 space-y-4 max-w-4xl">
       <h1 className="text-xl font-semibold">
         {isNew ? "New Product" : `Edit: ${form.name}`}
       </h1>
 
       {error && <div className="text-red-600 text-sm">{error}</div>}
+
+      {/* Save Result: Show PR/Preview buttons */}
+      {saveResult && (
+        <div className="bg-green-50 border border-green-200 rounded p-4 space-y-3">
+          <p className="text-green-800 font-medium">✓ Product saved successfully!</p>
+          <div className="flex gap-2 flex-wrap">
+            {saveResult.prUrl && (
+              <a
+                href={saveResult.prUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+              >
+                Open PR →
+              </a>
+            )}
+            {saveResult.previewUrl && (
+              <a
+                href={saveResult.previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 rounded bg-purple-600 text-white text-sm font-medium hover:bg-purple-700"
+              >
+                Open Preview →
+              </a>
+            )}
+            {saveResult.branch && (
+              <span className="px-4 py-2 rounded bg-gray-100 text-gray-700 text-sm font-mono">
+                {saveResult.branch}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setSaveResult(null)}
+            className="text-sm text-gray-600 underline"
+          >
+            Continue editing
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <label className="flex flex-col gap-1">
@@ -160,6 +208,7 @@ export default function ProductEdit() {
         </label>
       </div>
 
+      {/* Website-Specific Fields */}
       <div className="grid grid-cols-2 gap-4 mt-6 border-t pt-6">
         <label className="flex flex-col gap-1">
           <span className="font-medium">Subtitle</span>
@@ -216,6 +265,22 @@ export default function ProductEdit() {
         </label>
 
         <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">Additional Images (URLs, one per line)</span>
+          <textarea
+            className="border px-3 py-2 rounded"
+            rows={3}
+            value={Array.isArray(form.images) ? form.images.join("\n") : ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                images: e.target.value.split("\n").filter((url) => url.trim()),
+              })
+            }
+            placeholder="https://image1.jpg&#10;https://image2.jpg"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 col-span-2">
           <span className="font-medium">Short Description</span>
           <textarea
             className="border px-3 py-2 rounded"
@@ -223,6 +288,50 @@ export default function ProductEdit() {
             value={form.shortDescription || ""}
             onChange={(e) => setForm({ ...form, shortDescription: e.target.value })}
             placeholder="Brief description for product listing"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">Long Description (HTML)</span>
+          <textarea
+            className="border px-3 py-2 rounded font-mono text-xs"
+            rows={5}
+            value={form.descriptionHtml || ""}
+            onChange={(e) =>
+              setForm({ ...form, descriptionHtml: e.target.value })
+            }
+            placeholder="<p>Detailed product description...</p>"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">SEO Title</span>
+          <input
+            className="border px-3 py-2 rounded"
+            value={form.seo?.title || ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                seo: { ...form.seo, title: e.target.value },
+              })
+            }
+            placeholder="Max 60 characters"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">SEO Description</span>
+          <textarea
+            className="border px-3 py-2 rounded"
+            rows={2}
+            value={form.seo?.description || ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                seo: { ...form.seo, description: e.target.value },
+              })
+            }
+            placeholder="Max 160 characters"
           />
         </label>
 
@@ -242,13 +351,13 @@ export default function ProductEdit() {
         </label>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 mt-6">
         <button
           onClick={save}
           disabled={loading}
           className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
         >
-          {loading ? "Saving..." : "Save"}
+          {loading ? "Saving..." : "Save Product"}
         </button>
         <a href="/admin/products" className="px-4 py-2 rounded border">
           Back
@@ -256,7 +365,7 @@ export default function ProductEdit() {
       </div>
 
       {!isNew && (
-        <div className="mt-8">
+        <div className="mt-8 border-t pt-6">
           <h2 className="font-semibold mb-2">Recent Prices</h2>
           {prices.length > 0 ? (
             <ul className="text-sm space-y-1">
