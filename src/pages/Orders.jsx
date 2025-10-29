@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingCart, Search } from "lucide-react";
 import { moneyZAR, dateShort, shortId } from "../components/formatUtils";
@@ -10,10 +9,13 @@ export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: ordersData, isLoading } = useQuery({
+  const { data: ordersData, isLoading, error } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
       const res = await fetch('/api/admin/orders?limit=200')
+      if (!res.ok) {
+        throw new Error(`Failed to fetch orders: ${res.statusText}`)
+      }
       const json = await res.json()
       return json.rows || []
     },
@@ -22,9 +24,14 @@ export default function Orders() {
   const orders = ordersData || []
 
   const filteredOrders = orders.filter(order => {
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      shortId(order.id).toLowerCase().includes(searchTerm.toLowerCase());
+      !searchTerm ||
+      order.order_number?.toLowerCase().includes(searchLower) ||
+      shortId(order.id).toLowerCase().includes(searchLower) ||
+      order.customer_name?.toLowerCase().includes(searchLower) ||
+      order.customer_email?.toLowerCase().includes(searchLower) ||
+      order.merchant_payment_id?.toLowerCase().includes(searchLower);
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -221,6 +228,7 @@ export default function Orders() {
           <thead>
             <tr>
               <th>Order #</th>
+              <th>Customer</th>
               <th>Status</th>
               <th>Total</th>
               <th>Date</th>
@@ -229,13 +237,20 @@ export default function Orders() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="4" className="empty-state">
+                <td colSpan="5" className="empty-state">
                   Loading orders...
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan="5" className="empty-state">
+                  <div className="empty-state-title">Error loading orders</div>
+                  <div>{error.message || 'Please try again later'}</div>
                 </td>
               </tr>
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan="4" className="empty-state">
+                <td colSpan="5" className="empty-state">
                   <div className="empty-state-title">No orders found</div>
                   <div>{searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Orders will appear here'}</div>
                 </td>
@@ -250,6 +265,14 @@ export default function Orders() {
                       </div>
                     </td>
                     <td>
+                      <div>{order.customer_name || '-'}</div>
+                      {order.customer_email && (
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          {order.customer_email}
+                        </div>
+                      )}
+                    </td>
+                    <td>
                       <span
                         className="status-badge"
                         style={{
@@ -262,7 +285,7 @@ export default function Orders() {
                     </td>
                     <td className="total-cell">{moneyZAR(order.total_cents)}</td>
                     <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {dateShort(order.created_date)}
+                      {dateShort(order.placed_at || order.created_at)}
                     </td>
                   </tr>
                 </Link>
