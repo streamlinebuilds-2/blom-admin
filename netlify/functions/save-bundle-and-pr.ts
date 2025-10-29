@@ -23,6 +23,31 @@ interface BundleInput {
   seo?: Record<string, any>;
 }
 
+// Retry n8n webhooks once on transient failure
+async function postJSON(url: string, payload: any) {
+  const tryOnce = async () =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  let res = await tryOnce();
+  if (!res.ok) {
+    await new Promise((r) => setTimeout(r, 600));
+    res = await tryOnce();
+  }
+  return res;
+}
+
+// Sanitize branch name to avoid GitHub errors
+function safe(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9._/-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export const handler: Handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
@@ -36,13 +61,16 @@ export const handler: Handler = async (event) => {
       ? body.slug.trim().toLowerCase()
       : slugify(body.name, { lower: true, strict: true });
 
+    // Filter items: only include those with product_id
+    const cleanItems = Array.isArray(body.items) ? body.items.filter((x: any) => x?.product_id) : [];
+
     // 1) n8n Flow C — write bundle JSON and open PR
     const draft = {
       title: body.name,
       slug,
       price: Number(body.price),
       status: body.active === false ? "draft" : "active",
-      items: (Array.isArray(body.items) ? body.items : []).map((x) => ({
+      items: cleanItems.map((x) => ({
         product_id: x.product_id,
         quantity: Number(x.quantity || 1),
       })),
@@ -53,14 +81,10 @@ export const handler: Handler = async (event) => {
       seo: body.seo || {},
     };
 
-    const cRes = await fetch(FLOW_C, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        source: "admin_ui",
-        action: "create_or_update_bundle",
-        draft,
-      }),
+    const cRes = await postJSON(FLOW_C, {
+      source: "admin_ui",
+      action: "create_or_update_bundle",
+      draft,
     });
 
     if (!cRes.ok) {
@@ -69,18 +93,14 @@ export const handler: Handler = async (event) => {
     }
 
     const flowCResult = await cRes.json();
-    const branch = flowCResult.branch || flowCResult.branchClean || `bundle-${slug}`;
+    const branch = safe(flowCResult.branch || flowCResult.branchClean || `bundle-${slug}`);
 
     // 2) n8n Flow D — ensure PR exists + get preview URL
-    const dRes = await fetch(FLOW_D, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        branchClean: branch,
-        slug,
-        title: body.name,
-        templateType: "bundle",
-      }),
+    const dRes = await postJSON(FLOW_D, {
+      branchClean: branch,
+      slug,
+      title: body.name,
+      templateType: "bundle",
     });
 
     if (!dRes.ok) {
@@ -96,7 +116,6 @@ export const handler: Handler = async (event) => {
       name: body.name.trim(),
       slug,
       price: Number(body.price),
-      product_type: "bundle",
       active: body.active ?? true,
       updated_at: new Date().toISOString(),
     };
@@ -109,17 +128,17 @@ export const handler: Handler = async (event) => {
 
     if (uErr) throw uErr;
 
-    // Replace bundle_items
+    // Replace bundle_items — guard empty items
     await supabase.from("bundle_items").delete().eq("bundle_id", bundleData.id);
 
-    if (draft.items.length) {
-      const rows = draft.items.map((it) => ({
+    if (cleanItems.length) {
+      const rows = cleanItems.map((it) => ({
         bundle_id: bundleData.id,
         product_id: it.product_id,
-        quantity: it.quantity,
+        quantity: Number(it.quantity || 1),
       }));
       const { error: iErr } = await supabase.from("bundle_items").insert(rows);
-      if (iErr) throw iErr;
+      if (iErr) return { statusCode: 500, body: iErr.message };
     }
 
     return {
