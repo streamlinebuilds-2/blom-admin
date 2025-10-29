@@ -1,44 +1,73 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import slugify from "slugify";
-const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-export const handler: Handler = async (e) => {
-  if (e.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
-  const body = JSON.parse(e.body || "{}");
-  if (!body.name || body.price == null) return { statusCode: 400, body: "Missing name/price" };
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-  const slug = (body.slug?.trim())
-    ? body.slug.trim().toLowerCase()
-    : slugify(body.name, { lower: true, strict: true });
+type ProductInput = {
+  id?: string;
+  name: string;
+  sku?: string;
+  price: number;
+  product_type?: string;
+  active?: boolean;
+  slug?: string;
+};
 
-  let prevPrice: number | null = null;
-  if (body.id) {
-    const { data: ex, error: exErr } = await s.from("products").select("id,price").eq("id", body.id).single();
-    if (exErr && exErr.code !== "PGRST116") return { statusCode: 500, body: exErr.message };
-    prevPrice = ex?.price ?? null;
+export const handler: Handler = async (event) => {
+  try {
+    if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
+    const body: ProductInput = JSON.parse(event.body || "{}");
+
+    if (!body.name || body.price == null) {
+      return { statusCode: 400, body: "Missing required fields (name, price)" };
+    }
+
+    const slug = (body.slug && body.slug.trim())
+      ? body.slug.trim().toLowerCase()
+      : slugify(body.name, { lower: true, strict: true });
+
+    // fetch existing (if updating) to compare price
+    let prevPrice: number | null = null;
+    if (body.id) {
+      const { data: existing, error: eErr } = await supabase
+        .from("products")
+        .select("id, price")
+        .eq("id", body.id)
+        .single();
+      if (eErr && eErr.code !== "PGRST116") throw eErr; // ignore not found
+      prevPrice = existing?.price ?? null;
+    }
+
+    const payload = {
+      id: body.id ?? undefined,
+      name: body.name.trim(),
+      slug,
+      sku: body.sku?.trim() || null,
+      price: Number(body.price),
+      product_type: body.product_type || "simple",
+      active: body.active ?? true,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: upserted, error: uErr } = await supabase
+      .from("products")
+      .upsert(payload, { onConflict: "slug" })
+      .select()
+      .single();
+    if (uErr) throw uErr;
+
+    // log price history if changed (defensive — trigger also handles it)
+    if (prevPrice == null || Number(prevPrice) !== Number(payload.price)) {
+      const { error: phErr } = await supabase
+        .from("product_prices")
+        .insert({ product_id: upserted.id, price: payload.price });
+      // If unique-daily constraint hits, ignore
+      if (phErr && phErr.code !== "23505") throw phErr;
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ product: upserted }) };
+  } catch (e: any) {
+    return { statusCode: 500, body: e.message || "Error saving product" };
   }
-
-  const payload = {
-    id: body.id ?? undefined,
-    name: body.name.trim(),
-    slug,
-    sku: body.sku?.trim() || null,
-    price: Number(body.price),
-    product_type: body.product_type || "simple",
-    active: body.active ?? true,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { data: upserted, error: uErr } = await s
-    .from("products").upsert(payload, { onConflict: "slug" }).select().single();
-  if (uErr) return { statusCode: 500, body: uErr.message };
-
-  if (prevPrice == null || Number(prevPrice) !== Number(payload.price)) {
-    const { error: phErr } = await s
-      .from("product_prices").insert({ product_id: upserted.id, price: payload.price });
-    if (phErr && phErr.code !== "23505") return { statusCode: 500, body: phErr.message };
-  }
-
-  return { statusCode: 200, body: JSON.stringify({ product: upserted }) };
 };
