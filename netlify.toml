@@ -5,10 +5,3 @@
 [build.environment]
   NODE_VERSION = "22"
   PNPM_VERSION = "10"
-
-[[plugins]]
-  package = "@netlify/plugin-lighthouse"
-
-[[plugins]]
-  package = "@netlify/plugin-lighthouse"
-
