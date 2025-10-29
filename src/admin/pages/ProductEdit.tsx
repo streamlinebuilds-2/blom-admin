@@ -12,6 +12,15 @@ export default function ProductEdit() {
     price: 0,
     product_type: "simple",
     active: true,
+    // website-specific fields
+    subtitle: "",
+    currency: "ZAR",
+    stock: 0,
+    badges: [],
+    category: "",
+    tags: [],
+    thumbnail: "",
+    shortDescription: "",
   });
   const [prices, setPrices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,7 +58,15 @@ export default function ProductEdit() {
         const text = await res.text();
         throw new Error("Save failed: " + text);
       }
-      const { product } = await res.json();
+      const { product, prUrl, previewUrl, branch } = await res.json();
+      
+      // Show success with links if available
+      if (prUrl || previewUrl) {
+        alert(
+          `Product saved!\n\n${prUrl ? `PR: ${prUrl}\n` : ""}${previewUrl ? `Preview: ${previewUrl}\n` : ""}${branch ? `Branch: ${branch}` : ""}`
+        );
+      }
+      
       nav(`/admin/products/${product.id}`);
     } catch (e: any) {
       setError(e.message);
@@ -140,6 +157,88 @@ export default function ProductEdit() {
             }
           />
           <span className="font-medium">Active</span>
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mt-6 border-t pt-6">
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Subtitle</span>
+          <input
+            className="border px-3 py-2 rounded"
+            value={form.subtitle || ""}
+            onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+            placeholder="Optional product tagline"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Currency</span>
+          <select
+            className="border px-3 py-2 rounded"
+            value={form.currency || "ZAR"}
+            onChange={(e) => setForm({ ...form, currency: e.target.value })}
+          >
+            <option value="ZAR">ZAR</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Stock</span>
+          <input
+            type="number"
+            min="0"
+            className="border px-3 py-2 rounded"
+            value={form.stock || 0}
+            onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Category</span>
+          <input
+            className="border px-3 py-2 rounded"
+            value={form.category || ""}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            placeholder="e.g. Skincare, Makeup"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">Thumbnail URL</span>
+          <input
+            className="border px-3 py-2 rounded"
+            value={form.thumbnail || ""}
+            onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
+            placeholder="https://..."
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">Short Description</span>
+          <textarea
+            className="border px-3 py-2 rounded"
+            rows={3}
+            value={form.shortDescription || ""}
+            onChange={(e) => setForm({ ...form, shortDescription: e.target.value })}
+            placeholder="Brief description for product listing"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">Tags (comma-separated)</span>
+          <input
+            className="border px-3 py-2 rounded"
+            value={Array.isArray(form.tags) ? form.tags.join(", ") : ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                tags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean),
+              })
+            }
+            placeholder="tag1, tag2, tag3"
+          />
         </label>
       </div>
 
