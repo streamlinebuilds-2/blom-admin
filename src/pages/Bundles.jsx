@@ -6,8 +6,8 @@ import { Plus, Edit2, Trash2, Search, Package } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/components/data/api";
 
 export default function Bundles() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -15,29 +15,22 @@ export default function Bundles() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: bundles = [], isLoading: isLoadingBundles, error: bundlesError } = useQuery({
+  const { data: bundlesData = [], isLoading: isLoadingBundles, error: bundlesError } = useQuery({
     queryKey: ['bundles'],
-    queryFn: () => base44.entities.Bundle.list('-updated_at'), // Assuming 'updated_at' is the correct field for sorting
+    queryFn: () => api?.listBundles() || [],
+    enabled: !!api,
   });
 
-  const { data: bundleItems = [], isLoading: isLoadingBundleItems, error: bundleItemsError } = useQuery({
-    queryKey: ['bundle-items'],
-    queryFn: () => base44.entities.BundleItem.list(),
-  });
+  // Bundles already include items from listBundles
+  const bundles = Array.isArray(bundlesData) ? bundlesData : [];
 
-  const loading = isLoadingBundles || isLoadingBundleItems;
-  const error = bundlesError?.message || bundleItemsError?.message; // Combine errors if any
+  const loading = isLoadingBundles;
+  const error = bundlesError?.message;
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      // Delete bundle items first
-      const itemsToDelete = bundleItems.filter(item => item.bundle_id === id);
-      // Execute deletions sequentially to avoid potential issues with foreign key constraints if not handled by API
-      for (const item of itemsToDelete) {
-        await base44.entities.BundleItem.delete(item.id);
-      }
-      // Then delete bundle
-      await base44.entities.Bundle.delete(id);
+      if (!api?.deleteBundle) throw new Error('API not available');
+      await api.deleteBundle(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bundles'] });

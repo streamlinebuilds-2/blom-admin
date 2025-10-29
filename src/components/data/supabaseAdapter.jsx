@@ -256,6 +256,30 @@ export function createSupabaseAdapter() {
       return { ...bundleData, items };
     },
 
+    async deleteBundle(id) {
+      try {
+        // Delete bundle items first (if cascade is not set up)
+        const { error: itemsError } = await supabase
+          .from('bundle_items')
+          .delete()
+          .eq('bundle_id', id);
+        
+        if (itemsError) throw itemsError;
+
+        // Then delete the bundle
+        const { error } = await supabase
+          .from('bundles')
+          .delete()
+          .eq('id', id);
+        
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.error('Error deleting bundle:', err);
+        throw err;
+      }
+    },
+
     // ===== ORDERS =====
     async listOrders() {
       try {

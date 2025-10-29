@@ -18,24 +18,36 @@ export default function Stock() {
 
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ['products-stock'],
-    queryFn: () => api.listProducts(),
-    enabled: activeTab === 'overview',
+    queryFn: () => api?.listProducts() || [],
+    enabled: activeTab === 'overview' && !!api,
   });
 
   const { data: movements = [], isLoading: loadingMovements } = useQuery({
     queryKey: ['stock-movements'],
     queryFn: async () => {
-      const movs = await api.listStockMovements(200);
-      // Fetch product names for each movement
-      const productIds = [...new Set(movs.map(m => m.product_id))];
-      const productsMap = {};
-      for (const id of productIds) {
-        const prod = await api.getProduct(id);
-        if (prod) productsMap[id] = prod.name;
+      if (!api) return [];
+      try {
+        const movs = await api.listStockMovements(200);
+        if (!Array.isArray(movs) || movs.length === 0) return [];
+        
+        // Fetch product names for each movement
+        const productIds = [...new Set(movs.map(m => m.product_id).filter(Boolean))];
+        const productsMap = {};
+        for (const id of productIds) {
+          try {
+            const prod = await api.getProduct(id);
+            if (prod) productsMap[id] = prod.name;
+          } catch (err) {
+            console.error(`Error fetching product ${id}:`, err);
+          }
+        }
+        return movs.map(m => ({ ...m, product_name: productsMap[m.product_id] || '—' }));
+      } catch (err) {
+        console.error('Error fetching stock movements:', err);
+        return [];
       }
-      return movs.map(m => ({ ...m, product_name: productsMap[m.product_id] || '—' }));
     },
-    enabled: activeTab === 'movements',
+    enabled: activeTab === 'movements' && !!api,
   });
 
   const adjustMutation = useMutation({
