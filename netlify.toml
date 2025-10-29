@@ -19,3 +19,9 @@
   from = "/api/admin/orders/:id"
   to   = "/.netlify/functions/admin-order?id=:id"
   status = 200
+
+# SPA catch-all: redirect all non-file requests to index.html
+[[redirects]]
+  from = "/*"
+  to   = "/index.html"
+  status = 200
