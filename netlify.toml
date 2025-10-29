@@ -5,6 +5,7 @@
 [build.environment]
   NODE_VERSION = "18"
   PNPM_VERSION = "9"
+  PNPM_FLAGS = "--include=dev"
 
 [functions]
   node_bundler = "esbuild"
