@@ -31,6 +31,7 @@ import MessageIntake from './pages/MessageIntake';
 import ReviewDetail from './pages/ReviewDetail';
 import ReviewIntake from './pages/ReviewIntake';
 import ShippingSettings from './pages/ShippingSettings';
+import DebugData from './pages/DebugData';
 import Layout from './Layout.jsx';
 
 
@@ -68,6 +69,7 @@ export const PAGES = {
     "ReviewDetail": ReviewDetail,
     "ReviewIntake": ReviewIntake,
     "ShippingSettings": ShippingSettings,
+    "DebugData": DebugData,
 }
 
 export const pagesConfig = {

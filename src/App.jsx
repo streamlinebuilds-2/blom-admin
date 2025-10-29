@@ -10,6 +10,16 @@ import { setupIframeMessaging } from './lib/iframe-messaging';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import { setAPI } from '@/components/data/api'
+import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
+
+// Initialize Supabase adapter for real database access
+try {
+  setAPI(createSupabaseAdapter())
+} catch (error) {
+  console.error('Failed to initialize Supabase adapter:', error)
+  // Keep previous API if initialization fails
+}
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
