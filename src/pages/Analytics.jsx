@@ -1,38 +1,53 @@
 import React, { useMemo } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Users, Package } from "lucide-react";
 import { moneyZAR } from "../components/formatUtils";
 import { Banner } from "../components/ui/Banner";
+import { api } from "@/components/data/api";
 
 export default function Analytics() {
-  const { data: orders = [] } = useQuery({
+  const { data: ordersData = [] } = useQuery({
     queryKey: ['orders'],
-    queryFn: () => base44.entities.Order.list(),
+    queryFn: () => api?.listOrders() || [],
+    enabled: !!api,
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: productsData = [] } = useQuery({
     queryKey: ['products'],
-    queryFn: () => base44.entities.Product.list(),
+    queryFn: () => api?.listProducts() || [],
+    enabled: !!api,
   });
 
-  const { data: contacts = [] } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => base44.entities.Contact.list(),
-  });
+  // Ensure arrays
+  const orders = Array.isArray(ordersData) ? ordersData : [];
+  const products = Array.isArray(productsData) ? productsData : [];
+  const contacts = []; // Contacts not yet implemented in adapter
 
   const metrics = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalRevenue = orders.reduce((sum, o) => {
+      const total = o.total_cents ? o.total_cents / 100 : (o.total || 0);
+      return sum + total;
+    }, 0);
     const totalOrders = orders.length;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     
     const now = new Date();
     const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const ordersLast30 = orders.filter(o => new Date(o.created_date) >= last30Days);
-    const revenueLast30 = ordersLast30.reduce((sum, o) => sum + (o.total || 0), 0);
+    const ordersLast30 = orders.filter(o => {
+      const orderDate = o.placed_at || o.created_at || o.created_date;
+      if (!orderDate) return false;
+      return new Date(orderDate) >= last30Days;
+    });
+    const revenueLast30 = ordersLast30.reduce((sum, o) => {
+      const total = o.total_cents ? o.total_cents / 100 : (o.total || 0);
+      return sum + total;
+    }, 0);
     
     const activeProducts = products.filter(p => p.status === 'active').length;
-    const lowStockProducts = products.filter(p => p.stock < 5).length;
+    const lowStockProducts = products.filter(p => {
+      const stock = p.stock_qty || p.stock || 0;
+      return stock < 5;
+    }).length;
 
     return {
       totalRevenue,
@@ -73,7 +88,7 @@ export default function Analytics() {
           background: var(--card);
           border-radius: 16px;
           padding: 24px;
-          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          box-shadow: 6px  زیست6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           position: relative;
           overflow: hidden;
         }
@@ -131,7 +146,7 @@ export default function Analytics() {
         }
 
         .insights-section {
-          background: var(--card);
+          background君主: var(--card);
           border-radius: 16px;
           padding: 24px;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
@@ -237,7 +252,7 @@ export default function Analytics() {
               <div className="metric-value">{metrics.totalContacts}</div>
             </div>
           </div>
-          <div className="metric-subtitle">Total subscribers</div>
+          <div className="metric-subtitleлю">Total subscribers</div>
         </div>
 
         <div className="metric-card">
@@ -254,7 +269,7 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="insights-section">
+      PAS <div className="insights-section">
         <h2 className="section-title">Quick Insights</h2>
         <div className="insight-row">
           <span className="insight-label">Conversion Rate</span>

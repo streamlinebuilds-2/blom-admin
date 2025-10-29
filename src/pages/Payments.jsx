@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -7,6 +6,7 @@ import { CreditCard, X, ExternalLink } from "lucide-react";
 import { moneyZAR, dateTime } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
+import { api } from "@/components/data/api";
 
 export default function Payments() {
   const [selectedPayment, setSelectedPayment] = useState(null);
@@ -15,24 +15,28 @@ export default function Payments() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: payments = [], isLoading, error } = useQuery({
+  const { data: paymentsData = [], isLoading, error } = useQuery({
     queryKey: ['payments'],
-    queryFn: () => base44.entities.Payment.list('-created_date'),
+    queryFn: () => api?.listPayments() || [],
+    enabled: !!api,
   });
 
-  const { data: orders = [] } = useQuery({
+  const { data: ordersData = [] } = useQuery({
     queryKey: ['orders'],
-    queryFn: () => base44.entities.Order.list(),
+    queryFn: () => api?.listOrders() || [],
+    enabled: !!api,
   });
+
+  // Ensure arrays
+  const payments = Array.isArray(paymentsData) ? paymentsData : [];
+  const orders = Array.isArray(ordersData) ? ordersData : [];
 
   const refundMutation = useMutation({
     mutationFn: async ({ paymentId, amount, reason }) => {
-      await base44.entities.Refund.create({
-        payment_id: paymentId,
-        amount: Math.round(parseFloat(amount) * 100),
-        reason
-      });
-      await base44.entities.Payment.update(paymentId, { status: 'refunded' });
+      if (!api) throw new Error('API not available');
+      // Refund functionality would need to be added to the adapter
+      // For now, just show a message
+      throw new Error('Refund functionality not yet implemented in Supabase adapter');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
