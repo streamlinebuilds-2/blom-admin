@@ -5,3 +5,17 @@
 [build.environment]
   NODE_VERSION = "18"
   PNPM_VERSION = "9"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["src/**"]
+
+[[redirects]]
+  from = "/api/admin/orders"
+  to   = "/.netlify/functions/admin-orders"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/orders/:id"
+  to   = "/.netlify/functions/admin-order?id=:id"
+  status = 200
