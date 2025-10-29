@@ -10,8 +10,8 @@ export default defineConfig(({ mode }) => {
     plugins: [
       mode === 'development' && visualEditPlugin(),
       react(),
-      errorOverlayPlugin(),
-      {
+      mode === 'development' && errorOverlayPlugin(),
+      mode === 'development' && {
         name: 'iframe-hmr',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
