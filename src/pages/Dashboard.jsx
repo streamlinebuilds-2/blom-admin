@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { api } from "@/components/data/api";
 import {
   Package,
   ShoppingCart,
@@ -53,28 +53,47 @@ function QuickLink({ title, description, url, icon: Icon }) {
 }
 
 export default function Dashboard() {
-  const { data: products = [] } = useQuery({
+  const { data: productsData = [], isLoading: isLoadingProducts } = useQuery({
     queryKey: ['products'],
-    queryFn: () => base44.entities.Product.list('-updated_date', 5),
+    queryFn: () => api?.listProducts() || [],
+    enabled: !!api,
   });
 
-  const { data: orders = [] } = useQuery({
+  const { data: ordersData = [], isLoading: isLoadingOrders } = useQuery({
     queryKey: ['orders'],
-    queryFn: () => base44.entities.Order.list('-created_date', 10),
+    queryFn: () => api?.listOrders() || [],
+    enabled: !!api,
   });
 
-  const { data: reviews = [] } = useQuery({
-    queryKey: ['reviews'],
-    queryFn: () => base44.entities.Review.filter({ status: 'pending' }, '-created_date', 10),
+  const { data: reviewsData = [], isLoading: isLoadingReviews } = useQuery({
+    queryKey: ['reviews', 'pending'],
+    queryFn: () => api?.listReviews?.('pending') || [],
+    enabled: !!api,
   });
 
-  const totalSales = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-  const todaySales = orders.filter(o => {
+  // Ensure arrays
+  const products = Array.isArray(productsData) ? productsData : [];
+  const orders = Array.isArray(ordersData) ? ordersData : [];
+  const reviews = Array.isArray(reviewsData) ? reviewsData : [];
+
+  // Safe calculations
+  const totalSales = (Array.isArray(orders) ? orders : []).reduce((sum, order) => {
+    const total = order?.total_cents ? order.total_cents / 100 : (order?.total || 0);
+    return sum + total;
+  }, 0);
+
+  const todaySales = (Array.isArray(orders) ? orders : []).filter(o => {
+    if (!o) return false;
     const today = new Date().toDateString();
-    return new Date(o.created_date).toDateString() === today;
-  }).reduce((sum, order) => sum + (order.total || 0), 0);
+    const orderDate = o.placed_at || o.created_at || o.created_date;
+    if (!orderDate) return false;
+    return new Date(orderDate).toDateString() === today;
+  }).reduce((sum, order) => {
+    const total = order?.total_cents ? order.total_cents / 100 : (order?.total || 0);
+    return sum + total;
+  }, 0);
 
-  const topProduct = products.sort((a, b) => (b.stock || 0) - (a.stock || 0))[0];
+  const topProduct = products.length > 0 ? [...products].sort((a, b) => (b.stock_qty || b.stock || 0) - (a.stock_qty || a.stock || 0))[0] : null;
 
   return (
     <>
@@ -408,8 +427,8 @@ export default function Dashboard() {
                     {product.status}
                   </span>
                 </td>
-                <td>R{(product.price / 100).toFixed(2)}</td>
-                <td>{product.stock}</td>
+                <td>R{((product.price_cents || product.price || 0) / 100).toFixed(2)}</td>
+                <td>{product.stock_qty || product.stock || 0}</td>
               </tr>
             ))}
           </tbody>
