@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import React, { createContext, useContext, useState } from "react";
+import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
 
-type ToastType = 'success' | 'error' | 'info';
+type ToastType = "success" | "error" | "info";
 
 interface Toast {
   id: string;
@@ -36,9 +36,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div className="toast-container">
         {toasts.map(toast => (
           <div key={toast.id} className={`toast toast-${toast.type}`}>
-            {toast.type === 'success' && <CheckCircle className="w-5 h-5" />}
-            {toast.type === 'error' && <AlertCircle className="w-5 h-5" />}
-            {toast.type === 'info' && <Info className="w-5 h-5" />}
+            {toast.type === "success" && <CheckCircle className="w-5 h-5" />}
+            {toast.type === "error" && <AlertCircle className="w-5 h-5" />}
+            {toast.type === "info" && <Info className="w-5 h-5" />}
             <span className="toast-message">{toast.message}</span>
             <button onClick={() => removeToast(toast.id)} className="toast-close">
               <X className="w-4 h-4" />
@@ -129,7 +129,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
+    throw new Error("useToast must be used within ToastProvider");
   }
   return context;
 }
