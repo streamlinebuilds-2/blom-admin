@@ -489,9 +489,9 @@ export default function PriceUpdates() {
                     <td>
                       <div className="product-name">{product.name}</div>
                     </td>
-                    <td className="price-cell">{moneyZAR(product.price)}</td>
+                    <td className="price-cell">{moneyZAR(product.price_cents || product.price || 0)}</td>
                     <td style={{ color: 'var(--text-muted)' }}>
-                      {product.compare_at_price ? moneyZAR(product.compare_at_price) : '—'}
+                      {product.compare_at_price_cents || product.compare_at_price ? moneyZAR(product.compare_at_price_cents || product.compare_at_price || 0) : '—'}
                     </td>
                     {adjustmentValue && (
                       <td>
