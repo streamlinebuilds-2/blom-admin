@@ -3,12 +3,29 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Singleton client to avoid multiple instances warning
+let supabaseInstance = null;
+function getSupabaseClient() {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseKey);
+  }
+  return supabaseInstance;
+}
+const supabase = getSupabaseClient();
 
-// Helper to throw on Supabase errors
+// Helper to throw on Supabase errors, but return empty array for list functions on error
 function ensure(data, error) {
   if (error) throw new Error(error.message || JSON.stringify(error));
   return data;
+}
+
+// Helper for list functions that should never crash the app
+function ensureArray(data, error) {
+  if (error) {
+    console.error('Supabase query error:', error);
+    return [];
+  }
+  return Array.isArray(data) ? data : [];
 }
 
 // Generate slug from name
@@ -25,11 +42,16 @@ export function createSupabaseAdapter() {
   return {
     // ===== PRODUCTS =====
     async listProducts() {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('updated_at', { ascending: false });
-      return ensure(data || [], error);
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('updated_at', { ascending: false });
+        return ensureArray(data, error);
+      } catch (err) {
+        console.error('Error listing products:', err);
+        return [];
+      }
     },
 
     async getProduct(id) {
@@ -117,11 +139,16 @@ export function createSupabaseAdapter() {
 
     // ===== SPECIALS =====
     async listSpecials() {
-      const { data, error } = await supabase
-        .from('specials')
-        .select('*')
-        .order('starts_at', { ascending: false });
-      return ensure(data || [], error);
+      try {
+        const { data, error } = await supabase
+          .from('specials')
+          .select('*')
+          .order('starts_at', { ascending: false });
+        return ensureArray(data, error);
+      } catch (err) {
+        console.error('Error listing specials:', err);
+        return [];
+      }
     },
 
     async upsertSpecial(s) {
@@ -147,23 +174,35 @@ export function createSupabaseAdapter() {
 
     // ===== BUNDLES =====
     async listBundles() {
-      const { data: bundles, error: bundleError } = await supabase
-        .from('bundles')
-        .select('*');
-      ensure(bundles, bundleError);
+      try {
+        const { data: bundles, error: bundleError } = await supabase
+          .from('bundles')
+          .select('*');
+        
+        const bundlesArray = ensureArray(bundles, bundleError);
+        if (bundlesArray.length === 0) return [];
 
-      // Fetch items for each bundle
-      const result = await Promise.all(
-        bundles.map(async (b) => {
-          const { data: items } = await supabase
-            .from('bundle_items')
-            .select('product_id, qty')
-            .eq('bundle_id', b.id);
-          return { ...b, items: items || [] };
-        })
-      );
+        // Fetch items for each bundle
+        const result = await Promise.all(
+          bundlesArray.map(async (b) => {
+            try {
+              const { data: items } = await supabase
+                .from('bundle_items')
+                .select('product_id, qty')
+                .eq('bundle_id', b.id);
+              return { ...b, items: items || [] };
+            } catch (err) {
+              console.error(`Error fetching items for bundle ${b.id}:`, err);
+              return { ...b, items: [] };
+            }
+          })
+        );
 
-      return result;
+        return result;
+      } catch (err) {
+        console.error('Error listing bundles:', err);
+        return [];
+      }
     },
 
     async upsertBundle(b) {
@@ -219,23 +258,35 @@ export function createSupabaseAdapter() {
 
     // ===== ORDERS =====
     async listOrders() {
-      const { data: orders, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('placed_at', { ascending: false });
-      ensure(orders, error);
+      try {
+        const { data: orders, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('placed_at', { ascending: false });
+        
+        const ordersArray = ensureArray(orders, error);
+        if (ordersArray.length === 0) return [];
 
-      // Fetch items for each order
-      const result = await Promise.all(
-        orders.map(async (order) => {
-          const { data: items } = await supabase
-            .from('order_items')
-            .select('*')
-            .eq('order_id', order.id);
-          return { ...order, items: items || [] };
-        })
-      );
-      return result;
+        // Fetch items for each order
+        const result = await Promise.all(
+          ordersArray.map(async (order) => {
+            try {
+              const { data: items } = await supabase
+                .from('order_items')
+                .select('*')
+                .eq('order_id', order.id);
+              return { ...order, items: items || [] };
+            } catch (err) {
+              console.error(`Error fetching items for order ${order.id}:`, err);
+              return { ...order, items: [] };
+            }
+          })
+        );
+        return result;
+      } catch (err) {
+        console.error('Error listing orders:', err);
+        return [];
+      }
     },
 
     async getOrder(id) {
@@ -329,20 +380,30 @@ export function createSupabaseAdapter() {
     },
 
     async listPayments() {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .order('created_at', { ascending: false });
-      return ensure(data || [], error);
+      try {
+        const { data, error } = await supabase
+          .from('payments')
+          .select('*')
+          .order('created_at', { ascending: false });
+        return ensureArray(data, error);
+      } catch (err) {
+        console.error('Error listing payments:', err);
+        return [];
+      }
     },
 
     // ===== MESSAGES =====
     async listMessages() {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false });
-      return ensure(data || [], error);
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+        return ensureArray(data, error);
+      } catch (err) {
+        console.error('Error listing messages:', err);
+        return [];
+      }
     },
 
     async getMessage(id) {
@@ -375,10 +436,15 @@ export function createSupabaseAdapter() {
 
     // ===== REVIEWS =====
     async listReviews(status) {
-      let query = supabase.from('reviews').select('*');
-      if (status) query = query.eq('status', status);
-      const { data, error } = await query.order('created_at', { ascending: false });
-      return ensure(data || [], error);
+      try {
+        let query = supabase.from('reviews').select('*');
+        if (status) query = query.eq('status', status);
+        const { data, error } = await query.order('created_at', { ascending: false });
+        return ensureArray(data, error);
+      } catch (err) {
+        console.error('Error listing reviews:', err);
+        return [];
+      }
     },
 
     async createReview(r) {
