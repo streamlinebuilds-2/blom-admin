@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, DollarSign, Check } from "lucide-react";
 import { moneyZAR } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
+import { api } from "@/components/data/api";
 
 export default function PriceUpdates() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -16,16 +16,21 @@ export default function PriceUpdates() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading } = useQuery({
+  const { data: productsData = [], isLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: () => base44.entities.Product.list('-updated_date'),
+    queryFn: () => api?.listProducts() || [],
+    enabled: !!api,
   });
+
+  // Ensure products is always an array
+  const products = Array.isArray(productsData) ? productsData : [];
 
   const updateMutation = useMutation({
     mutationFn: async ({ updates }) => {
+      if (!api) throw new Error('API not available');
       await Promise.all(
         updates.map(({ id, newPrice }) => 
-          base44.entities.Product.update(id, { price: newPrice })
+          api.upsertProduct({ id, price_cents: newPrice })
         )
       );
     },
@@ -70,12 +75,15 @@ export default function PriceUpdates() {
   };
 
   const selectedProducts = products.filter(p => selectedIds.includes(p.id));
-  const updates = selectedProducts.map(p => ({
-    id: p.id,
-    name: p.name,
-    oldPrice: p.price,
-    newPrice: calculateNewPrice(p.price)
-  }));
+  const updates = selectedProducts.map(p => {
+    const price = p.price_cents || p.price || 0;
+    return {
+      id: p.id,
+      name: p.name,
+      oldPrice: price,
+      newPrice: calculateNewPrice(price)
+    };
+  });
 
   const handleApply = () => {
     if (selectedIds.length === 0) {
@@ -463,9 +471,10 @@ export default function PriceUpdates() {
               </tr>
             ) : (
               filteredProducts.map(product => {
+                const productPrice = product.price_cents || product.price || 0;
                 const isSelected = selectedIds.includes(product.id);
-                const newPrice = isSelected && adjustmentValue ? calculateNewPrice(product.price) : null;
-                const priceChange = newPrice ? newPrice - product.price : 0;
+                const newPrice = isSelected && adjustmentValue ? calculateNewPrice(productPrice) : null;
+                const priceChange = newPrice ? newPrice - productPrice : 0;
 
                 return (
                   <tr key={product.id}>
