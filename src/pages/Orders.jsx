@@ -4,21 +4,16 @@ import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingCart, Search } from "lucide-react";
 import { moneyZAR, dateShort, shortId } from "../components/formatUtils";
+import { api } from "@/components/data/api";
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: ordersData, isLoading, error } = useQuery({
+  const { data: ordersData = [], isLoading, error } = useQuery({
     queryKey: ['orders'],
-    queryFn: async () => {
-      const res = await fetch('/api/admin/orders?limit=200')
-      if (!res.ok) {
-        throw new Error(`Failed to fetch orders: ${res.statusText}`)
-      }
-      const json = await res.json()
-      return json.rows || []
-    },
+    queryFn: () => api?.listOrders() || [],
+    enabled: !!api,
   });
 
   const orders = ordersData || []
