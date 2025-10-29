@@ -20,6 +20,22 @@
   to   = "/.netlify/functions/admin-order?id=:id"
   status = 200
 
+# PayFast payment integration
+[[redirects]]
+  from = "/api/payfast/checkout"
+  to   = "/.netlify/functions/payfast-checkout"
+  status = 200
+
+[[redirects]]
+  from = "/api/payfast/itn"
+  to   = "/.netlify/functions/payfast-itn"
+  status = 200
+
+[[redirects]]
+  from = "/api/orders/create"
+  to   = "/.netlify/functions/create-order"
+  status = 200
+
 # SPA catch-all: redirect all non-file requests to index.html
 [[redirects]]
   from = "/*"
