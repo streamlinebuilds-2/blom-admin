@@ -1,0 +1,50 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Product name"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "draft",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "price": {
+      "type": "number",
+      "description": "Price in cents"
+    },
+    "compare_at_price": {
+      "type": "number",
+      "description": "Original price for comparison"
+    },
+    "stock": {
+      "type": "integer",
+      "default": 0
+    },
+    "sku": {
+      "type": "string"
+    },
+    "short_description": {
+      "type": "string"
+    },
+    "long_description": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "price"
+  ]
+}

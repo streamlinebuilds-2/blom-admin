@@ -1,0 +1,64 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unpaid",
+        "paid",
+        "packed",
+        "shipped",
+        "delivered",
+        "refunded",
+        "cancelled"
+      ],
+      "default": "unpaid"
+    },
+    "subtotal": {
+      "type": "number"
+    },
+    "discount": {
+      "type": "number",
+      "default": 0
+    },
+    "shipping": {
+      "type": "number",
+      "default": 0
+    },
+    "tax": {
+      "type": "number",
+      "default": 0
+    },
+    "total": {
+      "type": "number"
+    },
+    "shipping_address": {
+      "type": "string"
+    },
+    "billing_address": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "default": "online"
+    }
+  },
+  "required": [
+    "order_number",
+    "customer_email",
+    "total"
+  ]
+}

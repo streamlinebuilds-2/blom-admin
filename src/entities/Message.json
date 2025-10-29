@@ -1,0 +1,32 @@
+{
+  "name": "Message",
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": [
+        "form",
+        "whatsapp",
+        "instagram",
+        "email"
+      ],
+      "default": "form"
+    },
+    "from": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "thread_id": {
+      "type": "string"
+    },
+    "internal_note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "from",
+    "body"
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Discount",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "percent",
+        "amount_off",
+        "fixed_price"
+      ],
+      "default": "percent"
+    },
+    "value": {
+      "type": "number"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "usage_limit": {
+      "type": "integer"
+    },
+    "usage_count": {
+      "type": "integer",
+      "default": 0
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "code",
+    "type",
+    "value"
+  ]
+}

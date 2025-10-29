@@ -1,0 +1,59 @@
+{
+  "name": "Special",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "product",
+        "bundle",
+        "sitewide"
+      ],
+      "default": "product"
+    },
+    "target_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "discount_type": {
+      "type": "string",
+      "enum": [
+        "percent",
+        "amount_off",
+        "fixed_price"
+      ]
+    },
+    "discount_value": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "scheduled",
+        "expired"
+      ],
+      "default": "scheduled"
+    }
+  },
+  "required": [
+    "title",
+    "starts_at",
+    "ends_at",
+    "discount_type",
+    "discount_value"
+  ]
+}

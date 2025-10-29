@@ -1,0 +1,28 @@
+{
+  "name": "BundleItem",
+  "type": "object",
+  "properties": {
+    "bundle_id": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "quantity": {
+      "type": "integer",
+      "default": 1
+    },
+    "item_discount_percent": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "bundle_id",
+    "product_id",
+    "quantity"
+  ]
+}

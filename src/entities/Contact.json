@@ -1,0 +1,28 @@
+{
+  "name": "Contact",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "subscribed": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "email"
+  ]
+}

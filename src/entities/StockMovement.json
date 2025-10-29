@@ -1,0 +1,23 @@
+{
+  "name": "StockMovement",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "delta": {
+      "type": "integer"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_id",
+    "delta",
+    "reason"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string",
+      "default": "manual"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "succeeded",
+        "failed",
+        "refunded"
+      ],
+      "default": "pending"
+    },
+    "raw": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "order_id",
+    "amount"
+  ]
+}

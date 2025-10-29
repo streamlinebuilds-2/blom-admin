@@ -1,0 +1,19 @@
+{
+  "name": "Refund",
+  "type": "object",
+  "properties": {
+    "payment_id": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "payment_id",
+    "amount"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "OrderItem",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "quantity": {
+      "type": "integer"
+    },
+    "price": {
+      "type": "number",
+      "description": "Price per unit in cents"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total for line item in cents"
+    }
+  },
+  "required": [
+    "order_id",
+    "product_name",
+    "quantity",
+    "price"
+  ]
+}
