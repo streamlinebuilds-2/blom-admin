@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Plus, Mail, Phone } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
+import { api } from "@/components/data/api";
 
 export default function Contacts() {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -11,13 +11,18 @@ export default function Contacts() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: contacts = [], isLoading, error } = useQuery({
+  const { data: contactsData = [], isLoading, error } = useQuery({
     queryKey: ['contacts'],
-    queryFn: () => base44.entities.Contact.list('-created_date'),
+    queryFn: () => [], // Contacts not yet implemented in Supabase adapter
+    enabled: false, // Disabled until implemented
   });
 
+  const contacts = Array.isArray(contactsData) ? contactsData : [];
+
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Contact.create(data),
+    mutationFn: async (data) => {
+      throw new Error('Contacts not yet implemented in Supabase adapter');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       showToast('success', 'Contact added successfully');
@@ -58,75 +63,25 @@ export default function Contacts() {
         }
 
         .btn-add {
-          padding: 12px 24px;
-          border-radius: 12px;
+          padding: 12px 20px;
+          border-radius: 10px;
           border: none;
           background: linear-gradient(135deg, var(--accent), var(--accent-2));
           color: white;
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
           display: flex;
           align-items: center;
           gap: 8px;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
         }
 
-        .add-form {
-          background: var(--card);
-          border-radius: 16px;
-          padding: 24px;
-          margin-bottom: 24px;
-          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+        .btn-add:hover {
+          transform: translateY(-2px);
         }
 
-        .form-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr auto;
-          gap: 16px;
-          align-items: end;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .form-label {
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-        }
-
-        .form-input {
-          padding: 12px 16px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .form-input:focus {
-          outline: none;
-        }
-
-        .btn-submit {
-          padding: 12px 24px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-        }
-
-        .contacts-table {
+        .contacts-list {
           background: var(--card);
           border-radius: 16px;
           padding: 0;
@@ -146,6 +101,7 @@ export default function Contacts() {
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
+          letter-spacing: 0.05em;
           border-bottom: 2px solid var(--border);
         }
 
@@ -163,111 +119,164 @@ export default function Contacts() {
           font-weight: 600;
         }
 
-        .contact-detail {
+        .contact-info {
           display: flex;
           align-items: center;
           gap: 8px;
+          color: var(--text-muted);
+          font-size: 13px;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 60px 20px;
+          color: var(--text-muted);
+        }
+
+        .empty-state-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--text);
+          margin-bottom: 8px;
+        }
+
+        .form-modal {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .form-container {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 32px;
+          width: 500px;
+          max-width: 90vw;
+          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+        }
+
+        .form-title {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 24px;
+        }
+
+        .form-group {
+          margin-bottom: 20px;
+        }
+
+        .form-label {
+          display: block;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-muted);
+          margin-bottom: 8px;
+          text-transform: uppercase;
+        }
+
+        .form-input {
+          width: 100%;
+          padding: 12px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--bg);
+          color: var(--text);
           font-size: 14px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .form-actions {
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+        }
+
+        .btn-cancel {
+          padding: 12px 24px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+
+        .btn-submit {
+          padding: 12px 24px;
+          border-radius: 10px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
         }
       `}</style>
-
-      {error && <Banner type="error">{error.message || 'Failed to load contacts'}</Banner>}
 
       <div className="contacts-header">
         <h1 className="header-title">
           <Users className="w-8 h-8" />
           Contacts
         </h1>
-        <button className="btn-add" onClick={() => setShowAddForm(!showAddForm)}>
+        <button className="btn-add" onClick={() => setShowAddForm(true)}>
           <Plus className="w-5 h-5" />
           Add Contact
         </button>
       </div>
 
-      {showAddForm && (
-        <form className="add-form" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Name</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Full name"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Email *</label>
-              <input
-                type="email"
-                className="form-input"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="email@example.com"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Phone</label>
-              <input
-                type="tel"
-                className="form-input"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+27..."
-              />
-            </div>
-            <button type="submit" className="btn-submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Adding...' : 'Add'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      <div className="contacts-table">
+      <div className="contacts-list">
         <table>
           <thead>
             <tr>
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
-              <th>Tags</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Loading contacts...
+                <td colSpan="3" className="empty-state">Loading...</td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan="3" className="empty-state">
+                  <div className="empty-state-title">Error loading contacts</div>
+                  <div>{error.message || 'Please try again'}</div>
                 </td>
               </tr>
             ) : contacts.length === 0 ? (
               <tr>
-                <td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  No contacts found
+                <td colSpan="3" className="empty-state">
+                  <div className="empty-state-title">No contacts yet</div>
+                  <div>Contacts feature coming soon</div>
                 </td>
               </tr>
             ) : (
               contacts.map(contact => (
                 <tr key={contact.id}>
-                  <td className="contact-name">{contact.name || '—'}</td>
                   <td>
-                    <div className="contact-detail">
-                      <Mail className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                    <div className="contact-name">{contact.name || '—'}</div>
+                  </td>
+                  <td>
+                    <div className="contact-info">
+                      <Mail className="w-4 h-4" />
                       {contact.email}
                     </div>
                   </td>
                   <td>
-                    {contact.phone ? (
-                      <div className="contact-detail">
-                        <Phone className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                        {contact.phone}
-                      </div>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    {contact.tags && contact.tags.length > 0 ? contact.tags.join(', ') : '—'}
+                    <div className="contact-info">
+                      <Phone className="w-4 h-4" />
+                      {contact.phone || '—'}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -275,6 +284,52 @@ export default function Contacts() {
           </tbody>
         </table>
       </div>
+
+      {showAddForm && (
+        <div className="form-modal" onClick={() => setShowAddForm(false)}>
+          <div className="form-container" onClick={(e) => e.stopPropagation()}>
+            <h2 className="form-title">Add New Contact</h2>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email *</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Phone</label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowAddForm(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? 'Adding...' : 'Add Contact'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }
