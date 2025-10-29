@@ -13,6 +13,12 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { setAPI } from '@/components/data/api'
 import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
 
+// Admin pages
+import ProductsPage from '@/admin/pages/Products'
+import ProductEdit from '@/admin/pages/ProductEdit'
+import BundlesPage from '@/admin/pages/Bundles'
+import BundleEdit from '@/admin/pages/BundleEdit'
+
 // Initialize Supabase adapter for real database access
 try {
   setAPI(createSupabaseAdapter())
@@ -62,6 +68,16 @@ const AuthenticatedApp = () => {
         {Object.entries(Pages).map(([path, Page]) => (
           <Route key={path} path={`/${path}`} element={<Page />} />
         ))}
+
+        {/* Admin Routes */}
+        <Route path="/admin/products" element={<ProductsPage />} />
+        <Route path="/admin/products/new" element={<ProductEdit />} />
+        <Route path="/admin/products/:id" element={<ProductEdit />} />
+
+        <Route path="/admin/bundles" element={<BundlesPage />} />
+        <Route path="/admin/bundles/new" element={<BundleEdit />} />
+        <Route path="/admin/bundles/:id" element={<BundleEdit />} />
+
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </LayoutWrapper>
