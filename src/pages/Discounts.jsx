@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Percent, Plus } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
+import { api } from "@/components/data/api";
 
 export default function Discounts() {
   const [showModal, setShowModal] = useState(false);
@@ -17,13 +17,18 @@ export default function Discounts() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: discounts = [], isLoading, error } = useQuery({
+  const { data: discountsData = [], isLoading, error } = useQuery({
     queryKey: ['discounts'],
-    queryFn: () => base44.entities.Discount.list('-created_date'),
+    queryFn: () => [], // Discounts not yet implemented in Supabase adapter
+    enabled: false, // Disabled until implemented
   });
 
+  const discounts = Array.isArray(discountsData) ? discountsData : [];
+
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Discount.create(data),
+    mutationFn: async (data) => {
+      throw new Error('Discounts not yet implemented in Supabase adapter');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discounts'] });
       showToast('success', 'Discount code created successfully');
@@ -36,7 +41,9 @@ export default function Discounts() {
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: ({ id, active }) => base44.entities.Discount.update(id, { active }),
+    mutationFn: async ({ id, active }) => {
+      throw new Error('Discounts not yet implemented in Supabase adapter');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discounts'] });
       showToast('success', 'Discount updated');

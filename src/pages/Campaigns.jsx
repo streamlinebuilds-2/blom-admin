@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Plus } from "lucide-react";
 import { dateTime } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
+import { api } from "@/components/data/api";
 
 export default function Campaigns() {
   const [showModal, setShowModal] = useState(false);
@@ -17,13 +17,18 @@ export default function Campaigns() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: campaigns = [], isLoading, error } = useQuery({
+  const { data: campaignsData = [], isLoading, error } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => base44.entities.Campaign.list('-created_date'),
+    queryFn: () => [], // Campaigns not yet implemented in Supabase adapter
+    enabled: false, // Disabled until implemented
   });
 
+  const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
+
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Campaign.create(data),
+    mutationFn: async (data) => {
+      throw new Error('Campaigns not yet implemented in Supabase adapter');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       showToast('success', 'Campaign created successfully');
