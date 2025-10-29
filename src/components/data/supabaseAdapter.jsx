@@ -219,29 +219,53 @@ export function createSupabaseAdapter() {
 
     // ===== ORDERS =====
     async listOrders() {
-      const { data, error } = await supabase
+      const { data: orders, error } = await supabase
         .from('orders')
         .select('*')
-        .order('created_at', { ascending: false });
-      return ensure(data || [], error);
+        .order('placed_at', { ascending: false });
+      ensure(orders, error);
+
+      // Fetch items for each order
+      const result = await Promise.all(
+        orders.map(async (order) => {
+          const { data: items } = await supabase
+            .from('order_items')
+            .select('*')
+            .eq('order_id', order.id);
+          return { ...order, items: items || [] };
+        })
+      );
+      return result;
     },
 
     async getOrder(id) {
-      const { data, error } = await supabase
+      const { data: order, error } = await supabase
         .from('orders')
         .select('*')
         .eq('id', id)
         .single();
-      return ensure(data, error);
+      ensure(order, error);
+
+      // Fetch order items
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', id);
+
+      return { ...order, items: items || [] };
     },
 
     async markOrderPaid(id) {
       const order = await this.getOrder(id);
 
-      // Update order status
+      // Update order status and payment status
       const { data: updatedOrder, error: orderError } = await supabase
         .from('orders')
-        .update({ status: 'paid' })
+        .update({
+          status: 'paid',
+          payment_status: 'paid',
+          paid_at: new Date().toISOString(),
+        })
         .eq('id', id)
         .select()
         .single();
@@ -263,7 +287,45 @@ export function createSupabaseAdapter() {
         .single();
       ensure(payment, paymentError);
 
-      return { order: updatedOrder, payment };
+      // Fetch complete updated order
+      const updated = await this.getOrder(id);
+      return { order: updated, payment };
+    },
+
+    async updateFulfillment(id, patch) {
+      const updates = { ...patch };
+      if (patch.fulfillment_status === 'fulfilled') {
+        updates.fulfilled_at = new Date().toISOString();
+      }
+
+      const { data: order, error } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      ensure(order, error);
+
+      // Fetch complete order
+      return await this.getOrder(id);
+    },
+
+    async updateDeliveryMethod(id, method, shipping_address) {
+      const updates = { delivery_method: method };
+      if (shipping_address) {
+        updates.shipping_address = shipping_address;
+      }
+
+      const { data: order, error } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      ensure(order, error);
+
+      // Fetch complete order
+      return await this.getOrder(id);
     },
 
     async listPayments() {

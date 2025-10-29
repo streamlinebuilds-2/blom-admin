@@ -95,8 +95,41 @@ CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_number TEXT UNIQUE,
   status TEXT DEFAULT 'unpaid',
+  payment_status TEXT DEFAULT 'unpaid',
+  fulfillment_status TEXT DEFAULT 'pending',
+  customer_name TEXT NOT NULL,
+  customer_email TEXT NOT NULL,
+  customer_phone TEXT,
+  delivery_method TEXT,
+  shipping_address JSONB,
+  collection_slot TEXT,
+  collection_location TEXT,
+  subtotal_cents INT NOT NULL,
+  shipping_cents INT DEFAULT 0,
+  discount_cents INT DEFAULT 0,
+  tax_cents INT DEFAULT 0,
   total_cents INT NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
+  currency TEXT DEFAULT 'USD',
+  tracking_number TEXT,
+  tracking_url TEXT,
+  notes_admin TEXT,
+  placed_at TIMESTAMP DEFAULT NOW(),
+  paid_at TIMESTAMP,
+  fulfilled_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Order Items
+CREATE TABLE IF NOT EXISTS order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  sku TEXT,
+  name TEXT NOT NULL,
+  variant TEXT,
+  qty INT NOT NULL,
+  unit_price_cents INT NOT NULL,
+  line_total_cents INT NOT NULL
 );
 
 -- Payments
