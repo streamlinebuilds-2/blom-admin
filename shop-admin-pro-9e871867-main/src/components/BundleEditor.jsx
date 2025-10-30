@@ -97,6 +97,7 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log('[BundleEditor] submit', { name: formData?.name, slug: formData?.slug, items: items?.length });
     if (!formData.name) { alert('Bundle name is required'); return; }
     if (items.length === 0) { alert('Bundle must have at least one product'); return; }
     onSave({

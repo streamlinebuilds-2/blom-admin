@@ -115,6 +115,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log('[ProductEditor] submit', { name: formData?.name, slug: formData?.slug });
     onSave(formData);
   };
 
