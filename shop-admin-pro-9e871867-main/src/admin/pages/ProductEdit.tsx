@@ -424,8 +424,9 @@ export default function ProductEdit() {
                   input.onchange = async () => {
                     const file = input.files?.[0]; if (!file) return;
                     const up = await uploadToCloudinary(file, { slug });
-                    const url = cld(up.public_id, { w: 1200 });
-                    setForm((f: any) => ({ ...f, thumbnail: url, images: Array.isArray(f.images) && f.images.length ? f.images : [url] }));
+                    const full = cld(up.public_id, { w: 1200 });
+                    const thumb = cld(up.public_id, { w: 600, h: 600, fit: "fill" });
+                    setForm((f: any) => ({ ...f, thumbnail: thumb, images: Array.isArray(f.images) && f.images.length ? f.images : [full] }));
                   };
                   input.click();
                 } catch (e: any) {
@@ -468,8 +469,9 @@ export default function ProductEdit() {
                   input.onchange = async () => {
                     const file = input.files?.[0]; if (!file) return;
                     const up = await uploadToCloudinary(file, { slug });
-                    const url = cld(up.public_id, { w: 1200 });
-                    setForm((f: any) => ({ ...f, images: [...(Array.isArray(f.images) ? f.images : []), url], thumbnail: f.thumbnail || url }));
+                    const full = cld(up.public_id, { w: 1200 });
+                    const thumb = cld(up.public_id, { w: 600, h: 600, fit: "fill" });
+                    setForm((f: any) => ({ ...f, images: [...(Array.isArray(f.images) ? f.images : []), full], thumbnail: f.thumbnail || thumb }));
                   };
                   input.click();
                 } catch (e: any) {
