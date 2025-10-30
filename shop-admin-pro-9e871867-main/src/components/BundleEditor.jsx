@@ -156,7 +156,38 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
   return (
     <>
       <style>{`
-        /* existing styles kept */
+        .editor-container { max-width: 1600px; margin: 0 auto; }
+        .editor-grid { display: grid; grid-template-columns: 500px 1fr; gap: 32px; }
+        @media (max-width: 1200px) { .editor-grid { grid-template-columns: 1fr; } }
+        .form-panel { background: var(--card); border-radius: 20px; padding: 32px; box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light); min-height: calc(100vh - 96px); overflow-y: auto; }
+        .editor-header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+        .editor-title { font-size: 28px; font-weight: 700; color: var(--text); flex: 1; }
+        .btn-back, .btn-save { padding: 12px 28px; border-radius: 12px; border: none; cursor: pointer; box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light); }
+        .btn-save { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; font-weight: 600; }
+        .form-section { margin-bottom: 32px; padding-bottom: 32px; border-bottom: 2px solid var(--border); }
+        .form-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .section-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 20px; text-transform: uppercase; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; }
+        .form-input, .form-textarea, .form-select { width: 100%; padding: 14px 18px; border-radius: 12px; border: none; background: var(--card); color: var(--text); font-size: 15px; box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light); }
+        .btn-add { padding: 10px 16px; border-radius: 10px; border: none; background: var(--card); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light); margin-top: 8px; }
+        .btn-icon-small { width: 36px; height: 36px; border-radius: 8px; border: none; background: var(--card); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light); }
+        .preview-panel { display: flex; flex-direction: column; gap: 24px; }
+        .preview-controls { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light); display: flex; justify-content: space-between; align-items: center; }
+        .preview-container { background: var(--card); border-radius: 16px; padding: 32px; box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light); display: flex; justify-content: center; }
+        .image-preview { width: 100%; max-width: 200px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; margin-top: 8px; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; }
+        .image-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .array-list { display: flex; flex-direction: column; gap: 12px; }
+        .array-item { display: flex; gap: 8px; align-items: center; }
+        .items-table { width: 100%; margin-top: 12px; }
+        .items-table th { text-align: left; padding: 12px 8px; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 2px solid var(--border); }
+        .items-table td { padding: 12px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .pricing-radios { display: flex; gap: 12px; margin-bottom: 16px; }
+        .radio-btn { flex: 1; padding: 12px 16px; border-radius: 10px; border: none; background: var(--card); color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light); }
+        .radio-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; box-shadow: inset 2px 2px 4px rgba(0,0,0,0.3); }
+        .price-summary { background: var(--bg); border-radius: 12px; padding: 16px; margin-top: 16px; font-size: 14px; }
+        .price-row { display: flex; justify-content: space-between; padding: 8px 0; color: var(--text); }
+        .price-row.total { font-size: 18px; font-weight: 700; border-top: 2px solid var(--border); margin-top: 8px; padding-top: 16px; }
       `}</style>
 
       <div className="editor-container">
@@ -164,7 +195,7 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
           <button className="btn-back" onClick={onCancel} type="button">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="editor-title">{title}</h1>
+          <h1 className="editor-title">{title} 🔴 UPDATED</h1>
           <button className="btn-save" onClick={handleSubmit} disabled={isSaving} type="button">
             <Save className="w-5 h-5" />
             {isSaving ? 'Saving...' : 'Save Bundle'}
