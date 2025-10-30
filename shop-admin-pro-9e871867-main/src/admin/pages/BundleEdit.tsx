@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { uploadToCloudinary, cld } from "@/lib/cloudinary";
 
 type Item = { product_id: string; quantity: number; product?: any };
 
@@ -13,7 +14,6 @@ export default function BundleEdit() {
     slug: "",
     price: 0,
     active: true,
-    category: "",
     items: [] as Item[],
     subtitle: "",
     heroImage: "",
@@ -37,6 +37,21 @@ export default function BundleEdit() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [pr, setPr] = useState<{ prUrl?: string; previewUrl?: string; branch?: string }>({});
   const [loading, setLoading] = useState(false);
+
+  function pickImage(onFile: (file: File) => void) {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*";
+    input.onchange = () => { const f = input.files?.[0]; if (f) onFile(f); };
+    input.click();
+  }
+
+  async function uploadAndGetUrls(file: File, slug: string) {
+    const up = await uploadToCloudinary(file, { slug });
+    return {
+      full: cld(up.public_id, { w: 1200 }),
+      thumb: cld(up.public_id, { w: 600, h: 600, fit: "fill" }),
+    };
+  }
 
   useEffect(() => {
     (async () => {
@@ -229,6 +244,94 @@ export default function BundleEdit() {
               </button>
             </div>
           )}
+        </label>
+
+        {/* Hero image upload */}
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">Hero Image</span>
+          {form.heroImage ? (
+            <img src={form.heroImage} alt="hero" className="w-full max-w-md rounded border" />
+          ) : (
+            <div className="text-sm text-gray-500">No hero image</div>
+          )}
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              className="px-3 py-2 border rounded"
+              onClick={() => {
+                const slug = (form.slug || form.name || "").trim().toLowerCase();
+                if (!slug) return alert("Please enter a bundle name or slug first.");
+                pickImage(async (file) => {
+                  try {
+                    const { full } = await uploadAndGetUrls(file, slug);
+                    setForm((f: any) => ({ ...f, heroImage: full }));
+                  } catch (e: any) { alert(e.message); }
+                });
+              }}
+            >
+              Upload hero
+            </button>
+            {form.heroImage && (
+              <button
+                type="button"
+                className="px-3 py-2 border rounded"
+                onClick={() => setForm({ ...form, heroImage: "" })}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </label>
+
+        {/* Gallery upload */}
+        <label className="flex flex-col gap-1 col-span-2">
+          <span className="font-medium">Images</span>
+          <div className="flex flex-wrap gap-3">
+            {(Array.isArray(form.images) ? form.images : []).map((url: string, i: number) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                <img src={url} className="w-24 h-24 object-cover rounded border" />
+                <button
+                  type="button"
+                  className="text-xs text-red-600 underline"
+                  onClick={() =>
+                    setForm((f: any) => ({
+                      ...f,
+                      images: f.images.filter((_: string, ix: number) => ix !== i),
+                    }))
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              className="px-3 py-2 border rounded"
+              onClick={() => {
+                const slug = (form.slug || form.name || "").trim().toLowerCase();
+                if (!slug) return alert("Please enter a bundle name or slug first.");
+                pickImage(async (file) => {
+                  try {
+                    const { full } = await uploadAndGetUrls(file, slug);
+                    setForm((f: any) => ({ ...f, images: [...(Array.isArray(f.images) ? f.images : []), full] }));
+                  } catch (e: any) { alert(e.message); }
+                });
+              }}
+            >
+              Upload image
+            </button>
+            {Array.isArray(form.images) && form.images.length > 0 && (
+              <button
+                type="button"
+                className="px-3 py-2 border rounded"
+                onClick={() => setForm({ ...form, images: [] })}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </label>
       </div>
 

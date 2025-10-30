@@ -43,6 +43,21 @@ export default function ProductEdit() {
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
 
+  function pickImage(onFile: (file: File) => void) {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*";
+    input.onchange = () => { const f = input.files?.[0]; if (f) onFile(f); };
+    input.click();
+  }
+
+  async function uploadAndGetUrls(file: File, slug: string) {
+    const up = await uploadToCloudinary(file, { slug });
+    return {
+      full: cld(up.public_id, { w: 1200 }),
+      thumb: cld(up.public_id, { w: 600, h: 600, fit: "fill" }),
+    };
+  }
+
   function safeBranch(input: string) {
     const s = (input || "").toLowerCase();
     return s
@@ -401,86 +416,89 @@ export default function ProductEdit() {
         </label>
 
         <label className="flex flex-col gap-1 col-span-2">
-          <span className="font-medium">Thumbnail URL</span>
-          <input
-            className="border px-3 py-2 rounded"
-            value={form.thumbnail || ""}
-            onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
-            placeholder="https://..."
-          />
-          <div className="mt-2">
+          <span className="font-medium">Thumbnail</span>
+          {form.thumbnail ? (
+            <img src={form.thumbnail} alt="thumb" className="w-32 h-32 object-cover rounded border" />
+          ) : (
+            <div className="text-sm text-gray-500">No thumbnail</div>
+          )}
+          <div className="mt-2 flex gap-2">
             <button
               type="button"
               className="px-3 py-2 border rounded"
-              onClick={async () => {
-                try {
-                  const slug = (form.slug || form.name || "").trim().toLowerCase();
-                  if (!slug) {
-                    setError("Please enter a product name or slug first.");
-                    return;
-                  }
-                  const input = document.createElement("input");
-                  input.type = "file"; input.accept = "image/*";
-                  input.onchange = async () => {
-                    const file = input.files?.[0]; if (!file) return;
-                    const up = await uploadToCloudinary(file, { slug });
-                    const full = cld(up.public_id, { w: 1200 });
-                    const thumb = cld(up.public_id, { w: 600, h: 600, fit: "fill" });
+              onClick={() => {
+                const slug = (form.slug || form.name || "").trim().toLowerCase();
+                if (!slug) return setError("Please enter a product name or slug first.");
+                pickImage(async (file) => {
+                  try {
+                    const { full, thumb } = await uploadAndGetUrls(file, slug);
                     setForm((f: any) => ({ ...f, thumbnail: thumb, images: Array.isArray(f.images) && f.images.length ? f.images : [full] }));
-                  };
-                  input.click();
-                } catch (e: any) {
-                  setError(e.message);
-                }
+                  } catch (e: any) { setError(e.message); }
+                });
               }}
             >
               Upload thumbnail
             </button>
+            {form.thumbnail && (
+              <button
+                type="button"
+                className="px-3 py-2 border rounded"
+                onClick={() => setForm({ ...form, thumbnail: "" })}
+              >
+                Remove
+              </button>
+            )}
           </div>
         </label>
 
         <label className="flex flex-col gap-1 col-span-2">
-          <span className="font-medium">Additional Images (URLs, one per line)</span>
-          <textarea
-            className="border px-3 py-2 rounded"
-            rows={3}
-            value={Array.isArray(form.images) ? form.images.join("\n") : ""}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                images: e.target.value.split("\n").filter((url) => url.trim()),
-              })
-            }
-            placeholder="https://image1.jpg&#10;https://image2.jpg"
-          />
-          <div className="mt-2">
+          <span className="font-medium">Images</span>
+          <div className="flex flex-wrap gap-3">
+            {(Array.isArray(form.images) ? form.images : []).map((url: string, i: number) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                <img src={url} className="w-24 h-24 object-cover rounded border" />
+                <button
+                  type="button"
+                  className="text-xs text-red-600 underline"
+                  onClick={() =>
+                    setForm((f: any) => ({
+                      ...f,
+                      images: f.images.filter((_: string, ix: number) => ix !== i),
+                      thumbnail: f.thumbnail === url ? "" : f.thumbnail,
+                    }))
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
             <button
               type="button"
               className="px-3 py-2 border rounded"
-              onClick={async () => {
-                try {
-                  const slug = (form.slug || form.name || "").trim().toLowerCase();
-                  if (!slug) {
-                    setError("Please enter a product name or slug first.");
-                    return;
-                  }
-                  const input = document.createElement("input");
-                  input.type = "file"; input.accept = "image/*";
-                  input.onchange = async () => {
-                    const file = input.files?.[0]; if (!file) return;
-                    const up = await uploadToCloudinary(file, { slug });
-                    const full = cld(up.public_id, { w: 1200 });
-                    const thumb = cld(up.public_id, { w: 600, h: 600, fit: "fill" });
+              onClick={() => {
+                const slug = (form.slug || form.name || "").trim().toLowerCase();
+                if (!slug) return setError("Please enter a product name or slug first.");
+                pickImage(async (file) => {
+                  try {
+                    const { full, thumb } = await uploadAndGetUrls(file, slug);
                     setForm((f: any) => ({ ...f, images: [...(Array.isArray(f.images) ? f.images : []), full], thumbnail: f.thumbnail || thumb }));
-                  };
-                  input.click();
-                } catch (e: any) {
-                  setError(e.message);
-                }
+                  } catch (e: any) { setError(e.message); }
+                });
               }}
             >
               Upload image
             </button>
+            {Array.isArray(form.images) && form.images.length > 0 && (
+              <button
+                type="button"
+                className="px-3 py-2 border rounded"
+                onClick={() => setForm({ ...form, images: [], thumbnail: "" })}
+              >
+                Clear all
+              </button>
+            )}
           </div>
         </label>
 
