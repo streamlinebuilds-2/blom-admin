@@ -159,3 +159,4 @@ The function will:
 - Add order confirmation emails
 - Add admin notification for new paid orders
 
+
