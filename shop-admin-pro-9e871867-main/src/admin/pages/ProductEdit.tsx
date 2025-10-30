@@ -30,8 +30,17 @@ export default function ProductEdit() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveResult, setSaveResult] = useState<any>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [publishing, setPublishing] = useState(false);
+  const categoryOptions = [
+    { label: "Prep & Finishing", slug: "prep-finishing" },
+    { label: "Gel System", slug: "gel-system" },
+    { label: "Tools & Essentials", slug: "tools-essentials" },
+    { label: "Acrylic System", slug: "acrylic-system" },
+    { label: "Furniture", slug: "furniture" },
+    { label: "Archived", slug: "archived" },
+    { label: "Coming Soon", slug: "coming-soon" },
+  ];
+  const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [customCategory, setCustomCategory] = useState("");
 
   function safeBranch(input: string) {
     const s = (input || "").toLowerCase();
@@ -343,13 +352,51 @@ export default function ProductEdit() {
 
         <label className="flex flex-col gap-1">
           <span className="font-medium">Category</span>
-          <input
-            className="border px-3 py-2 rounded"
-            value={form.category || ""
-}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            placeholder="e.g. Skincare, Makeup"
-          />
+          <div className="flex gap-2 items-center">
+            <select
+              className="border px-3 py-2 rounded flex-1"
+              value={showCustomCategory ? "__custom" : (form.category || "")}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "__custom") {
+                  setShowCustomCategory(true);
+                } else {
+                  setShowCustomCategory(false);
+                  setCustomCategory("");
+                  setForm({ ...form, category: v });
+                }
+              }}
+            >
+              <option value="">Select category…</option>
+              {categoryOptions.map((c) => (
+                <option key={c.slug} value={c.slug}>{c.label}</option>
+              ))}
+              <option value="__custom">+ Add new category…</option>
+            </select>
+          </div>
+          {showCustomCategory && (
+            <div className="mt-2 flex gap-2">
+              <input
+                className="border px-3 py-2 rounded flex-1"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                placeholder="Enter new category slug (e.g. skincare)"
+              />
+              <button
+                type="button"
+                className="px-3 py-2 border rounded"
+                onClick={() => {
+                  const slug = (customCategory || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+                  if (!slug) return;
+                  setForm({ ...form, category: slug });
+                  setShowCustomCategory(false);
+                  setCustomCategory("");
+                }}
+              >
+                Add
+              </button>
+            </div>
+          )}
         </label>
 
         <label className="flex flex-col gap-1 col-span-2">
@@ -456,13 +503,6 @@ export default function ProductEdit() {
           className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
         >
           {loading ? "Saving..." : "Save Product"}
-        </button>
-        <button
-          onClick={triggerPreview}
-          disabled={previewLoading}
-          className="px-4 py-2 rounded border disabled:opacity-50"
-        >
-          {previewLoading ? "Triggering…" : "Create/Refresh Preview"}
         </button>
         <a href="/admin/products" className="px-4 py-2 rounded border">
           Back
