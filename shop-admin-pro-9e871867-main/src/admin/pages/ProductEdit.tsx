@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
+import { uploadToCloudinary, cld } from "@/lib/cloudinary";
 
 export default function ProductEdit() {
   const { id } = useParams();
@@ -407,6 +408,34 @@ export default function ProductEdit() {
             onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
             placeholder="https://..."
           />
+          <div className="mt-2">
+            <button
+              type="button"
+              className="px-3 py-2 border rounded"
+              onClick={async () => {
+                try {
+                  const slug = (form.slug || form.name || "").trim().toLowerCase();
+                  if (!slug) {
+                    setError("Please enter a product name or slug first.");
+                    return;
+                  }
+                  const input = document.createElement("input");
+                  input.type = "file"; input.accept = "image/*";
+                  input.onchange = async () => {
+                    const file = input.files?.[0]; if (!file) return;
+                    const up = await uploadToCloudinary(file, { slug });
+                    const url = cld(up.public_id, { w: 1200 });
+                    setForm((f: any) => ({ ...f, thumbnail: url, images: Array.isArray(f.images) && f.images.length ? f.images : [url] }));
+                  };
+                  input.click();
+                } catch (e: any) {
+                  setError(e.message);
+                }
+              }}
+            >
+              Upload thumbnail
+            </button>
+          </div>
         </label>
 
         <label className="flex flex-col gap-1 col-span-2">
@@ -423,6 +452,34 @@ export default function ProductEdit() {
             }
             placeholder="https://image1.jpg&#10;https://image2.jpg"
           />
+          <div className="mt-2">
+            <button
+              type="button"
+              className="px-3 py-2 border rounded"
+              onClick={async () => {
+                try {
+                  const slug = (form.slug || form.name || "").trim().toLowerCase();
+                  if (!slug) {
+                    setError("Please enter a product name or slug first.");
+                    return;
+                  }
+                  const input = document.createElement("input");
+                  input.type = "file"; input.accept = "image/*";
+                  input.onchange = async () => {
+                    const file = input.files?.[0]; if (!file) return;
+                    const up = await uploadToCloudinary(file, { slug });
+                    const url = cld(up.public_id, { w: 1200 });
+                    setForm((f: any) => ({ ...f, images: [...(Array.isArray(f.images) ? f.images : []), url], thumbnail: f.thumbnail || url }));
+                  };
+                  input.click();
+                } catch (e: any) {
+                  setError(e.message);
+                }
+              }}
+            >
+              Upload image
+            </button>
+          </div>
         </label>
 
         <label className="flex flex-col gap-1 col-span-2">
