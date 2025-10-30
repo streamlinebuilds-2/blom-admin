@@ -37,4 +37,23 @@ export function cld(
   return `${base}/${trans}/${imgPublicId}`;
 }
 
+// Convenience wrapper matching the simpler signature provided by the user.
+// Returns optimized hero and thumb URLs immediately.
+export async function uploadImage(file: File, slug: string) {
+  const endpoint = `https://api.cloudinary.com/v1_1/dd89enrjz/auto/upload`;
+  const fd = new FormData();
+  fd.append("upload_preset", "blom_unsigned");
+  fd.append("folder", `products/${slug || "temp"}`);
+  fd.append("file", file);
+
+  const res = await fetch(endpoint, { method: "POST", body: fd });
+  if (!res.ok) throw new Error(`Cloudinary upload failed: ${await res.text()}`);
+  const j = await res.json();
+
+  const base = `https://res.cloudinary.com/dd89enrjz/image/upload`;
+  const hero = `${base}/f_auto,q_auto,dpr_auto,w_1200/${j.public_id}`;
+  const thumb = `${base}/f_auto,q_auto,dpr_auto,c_fill,w_600,h_600/${j.public_id}`;
+  return { public_id: j.public_id as string, hero, thumb };
+}
+
 
