@@ -1,0 +1,19 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# API functions CORS (safe default)
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+
+# Single Page App routing (React Router / Vite)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
