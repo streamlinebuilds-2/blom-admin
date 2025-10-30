@@ -327,6 +327,33 @@ export default function Layout({ children, currentPageName }) {
           gap: 16px;
         }
 
+        .live-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          border-radius: 9999px;
+          background: #dc2626;
+          color: #ffffff;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          box-shadow: 0 0 0 3px rgba(220,38,38,0.2);
+          animation: pulse 1.6s infinite;
+        }
+
+        .live-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 9999px;
+          background: #ffffff;
+        }
+
+        @keyframes pulse {
+          0% { transform: translateZ(0) scale(1); filter: brightness(1); }
+          50% { transform: translateZ(0) scale(1.03); filter: brightness(1.2); }
+          100% { transform: translateZ(0) scale(1); filter: brightness(1); }
+        }
+
         .menu-button {
           width: 40px;
           height: 40px;
@@ -460,6 +487,9 @@ export default function Layout({ children, currentPageName }) {
               <h1 className="breadcrumb">
                 {currentPageName || (location.pathname === '/' ? 'Dashboard' : location.pathname.split('/').pop() || 'Dashboard')}
               </h1>
+              <span className="live-badge" title="This is the LIVE build">
+                <span className="live-dot" /> LIVE
+              </span>
             </div>
             
             <div className="topbar-actions">
