@@ -6,6 +6,7 @@ import PriceDropdown from "./PriceDropdown";
 import { useActiveSpecials } from "./hooks/useActiveSpecials";
 import { discountLabel } from "./helpers/pricing";
 import { useWebhookSender } from "./webhooks/useWebhookSender";
+import { ImageUploader } from "@/components/ImageUploader";
 
 export default function ProductEditor({ product, onSave, onCancel, isSaving, title }) {
   const [formData, setFormData] = useState(product);
@@ -188,11 +189,8 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
           border-radius: 20px;
           padding: 32px;
           box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-          height: fit-content;
-          position: sticky;
-          top: 32px;
-          max-height: calc(100vh - 64px);
-          overflow-y: auto;
+          min-height: calc(100vh - 110px);
+          overflow: visible;
         }
 
         .form-section {
@@ -961,13 +959,18 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                         onChange={(e) => updateVariant(idx, 'name', e.target.value)}
                         placeholder="Variant name..."
                       />
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={variant.image_url}
-                        onChange={(e) => updateVariant(idx, 'image_url', e.target.value)}
-                        placeholder="Image URL..."
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ImageUploader
+                          slug={formData.slug || 'temp'}
+                          label="Upload variant image"
+                          onAdd={(img) => updateVariant(idx, 'image_url', img.hero)}
+                        />
+                        {variant.image_url && (
+                          <div className="image-preview" style={{ maxWidth: '64px' }}>
+                            <img src={variant.image_url} alt="Variant" />
+                          </div>
+                        )}
+                      </div>
                       <button
                         type="button"
                         className="btn-icon-small"
@@ -989,46 +992,56 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                 <h3 className="section-title">Media</h3>
                 
                 <div className="form-group">
-                  <label className="form-label">Thumbnail URL</label>
-                  <input
-                    type="url"
-                    className="form-input"
-                    value={formData.image_url || ''}
-                    onChange={(e) => updateField('image_url', e.target.value)}
-                  />
-                  {formData.image_url && (
-                    <div className="image-preview">
-                      <img src={formData.image_url} alt="Thumbnail" />
-                    </div>
-                  )}
+                  <label className="form-label">Thumbnail</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ImageUploader
+                      slug={formData.slug || 'temp'}
+                      label="Upload thumbnail"
+                      onAdd={(img) => updateField('image_url', formData.image_url || img.thumb)}
+                    />
+                    {formData.image_url && (
+                      <div className="image-preview" style={{ maxWidth: '80px' }}>
+                        <img src={formData.image_url} alt="Thumbnail" />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Gallery URLs</label>
-                  <div className="array-list">
-                    {(formData.gallery || []).map((url, idx) => (
-                      <div key={idx} className="array-item">
-                        <input
-                          type="url"
-                          className="form-input"
-                          value={url}
-                          onChange={(e) => updateArrayItem('gallery', idx, e.target.value)}
-                          placeholder="Image URL..."
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon-small"
-                          onClick={() => removeFromArray('gallery', idx)}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                  <label className="form-label">Gallery</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <ImageUploader
+                      slug={formData.slug || 'temp'}
+                      label="Upload gallery image"
+                      onAdd={(img) => updateField('gallery', [...(formData.gallery || []), img.hero])}
+                    />
+                    <button type="button" className="btn-add" onClick={addGalleryImage}>
+                      <Plus className="w-4 h-4" />
+                      Add URL
+                    </button>
                   </div>
-                  <button type="button" className="btn-add" onClick={addGalleryImage}>
-                    <Plus className="w-4 h-4" />
-                    Add Image
-                  </button>
+                  {(formData.gallery || []).length > 0 && (
+                    <div className="array-list" style={{ marginTop: '8px' }}>
+                      {(formData.gallery || []).map((url, idx) => (
+                        <div key={idx} className="array-item">
+                          <input
+                            type="url"
+                            className="form-input"
+                            value={url}
+                            onChange={(e) => updateArrayItem('gallery', idx, e.target.value)}
+                            placeholder="Image URL..."
+                          />
+                          <button
+                            type="button"
+                            className="btn-icon-small"
+                            onClick={() => removeFromArray('gallery', idx)}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   
                   {formData.gallery && formData.gallery.length > 0 && (
                     <div className="gallery-grid">

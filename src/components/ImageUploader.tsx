@@ -36,8 +36,17 @@ export function ImageUploader({
     }
   }
 
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file && (!accept || file.type.startsWith(accept.replace("*","")))) {
+      const fakeInput = { target: { files: [file], value: "" } } as any;
+      onChange(fakeInput);
+    }
+  }
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" onDragOver={(e)=>e.preventDefault()} onDrop={handleDrop}>
       <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={onChange} />
       <button type="button" onClick={pick} disabled={busy}
         className="px-3 py-2 border rounded disabled:opacity-60">
@@ -46,5 +55,6 @@ export function ImageUploader({
     </div>
   );
 }
+
 
 
