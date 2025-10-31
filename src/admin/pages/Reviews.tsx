@@ -1,9 +1,11 @@
 // src/admin/pages/Reviews.tsx
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 
 export default function Reviews(){
   const [rows, setRows] = useState<any[]>([]);
   const [status, setStatus] = useState<string>("pending");
+  const { showToast } = useToast();
 
   async function load(){
     const r = await fetch(`/.netlify/functions/admin-reviews?status=${status}`);
@@ -18,7 +20,11 @@ export default function Reviews(){
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ id, action })
     });
-    if(!r.ok){ alert(await r.text()); return; }
+    if(!r.ok){ 
+      showToast('error', await r.text()); 
+      return; 
+    }
+    showToast('success', action === "approve" ? "Approved → now visible on product page." : "Rejected → hidden from website.");
     await load();
   }
 
