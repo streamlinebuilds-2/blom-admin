@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
+import { ImageUploader } from "@/components/ImageUploader";
 
 export default function ProductEdit() {
   const { id } = useParams();
@@ -254,31 +255,29 @@ export default function ProductEdit() {
           />
         </label>
 
-        <label className="flex flex-col gap-1 col-span-2">
-          <span className="font-medium">Thumbnail URL</span>
-          <input
-            className="border px-3 py-2 rounded"
-            value={form.thumbnail || ""}
-            onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
-            placeholder="https://..."
+        <div className="col-span-2 flex items-center gap-3">
+          <ImageUploader
+            slug={form.slug || "temp"}
+            onAdd={(img) => {
+              if (!form.thumbnail) setForm((f: any) => ({ ...f, thumbnail: img.thumb }));
+              setForm((f: any) => ({ ...f, images: [...(Array.isArray(f.images) ? f.images : []), img.hero] }));
+            }}
+            label="Upload image"
           />
-        </label>
+          {form.thumbnail && (
+            <img src={form.thumbnail} alt="thumb" className="w-14 h-14 rounded object-cover border" />
+          )}
+        </div>
 
-        <label className="flex flex-col gap-1 col-span-2">
-          <span className="font-medium">Additional Images (URLs, one per line)</span>
-          <textarea
-            className="border px-3 py-2 rounded"
-            rows={3}
-            value={Array.isArray(form.images) ? form.images.join("\n") : ""}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                images: e.target.value.split("\n").filter((url) => url.trim()),
-              })
-            }
-            placeholder="https://image1.jpg&#10;https://image2.jpg"
-          />
-        </label>
+        {Array.isArray(form.images) && form.images.length > 0 && (
+          <div className="col-span-2 grid grid-cols-6 gap-2">
+            {form.images.map((url: string, i: number) => (
+              <div key={i} className="relative">
+                <img src={url} className="w-24 h-24 object-cover rounded border" />
+              </div>
+            ))}
+          </div>
+        )}
 
         <label className="flex flex-col gap-1 col-span-2">
           <span className="font-medium">Short Description</span>

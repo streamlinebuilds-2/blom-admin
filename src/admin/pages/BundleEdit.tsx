@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ImageUploader } from "@/components/ImageUploader";
 
 type Item = { product_id: string; quantity: number; product?: any };
 
@@ -214,7 +215,29 @@ export default function BundleEdit() {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-3 mt-4">
+        <ImageUploader
+          slug={form.slug || "temp"}
+          onAdd={(img) => {
+            if (!form.heroImage) setForm((f: any) => ({ ...f, heroImage: img.thumb }));
+            setForm((f: any) => ({ ...f, images: [...(Array.isArray(f.images) ? f.images : []), img.hero] }));
+          }}
+          label="Upload image"
+        />
+        {form.heroImage && (
+          <img src={form.heroImage} alt="hero" className="w-14 h-14 rounded object-cover border" />
+        )}
+      </div>
+
+      {Array.isArray(form.images) && form.images.length > 0 && (
+        <div className="grid grid-cols-6 gap-2 mt-2">
+          {form.images.map((url: string, i: number) => (
+            <img key={i} src={url} className="w-24 h-24 object-cover rounded border" />
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2 mt-6">
         <button
           onClick={save}
           disabled={loading}
