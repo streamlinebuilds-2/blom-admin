@@ -33,23 +33,40 @@ export default function ProductEdit() {
   const [saveResult, setSaveResult] = useState<any>(null);
 
   useEffect(() => {
-    if (!isNew && id) {
-      (async () => {
-        setLoading(true);
-        try {
-          const res = await fetch(`/.netlify/functions/admin-product?id=${id}`);
-          if (!res.ok) throw new Error("Failed to fetch product");
-          const json = await res.json();
-          setForm(json.product);
-          setPrices(json.prices || []);
-        } catch (e: any) {
-          setError(e.message);
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }
-  }, [id, isNew]);
+    (async () => {
+      if (!id || id === "new") return;
+      setLoading(true);
+      try {
+        const qs = new URLSearchParams({ id }).toString();
+        const r = await fetch(`/.netlify/functions/admin-product?${qs}`);
+        if (!r.ok) { throw new Error(await r.text()); }
+        const { product } = await r.json();
+
+        const images = Array.isArray(product.images) ? product.images : [];
+        const mergedImages = (images.length === 0 && product.thumbnail) ? [product.thumbnail] : images;
+
+        setForm({
+          id: product.id,
+          name: product.title || product.name || "",
+          slug: product.slug || "",
+          price: Number(product.price || 0),
+          currency: product.currency || "ZAR",
+          active: (product.status || "active") !== "draft",
+          sku: product.sku || "",
+          thumbnail: product.thumbnail || "",
+          images: mergedImages,
+          shortDescription: product.shortDescription || "",
+          descriptionHtml: product.descriptionHtml || "",
+          seo: product.seo || {},
+          stock: product.stock ?? 0,
+        });
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    })().catch(console.error);
+  }, [id]);
 
   async function save() {
     setLoading(true);

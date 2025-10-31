@@ -5,7 +5,7 @@ import { moneyZAR, dateTime } from "../components/formatUtils";
 import { calcSpecialPrice } from "../components/helpers";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner"; // This component is imported but not used in the provided code, keeping it for completeness.
-import { base44 } from "@/api/base44Client";
+import { api } from "@/components/data/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function Specials() {
@@ -25,17 +25,26 @@ export default function Specials() {
 
   const { data: products = [], isFetching: productsFetching } = useQuery({
     queryKey: ['products'],
-    queryFn: () => base44.entities.Product.filter({ status: 'active' }),
+    queryFn: async () => {
+      const list = await (api?.listProducts?.() || Promise.resolve([]));
+      return Array.isArray(list) ? list.filter(p => (p?.status || 'active') === 'active') : [];
+    },
   });
 
   const { data: bundles = [], isFetching: bundlesFetching } = useQuery({
     queryKey: ['bundles'],
-    queryFn: () => base44.entities.Bundle.filter({ status: 'active' }),
+    queryFn: async () => {
+      const list = await (api?.listBundles?.() || Promise.resolve([]));
+      return Array.isArray(list) ? list.filter(b => (b?.status || 'active') === 'active') : [];
+    },
   });
 
   const { data: specials = [], isFetching: specialsFetching } = useQuery({
     queryKey: ['specials'],
-    queryFn: () => base44.entities.Special.list('-created_at'), // Assuming 'created_at' is the correct field for ordering
+    queryFn: async () => {
+      const list = await (api?.listSpecials?.() || Promise.resolve([]));
+      return Array.isArray(list) ? list : [];
+    },
   });
 
   // Determine overall loading state from react-query hooks
@@ -121,11 +130,11 @@ export default function Specials() {
     return [];
   };
 
-  const selectedTargets = getTargets().filter(t => formData.target_ids.includes(t.id));
-
-  const activeSpecials = specials.filter(s => s.status === 'active');
-  const scheduledSpecials = specials.filter(s => s.status === 'scheduled');
-  const expiredSpecials = specials.filter(s => s.status === 'expired');
+  const selectedTargets = (Array.isArray(getTargets()) ? getTargets() : []).filter(t => formData.target_ids.includes(t?.id));
+  const specialsSafe = Array.isArray(specials) ? specials : [];
+  const activeSpecials = specialsSafe.filter(s => s?.status === 'active');
+  const scheduledSpecials = specialsSafe.filter(s => s?.status === 'scheduled');
+  const expiredSpecials = specialsSafe.filter(s => s?.status === 'expired');
 
   // Use activateMutation.isPending for the saving state
   const saving = activateMutation.isPending;

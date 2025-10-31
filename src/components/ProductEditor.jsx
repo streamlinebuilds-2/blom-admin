@@ -1072,19 +1072,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
             </div>
 
             <div className="preview-panel">
-              {!webhookConfigured && (
-                <div style={{ 
-                  background: 'var(--card)', 
-                  padding: '12px 16px', 
-                  borderRadius: '10px', 
-                  fontSize: '12px', 
-                  color: 'var(--text-muted)',
-                  marginBottom: '16px',
-                  border: '1px solid var(--border)'
-                }}>
-                  ℹ️ Webhook not configured. Set VITE_SPECIALS_WEBHOOK to push changes to storefront.
-                </div>
-              )}
+              
               <div className="preview-controls">
                 <div className="preview-tabs">
                   <button
