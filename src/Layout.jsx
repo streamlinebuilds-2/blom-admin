@@ -462,6 +462,11 @@ export default function Layout({ children, currentPageName }) {
               </button>
               <h1 className="breadcrumb">
                 {currentPageName || (location.pathname === '/' ? 'Dashboard' : location.pathname.split('/').pop() || 'Dashboard')}
+                {(currentPageName === 'Dashboard' || location.pathname === '/') && (
+                  <span style={{ marginLeft: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
+                    Test Push
+                  </span>
+                )}
               </h1>
             </div>
             
