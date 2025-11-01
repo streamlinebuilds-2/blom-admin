@@ -10,10 +10,6 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-function isUuid(x: string) {
-  return /^[0-9a-f-]{36}$/i.test(x);
-}
-
 export const handler: Handler = async (e) => {
   if (e.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "ok" };
   if (e.httpMethod !== "POST") return { statusCode: 405, headers: CORS, body: "Method Not Allowed" };
@@ -22,13 +18,20 @@ export const handler: Handler = async (e) => {
     if (!e.body) return { statusCode: 400, headers: CORS, body: "Empty body" };
     const payload = JSON.parse(e.body);
 
-    // Accept either product_id (uuid) OR product_slug
-    const rawProd = (payload.product_id ?? payload.product_slug ?? "").toString().trim();
+    // Accept either product_id (uuid) OR product_slug - resolve both
+    const rawProd = String(payload.product_id ?? payload.product_slug ?? "").trim();
     if (!rawProd) return { statusCode: 400, headers: CORS, body: "Missing product_id or product_slug" };
 
     let product_id = rawProd;
-    if (!isUuid(product_id)) {
-      // treat as slug → lookup id
+    let product_slug = rawProd;
+
+    if (/^[0-9a-f-]{36}$/i.test(rawProd)) {
+      // raw is UUID: look up slug
+      const { data: p, error: pe } = await s.from("products").select("slug").eq("id", rawProd).single();
+      if (pe || !p) return { statusCode: 400, headers: CORS, body: "Invalid product_id (not found)" };
+      product_slug = p.slug;
+    } else {
+      // raw is slug: look up id
       const { data: p, error: pe } = await s.from("products").select("id").eq("slug", rawProd).single();
       if (pe || !p) return { statusCode: 400, headers: CORS, body: "Invalid product_slug (not found)" };
       product_id = p.id;
@@ -50,22 +53,21 @@ export const handler: Handler = async (e) => {
       return { statusCode: 400, headers: CORS, body: "Missing/invalid name, body, or rating (1..5)" };
     }
 
-    const { data, error } = await s
-      .from("product_reviews")
-      .insert({
-        product_id,
-        name,
-        email,
-        title,
-        body,
-        rating,
-        images,
-        is_verified_buyer,
-        order_id,
-        status: "pending",
-      })
-      .select("id")
-      .single();
+    const row = {
+      product_id,
+      product_slug, // Required to satisfy NOT NULL
+      name,
+      email,
+      title,
+      body,
+      rating,
+      images,
+      is_verified_buyer,
+      order_id,
+      status: "pending",
+    };
+
+    const { data, error } = await s.from("product_reviews").insert(row).select("id").single();
 
     if (error) return { statusCode: 500, headers: CORS, body: `DB insert failed: ${error.message}` };
 
@@ -77,6 +79,7 @@ export const handler: Handler = async (e) => {
         body: JSON.stringify({
           review_id: data.id,
           product_id,
+          product_slug,
           name,
           email,
           title,
