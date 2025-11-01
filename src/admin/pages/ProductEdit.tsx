@@ -18,6 +18,10 @@ export default function ProductEdit() {
     subtitle: "",
     currency: "ZAR",
     stock: 0,
+    stock_qty: 0,
+    cost_price: 0,
+    reorder_point: 0,
+    reorder_qty: 0,
     badges: [],
     category: "",
     tags: [],
@@ -58,7 +62,11 @@ export default function ProductEdit() {
           shortDescription: product.shortDescription || "",
           descriptionHtml: product.descriptionHtml || "",
           seo: product.seo || {},
-          stock: product.stock ?? 0,
+          stock: product.stock ?? product.stock_qty ?? 0,
+          stock_qty: product.stock_qty ?? product.stock ?? 0,
+          cost_price: product.cost_price ?? 0,
+          reorder_point: product.reorder_point ?? 0,
+          reorder_qty: product.reorder_qty ?? 0,
         });
       } catch (e: any) {
         setError(e.message);
@@ -193,6 +201,61 @@ export default function ProductEdit() {
             className="border px-3 py-2 rounded"
             value={form.price}
             onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Cost Price (ZAR)</span>
+          <input
+            type="number"
+            step="0.01"
+            className="border px-3 py-2 rounded"
+            value={form.cost_price || 0}
+            onChange={(e) => setForm({ ...form, cost_price: Number(e.target.value) })}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Stock On Hand</span>
+          <input
+            type="number"
+            className="border px-3 py-2 rounded bg-gray-50"
+            value={form.stock_qty || 0}
+            readOnly
+            disabled
+          />
+          <span className="text-xs text-gray-500">Read-only (calculated from movements)</span>
+        </label>
+
+        {(form.cost_price > 0 && form.price > 0) && (
+          <label className="flex flex-col gap-1">
+            <span className="font-medium">Margin Preview</span>
+            <div className="border px-3 py-2 rounded bg-blue-50">
+              <div className="text-sm">
+                <div>Margin: R{(form.price - form.cost_price).toFixed(2)}</div>
+                <div>Margin %: {(((form.price - form.cost_price) / form.price) * 100).toFixed(1)}%</div>
+              </div>
+            </div>
+          </label>
+        )}
+
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Reorder Point</span>
+          <input
+            type="number"
+            className="border px-3 py-2 rounded"
+            value={form.reorder_point || 0}
+            onChange={(e) => setForm({ ...form, reorder_point: Number(e.target.value) })}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="font-medium">Reorder Quantity</span>
+          <input
+            type="number"
+            className="border px-3 py-2 rounded"
+            value={form.reorder_qty || 0}
+            onChange={(e) => setForm({ ...form, reorder_qty: Number(e.target.value) })}
           />
         </label>
 

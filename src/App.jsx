@@ -21,6 +21,8 @@ import BundleEdit from '@/admin/pages/BundleEdit'
 import Reviews from '@/admin/pages/Reviews'
 import ContactsPage from '@/admin/pages/Contacts'
 import ContactDetail from '@/admin/pages/ContactDetail'
+import Stock from '@/admin/pages/Stock'
+import Finance from '@/admin/pages/Finance'
 
 // Initialize Supabase adapter for real database access
 try {
@@ -85,6 +87,9 @@ const AuthenticatedApp = () => {
 
         <Route path="/admin/contacts" element={<ContactsPage/>} />
         <Route path="/admin/contacts/:id" element={<ContactDetail/>} />
+
+        <Route path="/admin/stock" element={<Stock/>} />
+        <Route path="/admin/finance" element={<Finance/>} />
 
         <Route path="*" element={<PageNotFound />} />
       </Routes>
