@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -70,6 +71,19 @@ export default function Dashboard() {
     queryFn: () => api?.listReviews?.('pending') || [],
     enabled: !!api,
   });
+
+  const [financeMetrics, setFinanceMetrics] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`/.netlify/functions/admin-finance-daily?date=${new Date().toISOString().slice(0,10)}`);
+        const j = await r.json();
+        setFinanceMetrics(j.data);
+      } catch (e) {
+        console.error('Failed to load finance metrics:', e);
+      }
+    })();
+  }, []);
 
   // Ensure arrays
   const products = Array.isArray(productsData) ? productsData : [];
@@ -369,6 +383,35 @@ export default function Dashboard() {
           icon={Star}
         />
       </div>
+
+      {/* Analytics Section */}
+      {financeMetrics && (
+        <>
+          <div className="section-title">Analytics</div>
+          <div className="dashboard-grid">
+            <StatCard
+              title="Today's Revenue"
+              value={`R${(financeMetrics.revenue || 0).toFixed(2)}`}
+              subtitle="From paid orders"
+              icon={DollarSign}
+            />
+            <StatCard
+              title="Today's Expenses"
+              value={`R${(financeMetrics.expenses || 0).toFixed(2)}`}
+              subtitle="Operating costs"
+              icon={TrendingUp}
+            />
+            <StatCard
+              title="Today's Profit"
+              value={`R${(financeMetrics.profit || 0).toFixed(2)}`}
+              subtitle="Revenue - Expenses"
+              icon={TrendingUp}
+              trend={financeMetrics.profit >= 0 ? "positive" : "negative"}
+              trendUp={financeMetrics.profit >= 0}
+            />
+          </div>
+        </>
+      )}
 
       <div className="section-title">Quick Actions</div>
       <div className="quick-links-grid">

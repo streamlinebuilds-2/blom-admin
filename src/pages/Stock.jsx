@@ -13,46 +13,52 @@ export default function Stock() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [delta, setDelta] = useState("");
   const [reason, setReason] = useState("");
+  // Restock form state
+  const [restockItems, setRestockItems] = useState([]);
+  const [supplier, setSupplier] = useState("");
+  const [reference, setReference] = useState("");
+  const [restockStatus, setRestockStatus] = useState("received");
+  const [restockNotes, setRestockNotes] = useState("");
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ['products-stock'],
     queryFn: () => api?.listProducts() || [],
-    enabled: activeTab === 'overview' && !!api,
+    enabled: (activeTab === 'overview' || activeTab === 'restock') && !!api,
   });
 
   const { data: movements = [], isLoading: loadingMovements } = useQuery({
     queryKey: ['stock-movements'],
     queryFn: async () => {
-      if (!api) return [];
       try {
-        const movs = await api.listStockMovements(200);
-        if (!Array.isArray(movs) || movs.length === 0) return [];
-        
-        // Fetch product names for each movement
-        const productIds = [...new Set(movs.map(m => m.product_id).filter(Boolean))];
-        const productsMap = {};
-        for (const id of productIds) {
-          try {
-            const prod = await api.getProduct(id);
-            if (prod) productsMap[id] = prod.name;
-          } catch (err) {
-            console.error(`Error fetching product ${id}:`, err);
-          }
-        }
-        return movs.map(m => ({ ...m, product_name: productsMap[m.product_id] || '—' }));
+        const r = await fetch("/.netlify/functions/admin-stock-movements?limit=200");
+        const j = await r.json();
+        const movs = j.data || [];
+        return movs.map(m => ({
+          ...m,
+          product_name: m.product?.name || m.product_id || '—',
+          delta: m.quantity || m.delta || 0,
+          reason: m.note || m.reason || ''
+        }));
       } catch (err) {
         console.error('Error fetching stock movements:', err);
         return [];
       }
     },
-    enabled: activeTab === 'movements' && !!api,
+    enabled: (activeTab === 'movements' || activeTab === 'restock') && true,
   });
 
   const adjustMutation = useMutation({
-    mutationFn: ({ productId, delta, reason, currentStock }) => 
-      api.adjustStock(productId, parseInt(delta), reason.trim()),
+    mutationFn: async ({ productId, delta, reason }) => {
+      const r = await fetch("/.netlify/functions/adjust-stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: productId, quantity: parseInt(delta), note: reason.trim(), actor: 'admin' })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return await r.json();
+    },
     onMutate: async ({ productId, delta, currentStock }) => {
       await queryClient.cancelQueries({ queryKey: ['products-stock'] });
       const previousProducts = queryClient.getQueryData(['products-stock']);
@@ -108,6 +114,45 @@ export default function Stock() {
       currentStock: selectedProduct.stock_qty
     });
   };
+
+  // Restock functions
+  function addRestockItem() {
+    if (!restockItems.length || restockItems[restockItems.length-1].product_id) {
+      setRestockItems([...restockItems, { product_id: "", quantity: 1, unit_cost: 0 }]);
+    }
+  }
+
+  function updateRestockItem(i, field, value) {
+    const updated = [...restockItems];
+    updated[i] = { ...updated[i], [field]: value };
+    setRestockItems(updated);
+  }
+
+  function removeRestockItem(i) {
+    setRestockItems(restockItems.filter((_, idx) => idx !== i));
+  }
+
+  async function submitRestock() {
+    const items = restockItems.filter(x => x.product_id && x.quantity > 0);
+    if (!items.length) { showToast('error', 'Add at least one item'); return; }
+    try {
+      const r = await fetch("/.netlify/functions/create-restock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supplier, reference, status: restockStatus, notes: restockNotes, items })
+      });
+      if (!r.ok) { showToast('error', await r.text()); return; }
+      showToast('success', 'Restock created');
+      setRestockItems([]);
+      setSupplier("");
+      setReference("");
+      setRestockNotes("");
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
+      queryClient.invalidateQueries({ queryKey: ['products-stock'] });
+    } catch (e) {
+      showToast('error', e.message);
+    }
+  }
 
   const loading = activeTab === 'overview' ? loadingProducts : loadingMovements;
 
@@ -417,6 +462,12 @@ export default function Stock() {
           Overview
         </button>
         <button
+          className={`tab ${activeTab === 'restock' ? 'active' : ''}`}
+          onClick={() => setActiveTab('restock')}
+        >
+          Restock
+        </button>
+        <button
           className={`tab ${activeTab === 'movements' ? 'active' : ''}`}
           onClick={() => setActiveTab('movements')}
         >
@@ -517,6 +568,77 @@ export default function Stock() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {activeTab === 'restock' && (
+        <div className="stock-table" style={{ padding: '24px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px' }}>Create Restock Order</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Supplier</label>
+              <input className="form-input" value={supplier} onChange={e=>setSupplier(e.target.value)} placeholder="Supplier name" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Reference</label>
+              <input className="form-input" value={reference} onChange={e=>setReference(e.target.value)} placeholder="PO number" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Status</label>
+              <select className="form-input" value={restockStatus} onChange={e=>setRestockStatus(e.target.value)}>
+                <option value="draft">Draft</option>
+                <option value="received">Received</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Notes</label>
+              <input className="form-input" value={restockNotes} onChange={e=>setRestockNotes(e.target.value)} placeholder="Optional notes" />
+            </div>
+          </div>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }}>Items</label>
+              <button className="btn-submit" onClick={addRestockItem}>+ Add Item</button>
+            </div>
+            {restockItems.length > 0 && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Unit Cost</th>
+                    <th>Total</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {restockItems.map((item, i) => (
+                    <tr key={i}>
+                      <td>
+                        <select className="form-input" value={item.product_id} onChange={e=>updateRestockItem(i, 'product_id', e.target.value)}>
+                          <option value="">Select product...</option>
+                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" className="form-input" value={item.quantity} onChange={e=>updateRestockItem(i, 'quantity', Number(e.target.value))} min="1" />
+                      </td>
+                      <td>
+                        <input type="number" step="0.01" className="form-input" value={item.unit_cost} onChange={e=>updateRestockItem(i, 'unit_cost', Number(e.target.value))} min="0" />
+                      </td>
+                      <td>R{(item.quantity * item.unit_cost).toFixed(2)}</td>
+                      <td><button className="btn-cancel" onClick={()=>removeRestockItem(i)}>×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {restockItems.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+              <button className="btn-submit" onClick={submitRestock}>Create Restock</button>
+            </div>
+          )}
         </div>
       )}
 
