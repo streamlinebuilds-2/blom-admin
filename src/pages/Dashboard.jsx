@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
