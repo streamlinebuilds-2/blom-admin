@@ -28,7 +28,6 @@ import {
   Receipt, // Added
   ChevronDown,
   ChevronRight,
-  Menu,
   X,
   Sun,
   Moon,
@@ -118,7 +117,7 @@ function NavGroup({ group, currentPath, isCollapsed }) {
               to={createPageUrl(item.url)}
               className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
               {!isCollapsed && <span>{item.name}</span>}
             </Link>
           ))}
@@ -275,8 +274,9 @@ export default function Layout({ children, currentPageName }) {
         .nav-item {
           display: flex;
           align-items: center;
+          justify-content: ${sidebarCollapsed ? 'center' : 'flex-start'};
           gap: 12px;
-          padding: 12px 16px;
+          padding: ${sidebarCollapsed ? '16px' : '12px 16px'};
           color: var(--text);
           text-decoration: none;
           border-radius: 12px;
@@ -454,9 +454,6 @@ export default function Layout({ children, currentPageName }) {
         <div className="main-content">
           <header className="topbar">
             <div className="topbar-left">
-              <button className="menu-button md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
-                <Menu className="w-5 h-5" />
-              </button>
               <button className="menu-button hidden md:flex" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
                 {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <X className="w-5 h-5" />}
               </button>
