@@ -1,45 +1,22 @@
-import type { Handler } from '@netlify/functions'
-import { supabaseAdmin } from '../../src/lib/supabaseServer'
+import type { Handler } from "@netlify/functions";
+import { createClient } from "@supabase/supabase-js";
+const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-const handler: Handler = async (event) => {
+export const handler: Handler = async (e) => {
   try {
-    const sb = supabaseAdmin()
-    const url = new URL(event.rawUrl)
-    const id = url.searchParams.get('id')
-    if (!id) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing id' }) }
-    }
+    const id = new URL(e.rawUrl).searchParams.get("id");
+    if (!id) return { statusCode: 400, body: "Missing id" };
 
-    const { data: order, error } = await sb
-      .from('orders')
-      .select('*, order_items(*), payments(*)')
-      .eq('id', id)
-      .single()
+    const { data: order, error: oErr } = await s.from("orders")
+      .select("*").eq("id", id).single();
+    if (oErr) throw oErr;
 
-    if (error) throw error
+    const { data: items, error: iErr } = await s.from("order_items")
+      .select("*").eq("order_id", id).order("product_name", { ascending: true });
+    if (iErr) throw iErr;
 
-    // Normalize item fields (supports old price_cents/total_cents)
-    const items = (order?.order_items ?? []).map((i: any) => ({
-      ...i,
-      unit_price_cents: i.unit_price_cents ?? i.price_cents ?? 0,
-      line_total_cents: i.line_total_cents ?? i.total_cents ?? ((i.qty ?? 0) * (i.unit_price_cents ?? i.price_cents ?? 0)),
-    }))
-    order.order_items = items
-
-    return {
-      statusCode: 200,
-      headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
-      body: JSON.stringify(order)
-    }
-  } catch (err: any) {
-    return {
-      statusCode: 500,
-      headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
-      body: JSON.stringify({ error: err?.message ?? 'server_error' })
-    }
+    return { statusCode: 200, body: JSON.stringify({ ok: true, order, items }) };
+  } catch (err:any) {
+    return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
   }
-}
-
-export { handler }
-
-
+};

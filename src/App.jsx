@@ -23,6 +23,8 @@ import ContactsPage from '@/admin/pages/Contacts'
 import ContactDetail from '@/admin/pages/ContactDetail'
 import Stock from '@/admin/pages/Stock'
 import Finance from '@/admin/pages/Finance'
+import Orders from '@/admin/pages/Orders'
+import OrderDetail from '@/admin/pages/OrderDetail'
 
 // Initialize Supabase adapter for real database access
 try {
@@ -90,6 +92,9 @@ const AuthenticatedApp = () => {
 
         <Route path="/admin/stock" element={<Stock/>} />
         <Route path="/admin/finance" element={<Finance/>} />
+
+        <Route path="/admin/orders" element={<Orders/>} />
+        <Route path="/admin/orders/:id" element={<OrderDetail/>} />
 
         <Route path="*" element={<PageNotFound />} />
       </Routes>
