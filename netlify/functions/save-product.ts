@@ -86,12 +86,48 @@ export const handler: Handler = async (event) => {
       variants: Array.isArray(body.variants) ? body.variants : [],
     };
 
-    // Upsert by slug (unique)
-    const { data, error } = await admin
-      .from('products')
-      .upsert(row, { onConflict: 'slug' })
-      .select('*')
-      .single();
+    // Upsert by id if provided, otherwise try to find by slug first
+    let data, error;
+    if (row.id) {
+      // Update existing product by id
+      const { data: updated, error: updateError } = await admin
+        .from('products')
+        .update(row)
+        .eq('id', row.id)
+        .select('*')
+        .single();
+      data = updated;
+      error = updateError;
+    } else {
+      // Check if product with this slug exists
+      const { data: existing } = await admin
+        .from('products')
+        .select('id')
+        .eq('slug', row.slug)
+        .maybeSingle();
+      
+      if (existing) {
+        // Update existing by slug
+        const { data: updated, error: updateError } = await admin
+          .from('products')
+          .update(row)
+          .eq('id', existing.id)
+          .select('*')
+          .single();
+        data = updated;
+        error = updateError;
+      } else {
+        // Insert new product
+        delete row.id; // Remove undefined id
+        const { data: inserted, error: insertError } = await admin
+          .from('products')
+          .insert(row)
+          .select('*')
+          .single();
+        data = inserted;
+        error = insertError;
+      }
+    }
 
     if (error) {
       return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
