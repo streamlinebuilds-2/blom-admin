@@ -12,26 +12,50 @@ export default function Orders() {
   const [searchInput, setSearchInput] = useState<string>("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
   const navigate = useNavigate();
   const { showToast } = useToast();
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   async function load() {
-    const params = new URLSearchParams();
-    params.set("page", String(page));
-    params.set("size", "50");
-    if (status) params.set("status", status);
-    if (fulfillment) params.set("fulfillment", fulfillment);
-    if (search) params.set("search", search);
-    
-    const url = `/.netlify/functions/admin-orders?${params}`;
-    const r = await fetch(url);
-    const j = await r.json();
-    if (j.ok) {
-      setRows(j.data || []);
-      setTotal(j.total || 0);
-    } else {
-      showToast('error', j.error || "Failed to load orders");
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("size", "50");
+      if (status) params.set("status", status);
+      if (fulfillment) params.set("fulfillment", fulfillment);
+      if (search) params.set("search", search);
+      
+      const url = `/.netlify/functions/admin-orders?${params}`;
+      const r = await fetch(url);
+      
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      
+      const j = await r.json();
+      if (j.ok) {
+        setRows(j.data || []);
+        setTotal(j.total || 0);
+        if (j.error) {
+          console.warn('Function returned ok but with error:', j.error);
+        }
+      } else {
+        const errMsg = j.error || "Failed to load orders";
+        setError(errMsg);
+        showToast('error', errMsg);
+        console.error('Function error:', j);
+      }
+    } catch (err: any) {
+      const errMsg = err.message || "Failed to fetch orders";
+      setError(errMsg);
+      showToast('error', errMsg);
+      console.error('Load error:', err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -238,22 +262,40 @@ export default function Orders() {
           </div>
         </div>
 
-        <div className="orders-card overflow-x-auto">
-          <table className="orders-table">
-            <thead>
-              <tr>
-                <th>Short Code</th>
-                <th>Buyer</th>
-                <th>Fulfillment</th>
-                <th>Status</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Placed At</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => (
+        {loading && (
+          <div className="orders-card text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+            <div style={{ color: 'var(--text-muted)' }}>Loading orders...</div>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="orders-card p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="text-red-600 dark:text-red-400 font-semibold mb-2">Error loading orders</div>
+            <div className="text-sm text-red-500 dark:text-red-300">{error}</div>
+            <button onClick={() => load()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && (
+          <div className="orders-card overflow-x-auto">
+            <table className="orders-table">
+              <thead>
+                <tr>
+                  <th>Short Code</th>
+                  <th>Buyer</th>
+                  <th>Fulfillment</th>
+                  <th>Status</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Placed At</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
                 <tr key={r.id}>
                   <td className="font-mono text-xs font-medium">{r.short_code || "-"}</td>
                   <td>
@@ -296,15 +338,17 @@ export default function Orders() {
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {rows.length === 0 && (
-            <div className="text-center py-12 opacity-50" style={{ color: 'var(--text-muted)' }}>
-              No orders found
-            </div>
-          )}
-        </div>
+                ))}
+              </tbody>
+            </table>
+            {rows.length === 0 && (
+              <div className="text-center py-12 opacity-50" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-lg font-semibold mb-2">No orders found</div>
+                <div className="text-sm">Orders will appear here when they are created</div>
+              </div>
+            )}
+          </div>
+        )}
         
         {total > 50 && (
           <div className="flex items-center gap-4 justify-center mt-6">
