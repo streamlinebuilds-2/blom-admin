@@ -91,7 +91,7 @@ export default function OrderDetail() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate("/admin/orders")} className="text-sm px-3 py-1 border rounded hover:bg-gray-100">
+        <button onClick={() => navigate("/orders")} className="text-sm px-3 py-1 border rounded hover:bg-gray-100">
           ← Back
         </button>
         <h1 className="text-xl font-semibold">Order Details</h1>

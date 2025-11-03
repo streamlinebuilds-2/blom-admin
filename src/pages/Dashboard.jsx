@@ -441,6 +441,13 @@ export default function Dashboard() {
           url="Stock"
           icon={TrendingUp}
         />
+        
+        <QuickLink
+          title="Finance"
+          description="View financial reports and metrics"
+          url="finance"
+          icon={DollarSign}
+        />
       </div>
 
       <div className="recent-table">

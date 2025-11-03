@@ -92,9 +92,11 @@ const AuthenticatedApp = () => {
 
         <Route path="/admin/stock" element={<Stock/>} />
         <Route path="/admin/finance" element={<Finance/>} />
+        <Route path="/finance" element={<Finance/>} />
 
-        <Route path="/admin/orders" element={<Orders/>} />
-        <Route path="/admin/orders/:id" element={<OrderDetail/>} />
+        {/* Orders routes - moved from /admin/orders to /orders */}
+        <Route path="/orders" element={<Orders/>} />
+        <Route path="/orders/:id" element={<OrderDetail/>} />
 
         <Route path="*" element={<PageNotFound />} />
       </Routes>

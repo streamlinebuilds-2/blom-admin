@@ -169,7 +169,7 @@ export default function Orders() {
               <td className="text-xs text-gray-500">{formatDate(r.placed_at || r.created_at)}</td>
               <td>
                 <button
-                  onClick={() => navigate(`/admin/orders/${r.id}`)}
+                  onClick={() => navigate(`/orders/${r.id}`)}
                   className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
                 >
                   Open
