@@ -59,7 +59,7 @@ export function createSupabaseAdapter() {
       }
 
       // Map fields to match save-product function expectations
-      const payload: any = {
+      const payload = {
         id: product.id,
         name: String(product.name || '').trim(),
         slug: String(product.slug || '').trim(),
@@ -477,3 +477,4 @@ export function createSupabaseAdapter() {
     },
   };
 }
+
