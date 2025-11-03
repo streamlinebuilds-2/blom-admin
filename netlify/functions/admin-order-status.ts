@@ -3,13 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 const TRANSITIONS: Record<string, string[]> = {
-  placed: ['paid','cancelled'],
-  paid: ['packed','cancelled','refunded'],
-  packed: ['shipped','cancelled'],
-  shipped: ['delivered','refunded'],
-  delivered: [],
-  cancelled: [],
-  refunded: []
+  paid: ['packed'],
+  packed: ['collected', 'out_for_delivery'], // collection goes to collected, delivery goes to out_for_delivery
+  collected: [], // final state for collection
+  out_for_delivery: ['delivered'],
+  delivered: [] // final state for delivery
 };
 
 export const handler: Handler = async (e) => {
@@ -41,28 +39,41 @@ export const handler: Handler = async (e) => {
       };
     }
 
-    const currentStatus = current.status || 'placed';
+    const currentStatus = current.status || 'paid';
     
-    // Validate transition
+    // Get fulfillment type to validate transitions correctly
+    const { data: orderData } = await s.from("orders").select("fulfillment_type").eq("id", id).single();
+    const fulfillmentType = orderData?.fulfillment_type || 'delivery';
+    
+    // Validate transition based on fulfillment type
     const allowed = TRANSITIONS[currentStatus] || [];
-    if (!allowed.includes(status) && status !== currentStatus) {
+    let isValidTransition = allowed.includes(status) || status === currentStatus;
+    
+    // Additional validation: collection can only go to collected, delivery to out_for_delivery/delivered
+    if (fulfillmentType === 'collection' && status === 'out_for_delivery') isValidTransition = false;
+    if (fulfillmentType === 'collection' && status === 'delivered') isValidTransition = false;
+    if (fulfillmentType === 'delivery' && status === 'collected') isValidTransition = false;
+    
+    if (!isValidTransition) {
       return {
         statusCode: 400,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ ok: false, error: `Invalid transition ${currentStatus} → ${status}` })
+        body: JSON.stringify({ ok: false, error: `Invalid transition ${currentStatus} → ${status} for ${fulfillmentType}` })
       };
     }
 
     const patch: any = { status, updated_at: new Date().toISOString() };
-    if (status === 'delivered') patch.fulfilled_at = new Date().toISOString();
+    if (status === 'delivered' || status === 'collected') {
+      patch.fulfilled_at = new Date().toISOString();
+    }
     if (tracking_number) patch.tracking_number = tracking_number;
     if (shipping_provider) patch.shipping_provider = shipping_provider;
 
     const { data, error } = await s.from("orders").update(patch).eq("id", id).select().single();
     if (error) throw error;
 
-    // OPTIONAL: notify n8n when shipped
-    if (status === "shipped" && process.env.N8N_BASE) {
+    // OPTIONAL: notify n8n when out for delivery
+    if (status === "out_for_delivery" && process.env.N8N_BASE) {
       try {
         await fetch(`${process.env.N8N_BASE}/webhook/order-shipped`, {
           method: "POST",

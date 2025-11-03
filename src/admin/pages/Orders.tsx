@@ -111,15 +111,13 @@ export default function Orders() {
 
   const getStatusColor = (s: string) => {
     const colors: Record<string, string> = {
-      placed: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400",
       paid: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
       packed: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
-      shipped: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-400",
-      delivered: "bg-green-500/20 text-green-700 dark:text-green-400",
-      cancelled: "bg-red-500/20 text-red-700 dark:text-red-400",
-      refunded: "bg-gray-500/20 text-gray-700 dark:text-gray-400"
+      collected: "bg-green-500/20 text-green-700 dark:text-green-400",
+      out_for_delivery: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-400",
+      delivered: "bg-green-500/20 text-green-700 dark:text-green-400"
     };
-    return colors[s] || colors.placed;
+    return colors[s] || colors.paid;
   };
 
   const getFulfillmentColor = (f: string) => {
@@ -129,16 +127,13 @@ export default function Orders() {
   };
 
   const getActionButtonText = (order: any) => {
-    const status = order.status || 'placed';
+    const status = order.status || 'paid';
     const fulfillment = order.fulfillment_type || 'delivery';
     
     if (status === 'packed' && fulfillment === 'collection') {
       return 'Ready for Collection';
     }
     if (status === 'packed' && fulfillment === 'delivery') {
-      return 'Mark Shipped';
-    }
-    if (status === 'shipped' && fulfillment === 'delivery') {
       return 'Out for Delivery';
     }
     return 'View Details';
@@ -246,13 +241,11 @@ export default function Orders() {
             />
             <select className="orders-select" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
               <option value="">All Status</option>
-              <option value="placed">Placed</option>
               <option value="paid">Paid</option>
               <option value="packed">Packed</option>
-              <option value="shipped">Shipped</option>
+              <option value="collected">Collected</option>
+              <option value="out_for_delivery">Out for Delivery</option>
               <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="refunded">Refunded</option>
             </select>
             <select className="orders-select" value={fulfillment} onChange={e => { setFulfillment(e.target.value); setPage(1); }}>
               <option value="">All Fulfillment</option>
@@ -314,16 +307,23 @@ export default function Orders() {
                   <td>
                     <select
                       className="orders-select text-xs py-1 px-2 min-w-[100px]"
-                      value={r.status || "placed"}
+                      value={r.status || "paid"}
                       onChange={e => updateStatus(r.id, e.target.value)}
                     >
-                      <option value="placed">Placed</option>
-                      <option value="paid">Paid</option>
-                      <option value="packed">Packed</option>
-                      <option value="shipped">Shipped</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
-                      <option value="refunded">Refunded</option>
+                      {r.fulfillment_type === 'collection' ? (
+                        <>
+                          <option value="paid">Paid</option>
+                          <option value="packed">Packed</option>
+                          <option value="collected">Collected</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="paid">Paid</option>
+                          <option value="packed">Packed</option>
+                          <option value="out_for_delivery">Out for Delivery</option>
+                          <option value="delivered">Delivered</option>
+                        </>
+                      )}
                     </select>
                   </td>
                   <td className="text-center font-medium">{r.item_count || 0}</td>

@@ -82,15 +82,13 @@ export default function OrderDetail() {
   
   const getStatusColor = (s: string) => {
     const colors: Record<string, string> = {
-      placed: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
       paid: "bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30",
       packed: "bg-purple-500/20 text-purple-700 dark:text-purple-400 border-purple-500/30",
-      shipped: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border-indigo-500/30",
-      delivered: "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30",
-      cancelled: "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30",
-      refunded: "bg-gray-500/20 text-gray-700 dark:text-gray-400 border-gray-500/30"
+      collected: "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30",
+      out_for_delivery: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border-indigo-500/30",
+      delivered: "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30"
     };
-    return colors[s] || colors.placed;
+    return colors[s] || colors.paid;
   };
 
   if (loading) {
@@ -117,28 +115,28 @@ export default function OrderDetail() {
   const shippingAddr = order.shipping_address || {};
 
   const getActionButtonLabel = () => {
-    const status = order.status || 'placed';
+    const status = order.status || 'paid';
     if (status === 'packed' && fulfillmentType === 'collection') {
-      return 'Ready for Collection';
+      return 'Mark Collected';
     }
     if (status === 'packed' && fulfillmentType === 'delivery') {
-      return 'Mark Shipped';
-    }
-    if (status === 'shipped' && fulfillmentType === 'delivery') {
       return 'Out for Delivery';
+    }
+    if (status === 'out_for_delivery' && fulfillmentType === 'delivery') {
+      return 'Mark Delivered';
     }
     return null;
   };
 
   const getActionButtonAction = () => {
-    const status = order.status || 'placed';
+    const status = order.status || 'paid';
     if (status === 'packed' && fulfillmentType === 'collection') {
-      return () => updateStatus("delivered");
+      return () => updateStatus("collected");
     }
     if (status === 'packed' && fulfillmentType === 'delivery') {
-      return () => setShowShippedModal(true);
+      return () => updateStatus("out_for_delivery");
     }
-    if (status === 'shipped' && fulfillmentType === 'delivery') {
+    if (status === 'out_for_delivery' && fulfillmentType === 'delivery') {
       return () => updateStatus("delivered");
     }
     return null;
@@ -248,8 +246,8 @@ export default function OrderDetail() {
           Back
         </button>
         <h1 className="text-2xl font-bold flex-1">Order Details</h1>
-        <span className={`px-4 py-2 rounded-lg text-sm font-semibold border ${getStatusColor(order.status || 'placed')}`}>
-          {(order.status || 'PLACED').toUpperCase()}
+        <span className={`px-4 py-2 rounded-lg text-sm font-semibold border ${getStatusColor(order.status || 'paid')}`}>
+          {(order.status || 'PAID').toUpperCase()}
         </span>
       </div>
 
@@ -406,15 +404,6 @@ export default function OrderDetail() {
 
       {/* Action Buttons */}
       <div className="flex gap-3 flex-wrap">
-        {order.status === "placed" && (
-          <button
-            onClick={() => updateStatus("paid")}
-            className="detail-button detail-button-primary"
-          >
-            Mark Paid
-          </button>
-        )}
-        
         {order.status === "paid" && (
           <button
             onClick={() => updateStatus("packed")}
@@ -433,21 +422,12 @@ export default function OrderDetail() {
           </button>
         )}
         
-        {order.status === "shipped" && fulfillmentType === 'delivery' && (
+        {order.status === "out_for_delivery" && fulfillmentType === 'delivery' && (
           <button
             onClick={() => updateStatus("delivered")}
             className="detail-button detail-button-primary"
           >
             Mark Delivered
-          </button>
-        )}
-
-        {(order.status === "placed" || order.status === "paid" || order.status === "packed") && (
-          <button
-            onClick={handleCancel}
-            className="detail-button detail-button-danger"
-          >
-            Cancel Order
           </button>
         )}
       </div>
