@@ -11,7 +11,8 @@ export default function OrderDetail() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [trackingNumber, setTrackingNumber] = useState("");
-  const [shippingProvider, setShippingProvider] = useState("");
+  const [shippingProvider, setShippingProvider] = useState("courier");
+  const [showShippedModal, setShowShippedModal] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -38,9 +39,16 @@ export default function OrderDetail() {
       showToast('success', `Order marked as ${newStatus}`);
       load();
       setTrackingNumber("");
-      setShippingProvider("");
+      setShippingProvider("courier");
+      setShowShippedModal(false);
     } else {
       showToast('error', j.error || "Failed to update status");
+    }
+  }
+
+  function handleCancel() {
+    if (window.confirm("Are you sure you want to cancel this order?")) {
+      updateStatus("cancelled");
     }
   }
 
@@ -49,14 +57,18 @@ export default function OrderDetail() {
       showToast('error', "Please enter a tracking number");
       return;
     }
-    updateStatus("shipped", trackingNumber, shippingProvider || "courier");
+    updateStatus("shipped", trackingNumber, shippingProvider);
   }
 
   useEffect(() => { load(); }, [id]);
 
   const moneyZAR = (n: number) => `R${(n || 0).toFixed(2)}`;
+  const formatDate = (d: string) => {
+    if (!d) return "-";
+    return new Date(d).toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
   const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
+    placed: "bg-yellow-100 text-yellow-800",
     paid: "bg-blue-100 text-blue-800",
     packed: "bg-purple-100 text-purple-800",
     shipped: "bg-indigo-100 text-indigo-800",
@@ -73,6 +85,9 @@ export default function OrderDetail() {
     return <div className="p-6">Order not found</div>;
   }
 
+  const fulfillmentType = order.fulfillment_type || 'delivery';
+  const shippingAddr = order.shipping_address || {};
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
@@ -80,28 +95,73 @@ export default function OrderDetail() {
           ← Back
         </button>
         <h1 className="text-xl font-semibold">Order Details</h1>
-        <span className={`ml-auto px-3 py-1 rounded text-sm font-medium ${statusColors[order.status] || statusColors.pending}`}>
-          {order.status?.toUpperCase() || "PENDING"}
+        <span className={`ml-auto px-3 py-1 rounded text-sm font-medium ${statusColors[order.status] || statusColors.placed}`}>
+          {order.status?.toUpperCase() || "PLACED"}
         </span>
+      </div>
+
+      {/* Fulfillment Badge */}
+      <div className="border rounded p-4 bg-gray-50">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold">Fulfillment Type:</span>
+          <span className={`px-4 py-2 rounded text-sm font-medium ${
+            fulfillmentType === 'delivery' ? 'bg-teal-100 text-teal-800' : 'bg-purple-100 text-purple-800'
+          }`}>
+            {fulfillmentType === 'delivery' ? '🚚 DELIVERY' : '📦 COLLECTION'}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
+          {/* Customer Section */}
           <div className="border rounded p-4">
-            <h2 className="font-semibold mb-2">Buyer Information</h2>
+            <h2 className="font-semibold mb-2">Customer</h2>
             <div className="text-sm space-y-1">
               <div><strong>Name:</strong> {order.buyer_name || "-"}</div>
-              <div><strong>Email:</strong> {order.buyer_email || "-"}</div>
-              <div><strong>Phone:</strong> {order.buyer_phone || "-"}</div>
+              <div>
+                <strong>Email:</strong>{" "}
+                {order.buyer_email ? (
+                  <a href={`mailto:${order.buyer_email}`} className="text-blue-600 hover:underline">
+                    {order.buyer_email}
+                  </a>
+                ) : "-"}
+              </div>
+              <div>
+                <strong>Phone:</strong>{" "}
+                {order.contact_phone || order.buyer_phone ? (
+                  <a href={`tel:${order.contact_phone || order.buyer_phone}`} className="text-blue-600 hover:underline">
+                    {order.contact_phone || order.buyer_phone}
+                  </a>
+                ) : "-"}
+              </div>
             </div>
           </div>
 
-          {order.shipping_address && (
+          {/* Shipping Address */}
+          {fulfillmentType === 'delivery' ? (
             <div className="border rounded p-4">
               <h2 className="font-semibold mb-2">Shipping Address</h2>
-              <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto">
-                {JSON.stringify(order.shipping_address, null, 2)}
-              </pre>
+              {shippingAddr.line1 || shippingAddr.address_line1 ? (
+                <div className="text-sm space-y-1">
+                  <div>{shippingAddr.line1 || shippingAddr.address_line1}</div>
+                  {shippingAddr.line2 || shippingAddr.address_line2 && <div>{shippingAddr.line2 || shippingAddr.address_line2}</div>}
+                  <div>{shippingAddr.city || shippingAddr.suburb}</div>
+                  {(shippingAddr.province || shippingAddr.zone) && <div>{shippingAddr.province || shippingAddr.zone}</div>}
+                  {(shippingAddr.postal_code || shippingAddr.postcode) && <div>{shippingAddr.postal_code || shippingAddr.postcode}</div>}
+                  {shippingAddr.country && <div>{shippingAddr.country}</div>}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">Address missing</div>
+              )}
+            </div>
+          ) : (
+            <div className="border rounded p-4 bg-gray-50">
+              <h2 className="font-semibold mb-2">Collection</h2>
+              <div className="text-sm text-gray-600">Collection – no address required</div>
+              {order.collection_location && (
+                <div className="text-sm mt-2"><strong>Location:</strong> {order.collection_location}</div>
+              )}
             </div>
           )}
 
@@ -114,12 +174,12 @@ export default function OrderDetail() {
         </div>
 
         <div className="space-y-4">
+          {/* Order Information */}
           <div className="border rounded p-4">
             <h2 className="font-semibold mb-2">Order Information</h2>
             <div className="text-sm space-y-1">
               <div><strong>Order ID:</strong> <span className="font-mono text-xs">{order.id}</span></div>
               <div><strong>Payment ID:</strong> <span className="font-mono text-xs">{order.m_payment_id || "-"}</span></div>
-              <div><strong>Created:</strong> {new Date(order.created_at).toLocaleString()}</div>
               {order.tracking_number && (
                 <div><strong>Tracking:</strong> {order.tracking_number}</div>
               )}
@@ -128,9 +188,24 @@ export default function OrderDetail() {
               )}
             </div>
           </div>
+
+          {/* Timeline */}
+          <div className="border rounded p-4">
+            <h2 className="font-semibold mb-2">Timeline</h2>
+            <div className="text-sm space-y-1">
+              <div><strong>Placed:</strong> {formatDate(order.placed_at || order.created_at)}</div>
+              {order.paid_at && (
+                <div><strong>Paid:</strong> {formatDate(order.paid_at)}</div>
+              )}
+              {order.fulfilled_at && (
+                <div><strong>Fulfilled:</strong> {formatDate(order.fulfilled_at)}</div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* Items Table */}
       <div className="border rounded p-4">
         <h2 className="font-semibold mb-4">Items</h2>
         <table className="w-full text-sm">
@@ -159,7 +234,17 @@ export default function OrderDetail() {
         </table>
       </div>
 
+      {/* Action Buttons */}
       <div className="flex gap-2 flex-wrap">
+        {order.status === "placed" && (
+          <button
+            onClick={() => updateStatus("paid")}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Mark Paid
+          </button>
+        )}
+        
         {order.status === "paid" && (
           <button
             onClick={() => updateStatus("packed")}
@@ -170,28 +255,12 @@ export default function OrderDetail() {
         )}
         
         {order.status === "packed" && (
-          <>
-            <input
-              type="text"
-              placeholder="Tracking Number"
-              className="border px-3 py-2 rounded"
-              value={trackingNumber}
-              onChange={e => setTrackingNumber(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Shipping Provider (optional)"
-              className="border px-3 py-2 rounded"
-              value={shippingProvider}
-              onChange={e => setShippingProvider(e.target.value)}
-            />
-            <button
-              onClick={handleShipped}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-            >
-              Mark Shipped
-            </button>
-          </>
+          <button
+            onClick={() => setShowShippedModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            Mark Shipped
+          </button>
         )}
         
         {order.status === "shipped" && (
@@ -202,8 +271,59 @@ export default function OrderDetail() {
             Mark Delivered
           </button>
         )}
+
+        {(order.status === "placed" || order.status === "paid" || order.status === "packed") && (
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Cancel Order
+          </button>
+        )}
       </div>
+
+      {/* Shipped Modal */}
+      {showShippedModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 max-w-md w-full space-y-4">
+            <h3 className="text-lg font-semibold">Mark as Shipped</h3>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Tracking Number *</label>
+              <input
+                type="text"
+                className="w-full border px-3 py-2 rounded"
+                value={trackingNumber}
+                onChange={e => setTrackingNumber(e.target.value)}
+                placeholder="Enter tracking number"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Shipping Provider</label>
+              <input
+                type="text"
+                className="w-full border px-3 py-2 rounded"
+                value={shippingProvider}
+                onChange={e => setShippingProvider(e.target.value)}
+                placeholder="courier"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setShowShippedModal(false); setTrackingNumber(""); }}
+                className="px-4 py-2 border rounded hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleShipped}
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              >
+                Mark Shipped
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

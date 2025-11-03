@@ -5,10 +5,11 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 export const handler: Handler = async (e) => {
   try {
     const id = new URL(e.rawUrl).searchParams.get("id");
-    if (!id) return { statusCode: 400, body: "Missing id" };
+    if (!id) return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing id" }) };
 
     const { data: order, error: oErr } = await s.from("orders")
-      .select("*").eq("id", id).single();
+      .select("*, shipping_address, shipping_method, contact_phone, placed_at, fulfilled_at, paid_at")
+      .eq("id", id).single();
     if (oErr) throw oErr;
 
     const { data: items, error: iErr } = await s.from("order_items")
