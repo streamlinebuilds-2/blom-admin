@@ -1,18 +1,17 @@
 (function () {
   if (typeof window === 'undefined') return;
-  const origFetch = window.fetch;
+  const originalFetch = window.fetch;
   (window as any).fetch = async function(input: RequestInfo | URL, init?: RequestInit) {
-    const url = String(typeof input === 'string' ? input : (input as Request)?.url || '');
+    const url = typeof input === 'string' ? input : (input as Request)?.url?.toString() || '';
+    const method = (init?.method || (input as Request)?.method || 'GET').toUpperCase();
+    
     // Only block WRITES (POST, PATCH, PUT, DELETE) to Supabase REST, allow GET (reads)
-    if (url.includes('supabase.co/rest/v1/')) {
-      const method = (init?.method || (input as Request)?.method || 'GET').toUpperCase();
-      if (method !== 'GET') {
-        console.error('🚫 Blocked client REST WRITE. Use Netlify functions.');
-        throw new Error('Client-side Supabase REST writes blocked. Use /.netlify/functions/* instead.');
-      }
-      // Allow GET requests for reads
+    if (url.includes('.supabase.co/rest/v1') && method !== 'GET') {
+      console.warn('[Guard] blocked client REST write:', method, url);
+      throw new Error('Blocked client-side write to Supabase REST. Use Netlify functions.');
     }
-    return origFetch.call(window, input as any, init);
+    
+    return originalFetch.call(window, input as any, init);
   };
 })();
 

@@ -44,6 +44,11 @@ export default function ProductEdit() {
   }, [id, isNew]);
 
   async function onSave() {
+    // Diagnostic logging
+    console.log('[SAVE] typeof form:', typeof form);
+    console.log('[SAVE] typeof setForm:', typeof setForm);
+    console.log('[SAVE] form:', form);
+    
     setLoading(true);
     setError("");
     setSaveResult(null);
@@ -51,60 +56,72 @@ export default function ProductEdit() {
     try {
       // Convert form to payload
       const payload = formToPayload(form);
+      console.log('[SAVE] payload:', payload);
       
       // 1) Save via service-role Netlify function
       const saved = await saveProduct(payload);
+      console.log('[SAVE] saved response:', saved);
       
-      if (!saved?.ok || !saved?.product) {
-        throw new Error(saved?.error || 'Save failed');
+      // Handle response structure: { ok: true, product: {...} } or direct product
+      if (!saved) {
+        throw new Error('Save failed: no response');
+      }
+      
+      if (!saved.ok) {
+        throw new Error(saved.error || 'Save failed');
+      }
+      
+      if (!saved.product) {
+        throw new Error('Save failed: no product in response');
       }
 
-      // 2) Kick Flow A via proxy (branch/PR), optional
-      try {
-        const proxyPayload = {
-          action: 'create_or_update_product',
-          product: {
-            id: saved.product?.id ?? form.id ?? null,
-            name: form.name,
-            slug: form.slug,
-            image_url: form.image_url,
-            gallery: form.gallery ?? [],
-            price: Number(form.price),
-            compare_at_price: form.compare_at_price,
-            stock: Number(form.stock),
-            status: form.status,
-            short_description: form.short_description ?? '',
-            long_description: form.long_description ?? '',
-          }
-        };
-        
-        const prox = await fetch("/.netlify/functions/products-intake-proxy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(proxyPayload)
-        });
-        
-        if (!prox.ok) {
-          console.warn("Proxy call failed:", prox.status, await prox.text().catch(() => ''));
-        } else {
-          const text = await prox.text();
-          let j: any = null;
-          try { j = JSON.parse(text); } catch {}
-          
-          // Handle response from n8n (could be in data field if wrapped)
-          const response = j?.data || j;
-          if (response) {
-            setSaveResult({
-              prUrl: response.prUrl || response.pr || null,
-              previewUrl: response.previewUrl || response.preview || null,
-              prNumber: response.prNumber || response.pr_num || null,
-              branch: response.branch || response.ref || null,
-            });
-          }
+      // 2) Kick Flow A via proxy (branch/PR), optional - fire and log, don't block UI
+      const proxyPayload = {
+        action: 'create_or_update_product',
+        product: {
+          id: saved.product?.id ?? form.id ?? null,
+          name: form.name,
+          slug: form.slug,
+          image_url: form.image_url,
+          gallery: form.gallery ?? [],
+          price: Number(form.price),
+          compare_at_price: form.compare_at_price,
+          stock: Number(form.stock),
+          status: form.status,
+          short_description: form.short_description ?? '',
+          long_description: form.long_description ?? '',
         }
-      } catch (proxyErr) {
-        console.warn("Proxy call failed (non-critical):", proxyErr);
-      }
+      };
+      
+      fetch("/.netlify/functions/products-intake-proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proxyPayload)
+      })
+        .then(async (prox) => {
+          const bText = await prox.text();
+          console.log('[FLOW A proxy]', prox.status, bText);
+          
+          if (prox.ok) {
+            try {
+              const j = JSON.parse(bText);
+              const response = j?.data || j;
+              if (response) {
+                setSaveResult({
+                  prUrl: response.prUrl || response.pr || null,
+                  previewUrl: response.previewUrl || response.preview || null,
+                  prNumber: response.prNumber || response.pr_num || null,
+                  branch: response.branch || response.ref || null,
+                });
+              }
+            } catch (parseErr) {
+              // Non-critical, continue
+            }
+          }
+        })
+        .catch((proxyErr) => {
+          console.warn("Proxy call failed (non-critical):", proxyErr);
+        });
 
       // Update form with saved product ID if new
       if (isNew && saved.product?.id) {
@@ -116,11 +133,12 @@ export default function ProductEdit() {
         description: `Saved ${form.name} (${form.slug})` 
       });
       
-    } catch (e: any) {
-      setError(e?.message || "Save failed");
+    } catch (err: any) {
+      console.error('[SAVE ERROR]', err);
+      setError(err?.message || "Save failed");
       toast({ 
         title: "Error", 
-        description: e?.message || "Failed to save product",
+        description: err?.message || "Failed to save product",
         variant: "destructive"
       });
     } finally {
