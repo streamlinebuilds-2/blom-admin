@@ -13,18 +13,32 @@ const TRANSITIONS: Record<string, string[]> = {
 };
 
 export const handler: Handler = async (e) => {
-  if (e.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
+  if (e.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: false, error: "Method Not Allowed" })
+    };
+  }
   try {
     const body = JSON.parse(e.body || "{}");
     const { id, status, tracking_number, shipping_provider } = body;
     if (!id || !status) {
-      return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing id/status" }) };
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ ok: false, error: "Missing id/status" })
+      };
     }
 
     // Get current status
     const { data: current, error: fetchErr } = await s.from("orders").select("status").eq("id", id).single();
     if (fetchErr || !current) {
-      return { statusCode: 404, body: JSON.stringify({ ok: false, error: "Order not found" }) };
+      return {
+        statusCode: 404,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ ok: false, error: "Order not found" })
+      };
     }
 
     const currentStatus = current.status || 'placed';
@@ -32,7 +46,11 @@ export const handler: Handler = async (e) => {
     // Validate transition
     const allowed = TRANSITIONS[currentStatus] || [];
     if (!allowed.includes(status) && status !== currentStatus) {
-      return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid transition ${currentStatus} → ${status}` }) };
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ ok: false, error: `Invalid transition ${currentStatus} → ${status}` })
+      };
     }
 
     const patch: any = { status, updated_at: new Date().toISOString() };
@@ -54,8 +72,16 @@ export const handler: Handler = async (e) => {
       } catch {}
     }
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true, data }) };
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: true, data })
+    };
   } catch (err:any) {
-    return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: false, error: err.message || String(err) })
+    };
   }
 };

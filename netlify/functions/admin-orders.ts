@@ -4,6 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 export const handler: Handler = async (e) => {
+  // Add early check for missing env vars
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: false, error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables" })
+    };
+  }
+
   try {
     const url = new URL(e.rawUrl);
     const page = Number(url.searchParams.get("page") || 1);
@@ -52,8 +61,16 @@ export const handler: Handler = async (e) => {
       short_code: "BL-" + (r.m_payment_id || "").replace(/[^A-Za-z0-9]/g,"").slice(-8).toUpperCase()
     }));
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true, total: count || 0, data }) };
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: true, total: count || 0, data })
+    };
   } catch (err:any) {
-    return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: false, error: err.message || String(err) })
+    };
   }
 };

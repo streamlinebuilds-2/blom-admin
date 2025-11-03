@@ -5,7 +5,13 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 export const handler: Handler = async (e) => {
   try {
     const id = new URL(e.rawUrl).searchParams.get("id");
-    if (!id) return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing id" }) };
+    if (!id) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ ok: false, error: "Missing id" })
+      };
+    }
 
     const { data: order, error: oErr } = await s.from("orders")
       .select("*, shipping_address, shipping_method, contact_phone, placed_at, fulfilled_at, paid_at")
@@ -16,8 +22,16 @@ export const handler: Handler = async (e) => {
       .select("*").eq("order_id", id).order("product_name", { ascending: true });
     if (iErr) throw iErr;
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true, order, items }) };
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: true, order, items })
+    };
   } catch (err:any) {
-    return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: false, error: err.message || String(err) })
+    };
   }
 };
