@@ -62,10 +62,21 @@ export const handler: Handler = async (e) => {
       };
     }
 
-    const patch: any = { status, updated_at: new Date().toISOString() };
-    if (status === 'delivered' || status === 'collected') {
-      patch.fulfilled_at = new Date().toISOString();
+    const now = new Date().toISOString();
+    const patch: any = { status, updated_at: now };
+    
+    // Set timeline timestamps
+    if (status === 'packed') patch.order_packed_at = now;
+    if (status === 'collected') {
+      patch.order_collected_at = now;
+      patch.fulfilled_at = now;
     }
+    if (status === 'out_for_delivery') patch.order_out_for_delivery_at = now;
+    if (status === 'delivered') {
+      patch.order_delivered_at = now;
+      patch.fulfilled_at = now;
+    }
+    
     if (tracking_number) patch.tracking_number = tracking_number;
     if (shipping_provider) patch.shipping_provider = shipping_provider;
 

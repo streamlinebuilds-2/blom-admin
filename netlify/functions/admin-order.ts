@@ -14,7 +14,7 @@ export const handler: Handler = async (e) => {
     }
 
     const { data: order, error: oErr } = await s.from("orders")
-      .select("*, shipping_address, shipping_method, contact_phone, placed_at, fulfilled_at, paid_at")
+      .select("*, shipping_address, shipping_method, contact_phone, placed_at, fulfilled_at, paid_at, order_packed_at, order_collected_at, order_out_for_delivery_at, order_delivered_at")
       .eq("id", id).single();
     if (oErr) throw oErr;
 

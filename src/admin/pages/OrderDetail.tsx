@@ -330,6 +330,18 @@ export default function OrderDetail() {
               {order.paid_at && (
                 <div><strong>Paid:</strong> <span className="ml-2 opacity-70">{formatDate(order.paid_at)}</span></div>
               )}
+              {order.order_packed_at && (
+                <div><strong>Packed:</strong> <span className="ml-2 opacity-70">{formatDate(order.order_packed_at)}</span></div>
+              )}
+              {fulfillmentType === 'collection' && order.order_collected_at && (
+                <div><strong>Collected:</strong> <span className="ml-2 opacity-70">{formatDate(order.order_collected_at)}</span></div>
+              )}
+              {fulfillmentType === 'delivery' && order.order_out_for_delivery_at && (
+                <div><strong>Out for Delivery:</strong> <span className="ml-2 opacity-70">{formatDate(order.order_out_for_delivery_at)}</span></div>
+              )}
+              {fulfillmentType === 'delivery' && order.order_delivered_at && (
+                <div><strong>Delivered:</strong> <span className="ml-2 opacity-70">{formatDate(order.order_delivered_at)}</span></div>
+              )}
               {order.fulfilled_at && (
                 <div><strong>Fulfilled:</strong> <span className="ml-2 opacity-70">{formatDate(order.fulfilled_at)}</span></div>
               )}
