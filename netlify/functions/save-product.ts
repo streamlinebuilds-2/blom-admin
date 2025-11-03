@@ -1,154 +1,108 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-const N8N_BASE = process.env.N8N_BASE!; // e.g. https://n8n.yourdomain.com
-const FLOW_A = `${N8N_BASE}/webhook/products-intake`;   // Flow A: create/commit product JSON and open PR
-const FLOW_B = `${N8N_BASE}/webhook/products-preview`;  // Flow B: create PR & get preview URL
-
-type ProductInput = {
-  id?: string;
-  name: string;
-  slug?: string;
-  sku?: string;
-  price: number;
-  product_type?: string;
-  active?: boolean;
-  // website-specific fields for the JSON card/page:
-  subtitle?: string;
-  currency?: string;
-  stock?: number;
-  badges?: string[];
-  category?: string;
-  tags?: string[];
-  thumbnail?: string;
-  images?: string[];
-  shortDescription?: string;
-  descriptionHtml?: string;
-  seo?: Record<string, any>;
-};
+const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
 
 export const handler: Handler = async (event) => {
   try {
-    if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
-    const body: ProductInput = JSON.parse(event.body || "{}");
-
-    if (!body.name || body.price == null) {
-      return { statusCode: 400, body: "Missing required fields (name, price)" };
+    if (event.httpMethod !== 'POST') {
+      return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Method Not Allowed' }) };
+    }
+    if (!event.body) {
+      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Empty body' }) };
     }
 
-    // --- 1) Push to n8n Flow A: create/commit product JSON and open PR
-    const draft = {
-      title: body.name,
-      slug: body.slug || "",
-      price: Number(body.price),
-      currency: body.currency || "ZAR",
-      sku: body.sku || "",
-      status: body.active ? "active" : "draft",
-      stock: body.stock || 0,
-      badges: body.badges || [],
-      category: body.category || "",
-      tags: body.tags || [],
-      subtitle: body.subtitle || "",
-      thumbnail: body.thumbnail || "",
-      images: body.images || [],
-      shortDescription: body.shortDescription || "",
-      descriptionHtml: body.descriptionHtml || "",
-      seo: body.seo || {},
+    let body: any;
+    try {
+      body = JSON.parse(event.body);
+    } catch {
+      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid JSON' }) };
+    }
+
+    // Diagnostic dryRun
+    if (body?.dryRun) {
+      const supabaseUrl = process.env.SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      if (!supabaseUrl || !serviceKey) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'Server not configured (SUPABASE envs missing)' }) };
+      }
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      const { data, error } = await admin.from('products').select('id').limit(1);
+      if (error) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `products select failed: ${error.message}` }) };
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, note: 'products selectable', sample: (data||[]).map((r:any)=>r.id) }) };
+    }
+
+    // Validate requireds (name, slug, price)
+    const name = String(body.name || '').trim();
+    const slug = String(body.slug || '').trim();
+    const price = Number(body.price);
+    const stock = Number(body.stock ?? 0);
+
+    if (!name || !slug) {
+      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing required fields (name, slug)' }) };
+    }
+    if (!Number.isFinite(price)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid price' }) };
+    }
+    if (!Number.isFinite(stock)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid stock' }) };
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL!;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    if (!supabaseUrl || !serviceKey) {
+      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'Server not configured (SUPABASE envs missing)' }) };
+    }
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    const compareAt = body.compare_at_price == null ? null : Number(body.compare_at_price);
+
+    // Map to table schema (write both numeric and *_cents fields, and sync stock variants)
+    const row: any = {
+      id: body.id ?? undefined,
+      name,
+      slug,
+      status: body.status ?? 'active',
+      price: price,
+      price_cents: Math.round(price * 100),
+      compare_at_price: compareAt,
+      compare_at_price_cents: compareAt == null ? null : Math.round(compareAt * 100),
+      // sync stock fields commonly present in your schema
+      stock: stock,
+      stock_on_hand: stock,
+      stock_qty: stock,
+      // descriptions
+      short_description: body.short_description ?? null,
+      short_desc: body.short_description ?? null,
+      long_description: body.long_description ?? null,
+      // images/media
+      image_url: body.image_url ?? null,
+      gallery: Array.isArray(body.gallery) ? body.gallery : [],
+      updated_at: new Date().toISOString(),
+      // Additional fields
+      ingredients_inci: body.ingredients_inci ?? null,
+      variants: Array.isArray(body.variants) ? body.variants : [],
     };
 
-    const aRes = await fetch(FLOW_A, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        source: "admin_ui",
-        action: "create_or_update_product",
-        draft,
-      }),
-    });
-
-    if (!aRes.ok) {
-      const errorText = await aRes.text();
-      return { statusCode: 502, body: `Flow A failed: ${errorText}` };
-    }
-
-    const flowAResult = await aRes.json();
-    const branch = flowAResult.branch || flowAResult.branchClean || `add-${(body.slug || body.name).toLowerCase()}`;
-    const aSlug = flowAResult.slug || body.slug || "";
-
-    // --- 2) Flow B: ensure PR exists and fetch preview URL
-    const bRes = await fetch(FLOW_B, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        branchClean: branch,
-        slug: aSlug,
-        title: body.name,
-        templateType: "product",
-      }),
-    });
-
-    if (!bRes.ok) {
-      const errorText = await bRes.text();
-      return { statusCode: 502, body: `Flow B failed: ${errorText}` };
-    }
-
-    const flowBResult = await bRes.json();
-
-    // --- 3) Supabase mirror (for admin filters/analytics/price history)
-    // Fetch previous price (if any) to decide if we log history explicitly
-    let prevPrice: number | null = null;
-    if (body.id) {
-      const { data: existing } = await supabase
-        .from("products")
-        .select("price")
-        .eq("id", body.id)
-        .single();
-      prevPrice = existing?.price ?? null;
-    }
-
-    const { data: upserted, error: uErr } = await supabase
-      .from("products")
-      .upsert(
-        {
-          id: body.id ?? undefined,
-          name: body.name,
-          slug: (aSlug || body.slug || "").toLowerCase(),
-          sku: body.sku || null,
-          price: Number(body.price),
-          product_type: body.product_type || "simple",
-          active: body.active ?? true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "slug" }
-      )
-      .select()
+    // Upsert by slug (unique)
+    const { data, error } = await admin
+      .from('products')
+      .upsert(row, { onConflict: 'slug' })
+      .select('*')
       .single();
 
-    if (uErr) throw uErr;
-
-    // Log price history (trigger also handles it, but do it defensively)
-    if (prevPrice == null || Number(prevPrice) !== Number(body.price)) {
-      const { error: phErr } = await supabase
-        .from("product_prices")
-        .insert({
-          product_id: upserted.id,
-          price: Number(body.price),
-        });
-      // If unique-daily constraint hits, ignore
-      if (phErr && phErr.code !== "23505") throw phErr;
+    if (error) {
+      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        product: upserted,
-        prUrl: flowBResult.prUrl || flowAResult.pr_url || null,
-        previewUrl: flowBResult.previewUrl || null,
-        branch,
-      }),
+      headers,
+      body: JSON.stringify({ ok: true, product: data })
     };
   } catch (e: any) {
-    return { statusCode: 500, body: e.message || "Error saving product" };
+    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: e?.message || String(e) }) };
   }
 };
