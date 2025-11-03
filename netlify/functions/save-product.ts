@@ -12,11 +12,14 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Empty body' }) };
     }
 
+    // Parse body defensively
     let body: any;
     try {
-      body = JSON.parse(event.body);
-    } catch {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid JSON' }) };
+      body = typeof event.body === 'string' 
+        ? (event.body ? JSON.parse(event.body) : {}) 
+        : (event.body || {});
+    } catch (e) {
+      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid JSON: ' + (e instanceof Error ? e.message : String(e)) }) };
     }
 
     // Diagnostic dryRun

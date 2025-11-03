@@ -3,227 +3,308 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { ImageUploader } from "@/components/ImageUploader";
 import { publishPR } from "@/lib/publish";
-import { saveProduct } from "@/lib/products";
+import { supabase } from "@/components/supabaseClient";
+import { rowToForm, formToPayload, emptyProduct, saveProduct, type ProductForm } from "@/lib/products";
 
 export default function ProductEdit() {
   const { id } = useParams();
   const nav = useNavigate();
   const isNew = id === "new";
-  const [form, setForm] = useState<any>({
-    name: "",
-    slug: "",
-    sku: "",
-    price: 0,
-    product_type: "simple",
-    active: true,
-    subtitle: "",
-    currency: "ZAR",
-    stock: 0,
-    stock_qty: 0,
-    cost_price: 0,
-    reorder_point: 0,
-    reorder_qty: 0,
-    badges: [],
-    category: "",
-    tags: [],
-    thumbnail: "",
-    images: [],
-    shortDescription: "",
-    descriptionHtml: "",
-    seo: { title: "", description: "" },
-  });
-  const [prices, setPrices] = useState<any[]>([]);
+  const [form, setForm] = useState<ProductForm>(emptyProduct());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveResult, setSaveResult] = useState<any>(null);
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    if (isNew || !id) return;
+    
+    const loadProduct = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/products/${id}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        // Map loaded product to form shape
-        setForm((prev:any)=>({
-          ...prev,
-          id: data.id,
-          name: data.name || '',
-          slug: data.slug || '',
-          price: Number(data.price ?? data.price_cents ? (data.price_cents/100) : 0) || 0,
-          stock: Number(data.stock_on_hand ?? data.stock_qty ?? data.stock ?? 0) || 0,
-          shortDescription: data.short_description ?? '',
-          descriptionHtml: data.long_description ?? data.description ?? '',
-          thumbnail: data.image_url ?? '',
-          images: Array.isArray(data.gallery) ? data.gallery : (Array.isArray(data.images)?data.images:[]),
-          active: (data.status ?? 'active') === 'active'
-        }));
-      } catch (err) {
-        setError("Failed to fetch product.");
-        console.error(err);
+        setError("");
+        const { data, error: fetchError } = await supabase
+          .from('products')
+          .select('id,name,slug,status,price,price_cents,compare_at_price,compare_at_price_cents,stock_on_hand,stock,stock_qty,short_description,short_desc,long_description,image_url,gallery')
+          .eq('id', id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        if (!data) throw new Error('Product not found');
+        
+        setForm(rowToForm(data));
+      } catch (err: any) {
+        console.error("Failed to load product:", err);
+        setError(err?.message || "Failed to load product");
       } finally {
         setLoading(false);
       }
     };
+    
+    loadProduct();
+  }, [id, isNew]);
 
-    fetchProduct();
-    const interval = setInterval(fetchProduct, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
-  }, [id]);
-
-  async function save() {
+  async function onSave() {
     setLoading(true);
     setError("");
     setSaveResult(null);
+    
     try {
-      const payload: any = {
-        id: form.id,
-        name: String(form.name || "").trim(),
-        slug: String(form.slug || "").trim(),
-        status: form.active === false ? 'draft' : 'active',
-        price: Number(form.price || 0),
-        compare_at_price: form.compare_at_price != null ? Number(form.compare_at_price) : null,
-        stock: Number(form.stock ?? form.stock_qty ?? 0) || 0,
-        short_description: form.shortDescription ?? null,
-        long_description: form.descriptionHtml ?? null,
-        image_url: form.thumbnail ?? null,
-        gallery: Array.isArray(form.images) ? form.images : [],
-      };
-
+      // Convert form to payload
+      const payload = formToPayload(form);
+      
       // 1) Save via service-role Netlify function
       const saved = await saveProduct(payload);
-
-      // 2) Kick Flow A via proxy (branch/PR), include the saved id and parse response
-      const prox = await fetch("/.netlify/functions/products-intake-proxy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, id: saved.id })
-      });
-      const text = await prox.text();
-      let j: any = null; try { j = JSON.parse(text); } catch {}
-
-      // 3) Inform user and capture PR data if present
-      toast({ title: "Product Saved", description: `Saved ${payload.name} (${saved.slug})` });
-      if (j) {
-        setSaveResult({
-          prUrl: j.prUrl || j.pr || null,
-          previewUrl: j.previewUrl || j.preview || null,
-          prNumber: j.prNumber || j.pr_num || null,
-          branch: j.branch || j.ref || null,
-        });
+      
+      if (!saved?.ok || !saved?.product) {
+        throw new Error(saved?.error || 'Save failed');
       }
 
+      // 2) Kick Flow A via proxy (branch/PR), optional
+      try {
+        const prox = await fetch("/.netlify/functions/products-intake-proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: form.slug, name: form.name, image_url: form.image_url, id: saved.product.id })
+        });
+        const text = await prox.text();
+        let j: any = null;
+        try { j = JSON.parse(text); } catch {}
+        
+        if (j) {
+          setSaveResult({
+            prUrl: j.prUrl || j.pr || null,
+            previewUrl: j.previewUrl || j.preview || null,
+            prNumber: j.prNumber || j.pr_num || null,
+            branch: j.branch || j.ref || null,
+          });
+        }
+      } catch (proxyErr) {
+        console.warn("Proxy call failed (non-critical):", proxyErr);
+      }
+
+      // Update form with saved product ID if new
+      if (isNew && saved.product?.id) {
+        setForm(prev => ({ ...prev, id: saved.product.id }));
+      }
+
+      toast({ 
+        title: "Product Saved", 
+        description: `Saved ${form.name} (${form.slug})` 
+      });
+      
     } catch (e: any) {
-      setError(e.message);
+      setError(e?.message || "Save failed");
+      toast({ 
+        title: "Error", 
+        description: e?.message || "Failed to save product",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  if (loading && !form?.name) {
-    return <div>Loading...</div>;
+  if (loading && !form.name && !isNew) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div>{error}</div>;
-  }
-
-  if (!form) {
-    return <div>Product not found.</div>;
+  if (error && !isNew) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
+          <p className="font-semibold">Error</p>
+          <p className="text-sm mt-1">{error}</p>
+          <button
+            onClick={() => nav('/products')}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Back to Products
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Edit Product: {form.name || 'New'}</h1>
-      <ImageUploader
-        onAdd={(img) => setForm((p:any)=>({ ...p, thumbnail: img.hero, images: [...(p.images||[]), img.original] }))}
-        slug={form.slug || 'new'}
-      />
+    <div className="container mx-auto p-4 max-w-4xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{isNew ? "New Product" : `Edit: ${form.name || 'Product'}`}</h1>
+        <button
+          onClick={() => nav('/products')}
+          className="px-4 py-2 border rounded hover:bg-gray-50"
+        >
+          Back
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded p-3 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="mb-6">
+        <ImageUploader
+          onAdd={(img) => {
+            setForm(prev => ({
+              ...prev,
+              image_url: img.hero,
+              gallery: [...(prev.gallery || []), img.original]
+            }));
+          }}
+          slug={form.slug || 'new'}
+        />
+        {form.image_url && (
+          <div className="mt-2">
+            <img src={form.image_url} alt="Preview" className="h-32 object-cover rounded" />
+          </div>
+        )}
+      </div>
+
       <form onSubmit={(e) => {
         e.preventDefault();
-        save();
-      }} className="mt-6">
-        <div className="grid gap-4">
+        onSave();
+      }} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Name
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
             </label>
             <input
               type="text"
               id="name"
+              required
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
             />
           </div>
           <div>
-            <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-              Price
+            <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-1">
+              Slug *
+            </label>
+            <input
+              type="text"
+              id="slug"
+              required
+              value={form.slug}
+              onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+            />
+          </div>
+          <div>
+            <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
+              Price *
             </label>
             <input
               type="number"
+              step="0.01"
               id="price"
+              required
               value={form.price}
-              onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
             />
           </div>
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description
+            <label htmlFor="compare_at_price" className="block text-sm font-medium text-gray-700 mb-1">
+              Compare At Price
             </label>
-            <textarea
-              id="description"
-              value={form.descriptionHtml}
-              onChange={(e) => setForm({ ...form, descriptionHtml: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+            <input
+              type="number"
+              step="0.01"
+              id="compare_at_price"
+              value={form.compare_at_price ?? ''}
+              onChange={(e) => setForm(prev => ({ 
+                ...prev, 
+                compare_at_price: e.target.value ? Number(e.target.value) : null 
+              }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
             />
           </div>
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-              Category
-            </label>
-            <select
-              id="category"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-            >
-              <option value="">Select a category</option>
-              <option value="Electronics">Electronics</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Books">Books</option>
-              <option value="Home & Garden">Home & Garden</option>
-              <option value="Sports">Sports</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="stock" className="block text-sm font-medium text-gray-700">
-              Stock
+            <label htmlFor="stock" className="block text-sm font-medium text-gray-700 mb-1">
+              Stock *
             </label>
             <input
               type="number"
               id="stock"
+              required
               value={form.stock}
-              onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              onChange={(e) => setForm(prev => ({ ...prev, stock: Number(e.target.value) || 0 }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
             />
           </div>
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              id="status"
+              value={form.status}
+              onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as ProductForm['status'] }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+        </div>
+        
+        <div>
+          <label htmlFor="short_description" className="block text-sm font-medium text-gray-700 mb-1">
+            Short Description
+          </label>
+          <textarea
+            id="short_description"
+            rows={2}
+            value={form.short_description}
+            onChange={(e) => setForm(prev => ({ ...prev, short_description: e.target.value }))}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="long_description" className="block text-sm font-medium text-gray-700 mb-1">
+            Long Description
+          </label>
+          <textarea
+            id="long_description"
+            rows={6}
+            value={form.long_description}
+            onChange={(e) => setForm(prev => ({ ...prev, long_description: e.target.value }))}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+          />
+        </div>
+
+        <div className="flex gap-3">
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Saving..." : "Save Changes"}
+            {loading ? "Saving..." : "Save Product"}
+          </button>
+          <button
+            type="button"
+            onClick={() => nav('/products')}
+            className="px-6 py-2 rounded border border-gray-300 hover:bg-gray-50"
+          >
+            Cancel
           </button>
         </div>
       </form>
 
       {/* Save Result: Show PR/Preview buttons */}
       {saveResult && (
-        <div className="bg-green-50 border border-green-200 rounded p-4 space-y-3">
+        <div className="mt-6 bg-green-50 border border-green-200 rounded p-4 space-y-3">
           <p className="text-green-800 font-medium">✓ Product saved successfully!</p>
           <div className="flex gap-2 flex-wrap">
             {saveResult.prUrl && (
