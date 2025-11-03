@@ -97,6 +97,10 @@ const AuthenticatedApp = () => {
         {/* Orders routes - moved from /admin/orders to /orders */}
         <Route path="/orders" element={<Orders/>} />
         <Route path="/orders/:id" element={<OrderDetail/>} />
+        
+        {/* Keep /admin/orders for backwards compatibility */}
+        <Route path="/admin/orders" element={<Orders/>} />
+        <Route path="/admin/orders/:id" element={<OrderDetail/>} />
 
         <Route path="*" element={<PageNotFound />} />
       </Routes>
