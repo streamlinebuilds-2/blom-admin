@@ -127,12 +127,6 @@ export const handler: Handler = async (e) => {
         notifyError: webhookError || null
       })
     };
-
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, data })
-    };
   } catch (err:any) {
     return {
       statusCode: 500,
