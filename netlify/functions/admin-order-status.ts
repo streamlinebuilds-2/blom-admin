@@ -83,16 +83,50 @@ export const handler: Handler = async (e) => {
     const { data, error } = await s.from("orders").update(patch).eq("id", id).select().single();
     if (error) throw error;
 
-    // OPTIONAL: notify n8n when out for delivery
-    if (status === "out_for_delivery" && process.env.N8N_BASE) {
+    // Fire n8n webhook for status notifications (best-effort)
+    let webhookOk = true;
+    let webhookError = null;
+    
+    // Determine which webhook to call based on status
+    const webhookUrl = process.env.N8N_ORDER_STATUS_WEBHOOK;
+    const shouldNotify = (status === "collected" || status === "out_for_delivery") && webhookUrl;
+    
+    if (shouldNotify && data) {
       try {
-        await fetch(`${process.env.N8N_BASE}/webhook/order-shipped`, {
+        const res = await fetch(webhookUrl, {
           method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({ id, tracking_number, shipping_provider })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            m_payment_id: data.m_payment_id,
+            status: status === "collected" ? "ready_for_collection" : "shipped", // Map to n8n expected statuses
+            buyer_name: data.buyer_name,
+            buyer_email: data.buyer_email,
+            buyer_phone: data.contact_phone || data.buyer_phone,
+            site_url: process.env.SITE_URL || "https://blom-cosmetics.co.za",
+            tracking_number: tracking_number || data.tracking_number,
+            shipping_provider: shipping_provider || data.shipping_provider
+          })
         });
-      } catch {}
+        webhookOk = res.ok;
+        if (!res.ok) {
+          webhookError = await res.text().catch(() => "Webhook failed");
+        }
+      } catch (e: any) {
+        webhookOk = false;
+        webhookError = e?.message || "Webhook fetch failed";
+      }
     }
+
+    return {
+      statusCode: webhookOk || !shouldNotify ? 200 : 207, // 207 = Multi-Status (updated but notify failed)
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ 
+        ok: true, 
+        data,
+        notifyOk: webhookOk,
+        notifyError: webhookError || null
+      })
+    };
 
     return {
       statusCode: 200,

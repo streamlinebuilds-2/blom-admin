@@ -27,18 +27,36 @@ export default function OrderDetail() {
     setLoading(false);
   }
 
-  async function updateStatus(newStatus: string) {
+  async function updateStatus(newStatus: string, showNotification = true) {
     const r = await fetch(`/.netlify/functions/admin-order-status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status: newStatus })
     });
     const j = await r.json();
+    
     if (j.ok) {
-      showToast('success', `Order marked as ${newStatus}`);
+      if (r.status === 207) {
+        // Status updated but webhook failed
+        showToast('warning', "Status updated, but notifications failed. Check n8n.");
+        console.warn('Webhook failed:', j.notifyError);
+      } else {
+        // Success
+        if (showNotification) {
+          const statusLabels: Record<string, string> = {
+            packed: "Packed",
+            collected: "Ready for Collection",
+            out_for_delivery: "Out for Delivery",
+            delivered: "Delivered"
+          };
+          const label = statusLabels[newStatus] || newStatus;
+          showToast('success', `Status updated to ${label}${j.notifyOk !== false ? ' and notifications sent' : ''}`);
+        }
+      }
       load();
     } else {
       showToast('error', j.error || "Failed to update status");
+      console.error('Status update failed:', j);
     }
   }
 
@@ -398,25 +416,34 @@ export default function OrderDetail() {
       <div className="flex gap-3 flex-wrap">
         {order.status === "paid" && (
           <button
-            onClick={() => updateStatus("packed")}
+            onClick={() => updateStatus("packed", false)}
             className="detail-button detail-button-primary"
           >
             Mark Packed
           </button>
         )}
         
-        {order.status === "packed" && getActionButtonLabel() && (
+        {order.status === "packed" && fulfillmentType === 'collection' && (
           <button
-            onClick={getActionButtonAction()!}
+            onClick={() => updateStatus("collected")}
             className="detail-button detail-button-primary"
           >
-            {getActionButtonLabel()}
+            Ready for Collection
+          </button>
+        )}
+        
+        {order.status === "packed" && fulfillmentType === 'delivery' && (
+          <button
+            onClick={() => updateStatus("out_for_delivery")}
+            className="detail-button detail-button-primary"
+          >
+            Out for Delivery
           </button>
         )}
         
         {order.status === "out_for_delivery" && fulfillmentType === 'delivery' && (
           <button
-            onClick={() => updateStatus("delivered")}
+            onClick={() => updateStatus("delivered", false)}
             className="detail-button detail-button-primary"
           >
             Mark Delivered
