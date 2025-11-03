@@ -1,50 +1,43 @@
-// netlify/functions/admin-finance-daily.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false }
+});
 
-export const handler: Handler = async (e) => {
+export const handler: Handler = async () => {
   try {
-    const date = e.queryStringParameters?.date || new Date().toISOString().slice(0,10);
-    // Try to fetch from view, fallback to querying tables directly
-    const { data, error } = await s
-      .from("v_finance_daily")
-      .select("*")
-      .eq("date", date)
-      .single()
-      .then(r => r, async () => {
-        // Fallback: calculate from orders and operating_costs
-        const start = new Date(date + "T00:00:00Z").toISOString();
-        const end = new Date(date + "T23:59:59Z").toISOString();
-        const [orders, costs] = await Promise.all([
-          s.from("orders").select("total_cents").eq("status", "paid").gte("paid_at", start).lte("paid_at", end),
-          s.from("operating_costs").select("amount").eq("occurred_on", date)
-        ]);
-        const revenue = (orders.data || []).reduce((sum: number, o: any) => sum + (o.total_cents || 0), 0) / 100;
-        const expenses = (costs.data || []).reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
-        return { data: { date, revenue, expenses, profit: revenue - expenses }, error: null };
-      });
-    if (error) {
-      return {
-        statusCode: 500,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ ok: false, error: error.message || 'Query failed' })
-      };
+    // Try view first (v_sales_daily); if missing, fall back to quick aggregates
+    let rows: any[] = [];
+    const { data, error } = await s.from("v_sales_daily" as any).select("*").order("day", { ascending: false }).limit(14);
+    if (!error && Array.isArray(data)) {
+      rows = data as any[];
+    } else {
+      // Fallback: compute today from orders table
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const fromIso = today.toISOString();
+      const { data: orders, error: oErr } = await s
+        .from("orders")
+        .select("created_at,total,status")
+        .gte("created_at", fromIso)
+        .in("status", ["paid","packed","out_for_delivery","delivered"]); // paid-ish statuses
+      if (oErr) throw oErr;
+      const revenue = (orders || []).reduce((sum, o:any) => sum + Number(o.total || 0), 0);
+      rows = [{ day: fromIso, revenue, orders: (orders||[]).length }];
     }
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ ok: true, data })
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: true, data: rows })
     };
-  } catch (err: any) {
+  } catch (err:any) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ ok: false, error: String(err?.message || err || 'admin-finance-daily failed') })
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ ok: false, error: err?.message || String(err) })
     };
   }
 };
-
 
 

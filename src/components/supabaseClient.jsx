@@ -1,5 +1,4 @@
-// Supabase client for external database connection
-// Re-export singleton from lib/supabase
+// Unified Supabase client (singleton) + write guard
 import { supabase as singletonSupabase } from '@/lib/supabase';
 import { guardClientWrites } from '@/lib/blockClientWrites';
 
