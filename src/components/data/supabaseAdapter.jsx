@@ -1,17 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-// Singleton client to avoid multiple instances warning
-let supabaseInstance = null;
-function getSupabaseClient() {
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, supabaseKey);
-  }
-  return supabaseInstance;
-}
-const supabase = getSupabaseClient();
+// Use singleton from lib/supabase to avoid multiple clients
+import { supabase } from '@/lib/supabase';
 
 // Helper to throw on Supabase errors, but return empty array for list functions on error
 function ensure(data, error) {
@@ -64,42 +52,40 @@ export function createSupabaseAdapter() {
     },
 
     async upsertProduct(p) {
+      // Route product saves through Netlify function (service role)
       const product = { ...p };
       if (!product.slug && product.name) {
         product.slug = generateSlug(product.name);
       }
 
-      // Convert arrays to JSON strings if needed
-      if (Array.isArray(product.features))
-        product.features = JSON.stringify(product.features);
-      if (Array.isArray(product.images))
-        product.images = JSON.stringify(product.images);
+      // Map fields to match save-product function expectations
+      const payload: any = {
+        id: product.id,
+        name: String(product.name || '').trim(),
+        slug: String(product.slug || '').trim(),
+        status: product.status || (product.active === false ? 'draft' : 'active'),
+        price: Number(product.price || product.price_cents ? (product.price_cents / 100) : 0),
+        compare_at_price: product.compare_at_price != null ? Number(product.compare_at_price) : null,
+        stock: Number(product.stock ?? product.stock_qty ?? product.stock_on_hand ?? 0) || 0,
+        short_description: product.short_description ?? product.short_desc ?? null,
+        long_description: product.long_description ?? product.description ?? null,
+        image_url: product.image_url ?? product.thumbnail ?? null,
+        gallery: Array.isArray(product.images) ? product.images : (product.gallery || []),
+      };
 
-      let result;
-      if (product.id) {
-        const { data, error } = await supabase
-          .from('products')
-          .update(product)
-          .eq('id', product.id)
-          .select()
-          .single();
-        result = ensure(data, error);
-      } else {
-        const { data, error } = await supabase
-          .from('products')
-          .insert([product])
-          .select()
-          .single();
-        result = ensure(data, error);
+      const res = await fetch('/.netlify/functions/save-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`save-product failed: ${res.status} ${text}`);
       }
 
-      // Parse JSON fields back
-      if (typeof result.features === 'string')
-        result.features = JSON.parse(result.features);
-      if (typeof result.images === 'string')
-        result.images = JSON.parse(result.images);
-
-      return result;
+      const saved = await res.json();
+      return saved.product || saved;
     },
 
     // ===== INVENTORY =====

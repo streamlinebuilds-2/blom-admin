@@ -25,10 +25,24 @@ export const handler: Handler = async (e) => {
         const expenses = (costs.data || []).reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
         return { data: { date, revenue, expenses, profit: revenue - expenses }, error: null };
       });
-    if (error) return { statusCode: 500, body: error.message };
-    return { statusCode: 200, body: JSON.stringify({ data }) };
+    if (error) {
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ ok: false, error: error.message || 'Query failed' })
+      };
+    }
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ ok: true, data })
+    };
   } catch (err: any) {
-    return { statusCode: 500, body: err.message || "admin-finance-daily failed" };
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ ok: false, error: String(err?.message || err || 'admin-finance-daily failed') })
+    };
   }
 };
 

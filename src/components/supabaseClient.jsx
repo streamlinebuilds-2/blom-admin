@@ -1,9 +1,10 @@
 // Supabase client for external database connection
-import { createClient } from '@supabase/supabase-js';
+// Re-export singleton from lib/supabase
+import { supabase as singletonSupabase } from '@/lib/supabase';
+import { guardClientWrites } from '@/lib/blockClientWrites';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabase = singletonSupabase;
 
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+if (typeof window !== 'undefined' && supabase) {
+  guardClientWrites(supabase);
+}
