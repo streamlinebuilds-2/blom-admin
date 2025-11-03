@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Star,
   Users,
+  DollarSign,
   Mail,
   Megaphone, // Kept for Campaigns
   Percent, // Kept for Discounts
@@ -79,7 +80,8 @@ const navigationGroups = [
   {
     title: "Analytics",
     items: [
-      { name: "Analytics", url: "Analytics", icon: BarChart3 }
+      { name: "Analytics", url: "Analytics", icon: BarChart3 },
+      { name: "Finance", url: "finance", icon: DollarSign }
     ]
   },
   {
@@ -114,7 +116,7 @@ function NavGroup({ group, currentPath, isCollapsed }) {
           {group.items.map(item => (
             <Link
               key={item.url}
-              to={createPageUrl(item.url)}
+              to={item.url === "Orders" ? "/orders" : item.url === "finance" ? "/finance" : createPageUrl(item.url)}
               className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
             >
               <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
