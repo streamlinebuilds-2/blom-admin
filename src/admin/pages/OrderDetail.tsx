@@ -12,9 +12,6 @@ export default function OrderDetail() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-  const [trackingNumber, setTrackingNumber] = useState("");
-  const [shippingProvider, setShippingProvider] = useState("courier");
-  const [showShippedModal, setShowShippedModal] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -30,36 +27,19 @@ export default function OrderDetail() {
     setLoading(false);
   }
 
-  async function updateStatus(newStatus: string, tracking?: string, provider?: string) {
+  async function updateStatus(newStatus: string) {
     const r = await fetch(`/.netlify/functions/admin-order-status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: newStatus, tracking_number: tracking, shipping_provider: provider })
+      body: JSON.stringify({ id, status: newStatus })
     });
     const j = await r.json();
     if (j.ok) {
       showToast('success', `Order marked as ${newStatus}`);
       load();
-      setTrackingNumber("");
-      setShippingProvider("courier");
-      setShowShippedModal(false);
     } else {
       showToast('error', j.error || "Failed to update status");
     }
-  }
-
-  function handleCancel() {
-    if (window.confirm("Are you sure you want to cancel this order?")) {
-      updateStatus("cancelled");
-    }
-  }
-
-  function handleShipped() {
-    if (!trackingNumber.trim()) {
-      showToast('error', "Please enter a tracking number");
-      return;
-    }
-    updateStatus("shipped", trackingNumber, shippingProvider);
   }
 
   function toggleItem(itemId: string) {
@@ -432,50 +412,6 @@ export default function OrderDetail() {
         )}
       </div>
 
-      {/* Shipped Modal */}
-      {showShippedModal && (
-        <div className="fixed inset-0 detail-modal-overlay flex items-center justify-center z-50">
-          <div className="detail-modal">
-            <h3 className="text-lg font-semibold mb-4">Mark as Shipped</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Tracking Number *</label>
-                <input
-                  type="text"
-                  className="detail-input"
-                  value={trackingNumber}
-                  onChange={e => setTrackingNumber(e.target.value)}
-                  placeholder="Enter tracking number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Shipping Provider</label>
-                <input
-                  type="text"
-                  className="detail-input"
-                  value={shippingProvider}
-                  onChange={e => setShippingProvider(e.target.value)}
-                  placeholder="courier"
-                />
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button
-                  onClick={() => { setShowShippedModal(false); setTrackingNumber(""); }}
-                  className="detail-button"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleShipped}
-                  className="detail-button detail-button-primary"
-                >
-                  Mark Shipped
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
