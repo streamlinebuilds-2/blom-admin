@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/ToastProvider";
+import { RefreshCw } from "lucide-react";
 
 export default function Orders() {
   const [rows, setRows] = useState<any[]>([]);
@@ -84,122 +85,249 @@ export default function Orders() {
     return date.toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
+  const getStatusColor = (s: string) => {
+    const colors: Record<string, string> = {
+      placed: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400",
+      paid: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
+      packed: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
+      shipped: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-400",
+      delivered: "bg-green-500/20 text-green-700 dark:text-green-400",
+      cancelled: "bg-red-500/20 text-red-700 dark:text-red-400",
+      refunded: "bg-gray-500/20 text-gray-700 dark:text-gray-400"
+    };
+    return colors[s] || colors.placed;
+  };
+
+  const getFulfillmentColor = (f: string) => {
+    if (f === 'delivery') return "bg-teal-500/20 text-teal-700 dark:text-teal-400";
+    if (f === 'collection') return "bg-purple-500/20 text-purple-700 dark:text-purple-400";
+    return "bg-gray-500/20 text-gray-700 dark:text-gray-400";
+  };
+
+  const getActionButtonText = (order: any) => {
+    const status = order.status || 'placed';
+    const fulfillment = order.fulfillment_type || 'delivery';
+    
+    if (status === 'packed' && fulfillment === 'collection') {
+      return 'Ready for Collection';
+    }
+    if (status === 'packed' && fulfillment === 'delivery') {
+      return 'Mark Shipped';
+    }
+    if (status === 'shipped' && fulfillment === 'delivery') {
+      return 'Out for Delivery';
+    }
+    return 'View Details';
+  };
+
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold">Orders</h1>
-        <button
-          onClick={() => load()}
-          className="ml-auto text-sm px-3 py-1 border rounded hover:bg-gray-100"
-        >
-          🔄 Refresh
-        </button>
-      </div>
+    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
+      <style>{`
+        .orders-container {
+          background: var(--bg);
+          color: var(--text);
+        }
+        .orders-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 24px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .orders-input {
+          background: var(--card);
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 10px 14px;
+        }
+        .orders-input::placeholder {
+          color: var(--text-muted);
+        }
+        .orders-select {
+          background: var(--card);
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 10px 14px;
+        }
+        .orders-button {
+          background: var(--card);
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 10px 16px;
+          transition: all 0.2s;
+        }
+        .orders-button:hover {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+        .orders-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .orders-table thead {
+          background: var(--card);
+          border-bottom: 2px solid var(--border);
+        }
+        .orders-table th {
+          padding: 12px;
+          text-align: left;
+          font-weight: 600;
+          color: var(--text);
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .orders-table td {
+          padding: 14px 12px;
+          border-bottom: 1px solid var(--border);
+          color: var(--text);
+        }
+        .orders-table tbody tr:hover {
+          background: var(--card);
+        }
+        .orders-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 500;
+        }
+      `}</style>
 
-      <div className="flex items-center gap-4 flex-wrap">
-        <input
-          type="text"
-          placeholder="Search (ref, email, name, phone)..."
-          className="border px-3 py-2 rounded flex-1 min-w-[200px]"
-          value={searchInput}
-          onChange={e => setSearchInput(e.target.value)}
-        />
-        <select className="border px-3 py-2 rounded" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
-          <option value="">All Status</option>
-          <option value="placed">Placed</option>
-          <option value="paid">Paid</option>
-          <option value="packed">Packed</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="refunded">Refunded</option>
-        </select>
-        <select className="border px-3 py-2 rounded" value={fulfillment} onChange={e => { setFulfillment(e.target.value); setPage(1); }}>
-          <option value="">All Fulfillment</option>
-          <option value="delivery">Delivery</option>
-          <option value="collection">Collection</option>
-        </select>
-      </div>
-
-      <table className="w-full text-sm">
-        <thead><tr className="text-left border-b">
-          <th className="py-2">Short Code</th>
-          <th>Buyer</th>
-          <th>Fulfillment</th>
-          <th>Status</th>
-          <th>Items</th>
-          <th>Total</th>
-          <th>Placed At</th>
-          <th>Action</th>
-        </tr></thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.id} className="border-b align-top hover:bg-gray-50">
-              <td className="py-2 font-mono text-xs">{r.short_code || "-"}</td>
-              <td>
-                <div>{r.buyer_name || "-"}</div>
-                <div className="text-xs text-gray-500">{r.buyer_email || "-"}</div>
-              </td>
-              <td>
-                {r.fulfillment_type ? (
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    r.fulfillment_type === 'delivery' ? 'bg-teal-100 text-teal-800' : 'bg-purple-100 text-purple-800'
-                  }`}>
-                    {r.fulfillment_type}
-                  </span>
-                ) : "-"}
-              </td>
-              <td>
-                <select
-                  className="text-xs border px-2 py-1 rounded"
-                  value={r.status || "placed"}
-                  onChange={e => updateStatus(r.id, e.target.value)}
-                >
-                  <option value="placed">Placed</option>
-                  <option value="paid">Paid</option>
-                  <option value="packed">Packed</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="refunded">Refunded</option>
-                </select>
-              </td>
-              <td>{r.item_count || 0}</td>
-              <td>{moneyZAR(r.total)}</td>
-              <td className="text-xs text-gray-500">{formatDate(r.placed_at || r.created_at)}</td>
-              <td>
-                <button
-                  onClick={() => navigate(`/orders/${r.id}`)}
-                  className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                >
-                  Open
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length === 0 && <div className="text-center text-gray-500 py-8">No orders found</div>}
-      
-      {total > 50 && (
-        <div className="flex items-center gap-2 justify-center">
+      <div className="orders-container">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Orders</h1>
           <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-3 py-1 border rounded disabled:opacity-50"
+            onClick={() => load()}
+            className="orders-button flex items-center gap-2"
           >
-            Previous
-          </button>
-          <span className="text-sm">Page {page} of {Math.ceil(total / 50)}</span>
-          <button
-            onClick={() => setPage(p => p + 1)}
-            disabled={page >= Math.ceil(total / 50)}
-            className="px-3 py-1 border rounded disabled:opacity-50"
-          >
-            Next
+            <RefreshCw className="w-4 h-4" />
+            Refresh
           </button>
         </div>
-      )}
+
+        <div className="orders-card mb-6">
+          <div className="flex items-center gap-4 flex-wrap">
+            <input
+              type="text"
+              placeholder="Search (ref, email, name, phone)..."
+              className="orders-input flex-1 min-w-[250px]"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+            />
+            <select className="orders-select" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
+              <option value="">All Status</option>
+              <option value="placed">Placed</option>
+              <option value="paid">Paid</option>
+              <option value="packed">Packed</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="refunded">Refunded</option>
+            </select>
+            <select className="orders-select" value={fulfillment} onChange={e => { setFulfillment(e.target.value); setPage(1); }}>
+              <option value="">All Fulfillment</option>
+              <option value="delivery">Delivery</option>
+              <option value="collection">Collection</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="orders-card overflow-x-auto">
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>Short Code</th>
+                <th>Buyer</th>
+                <th>Fulfillment</th>
+                <th>Status</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Placed At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.id}>
+                  <td className="font-mono text-xs font-medium">{r.short_code || "-"}</td>
+                  <td>
+                    <div className="font-medium">{r.buyer_name || "-"}</div>
+                    <div className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{r.buyer_email || "-"}</div>
+                  </td>
+                  <td>
+                    {r.fulfillment_type ? (
+                      <span className={`orders-badge ${getFulfillmentColor(r.fulfillment_type)}`}>
+                        {r.fulfillment_type === 'delivery' ? '🚚' : '📦'} {r.fulfillment_type}
+                      </span>
+                    ) : (
+                      <span className="opacity-50">-</span>
+                    )}
+                  </td>
+                  <td>
+                    <select
+                      className="orders-select text-xs py-1 px-2 min-w-[100px]"
+                      value={r.status || "placed"}
+                      onChange={e => updateStatus(r.id, e.target.value)}
+                    >
+                      <option value="placed">Placed</option>
+                      <option value="paid">Paid</option>
+                      <option value="packed">Packed</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="refunded">Refunded</option>
+                    </select>
+                  </td>
+                  <td className="text-center font-medium">{r.item_count || 0}</td>
+                  <td className="font-semibold">{moneyZAR(r.total)}</td>
+                  <td className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{formatDate(r.placed_at || r.created_at)}</td>
+                  <td>
+                    <button
+                      onClick={() => navigate(`/orders/${r.id}`)}
+                      className="orders-button text-xs px-3 py-1.5"
+                    >
+                      {getActionButtonText(r)}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length === 0 && (
+            <div className="text-center py-12 opacity-50" style={{ color: 'var(--text-muted)' }}>
+              No orders found
+            </div>
+          )}
+        </div>
+        
+        {total > 50 && (
+          <div className="flex items-center gap-4 justify-center mt-6">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="orders-button disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm" style={{ color: 'var(--text)' }}>
+              Page {page} of {Math.ceil(total / 50)}
+            </span>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= Math.ceil(total / 50)}
+              className="orders-button disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
