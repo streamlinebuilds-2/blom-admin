@@ -75,15 +75,15 @@ export default function Orders() {
     };
   }, [searchInput]);
 
-  // Polling (every 10s when page focused)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.hasFocus()) {
-        load();
-      }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [status, fulfillment, search, page]);
+  // Polling (every 10s when page focused) - disabled for now to avoid spam
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (document.hasFocus()) {
+  //       load();
+  //     }
+  //   }, 10000);
+  //   return () => clearInterval(interval);
+  // }, [status, fulfillment, search, page]);
 
   async function updateStatus(orderId: string, newStatus: string) {
     const r = await fetch(`/.netlify/functions/admin-order-status`, {
