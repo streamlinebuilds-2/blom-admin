@@ -61,22 +61,46 @@ export default function ProductEdit() {
 
       // 2) Kick Flow A via proxy (branch/PR), optional
       try {
+        const proxyPayload = {
+          action: 'create_or_update_product',
+          product: {
+            id: saved.product?.id ?? form.id ?? null,
+            name: form.name,
+            slug: form.slug,
+            image_url: form.image_url,
+            gallery: form.gallery ?? [],
+            price: Number(form.price),
+            compare_at_price: form.compare_at_price,
+            stock: Number(form.stock),
+            status: form.status,
+            short_description: form.short_description ?? '',
+            long_description: form.long_description ?? '',
+          }
+        };
+        
         const prox = await fetch("/.netlify/functions/products-intake-proxy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: form.slug, name: form.name, image_url: form.image_url, id: saved.product.id })
+          body: JSON.stringify(proxyPayload)
         });
-        const text = await prox.text();
-        let j: any = null;
-        try { j = JSON.parse(text); } catch {}
         
-        if (j) {
-          setSaveResult({
-            prUrl: j.prUrl || j.pr || null,
-            previewUrl: j.previewUrl || j.preview || null,
-            prNumber: j.prNumber || j.pr_num || null,
-            branch: j.branch || j.ref || null,
-          });
+        if (!prox.ok) {
+          console.warn("Proxy call failed:", prox.status, await prox.text().catch(() => ''));
+        } else {
+          const text = await prox.text();
+          let j: any = null;
+          try { j = JSON.parse(text); } catch {}
+          
+          // Handle response from n8n (could be in data field if wrapped)
+          const response = j?.data || j;
+          if (response) {
+            setSaveResult({
+              prUrl: response.prUrl || response.pr || null,
+              previewUrl: response.previewUrl || response.preview || null,
+              prNumber: response.prNumber || response.pr_num || null,
+              branch: response.branch || response.ref || null,
+            });
+          }
         }
       } catch (proxyErr) {
         console.warn("Proxy call failed (non-critical):", proxyErr);
