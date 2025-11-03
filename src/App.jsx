@@ -72,9 +72,14 @@ const AuthenticatedApp = () => {
     <LayoutWrapper currentPageName={mainPageKey}>
       <Routes>
         <Route path="/" element={<MainPage />} />
-        {Object.entries(Pages).map(([path, Page]) => (
-          <Route key={path} path={`/${path}`} element={<Page />} />
-        ))}
+        
+        {/* Orders routes - MUST come before pagesConfig to override it */}
+        <Route path="/orders" element={<Orders/>} />
+        <Route path="/orders/:id" element={<OrderDetail/>} />
+        
+        {/* Keep /admin/orders for backwards compatibility */}
+        <Route path="/admin/orders" element={<Orders/>} />
+        <Route path="/admin/orders/:id" element={<OrderDetail/>} />
 
         {/* Admin Routes */}
         <Route path="/admin/products" element={<ProductsPage />} />
@@ -94,13 +99,12 @@ const AuthenticatedApp = () => {
         <Route path="/admin/finance" element={<Finance/>} />
         <Route path="/finance" element={<Finance/>} />
 
-        {/* Orders routes - moved from /admin/orders to /orders */}
-        <Route path="/orders" element={<Orders/>} />
-        <Route path="/orders/:id" element={<OrderDetail/>} />
-        
-        {/* Keep /admin/orders for backwards compatibility */}
-        <Route path="/admin/orders" element={<Orders/>} />
-        <Route path="/admin/orders/:id" element={<OrderDetail/>} />
+        {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
+        {Object.entries(Pages).map(([path, Page]) => {
+          // Skip "Orders" if it exists in pagesConfig to avoid conflict
+          if (path.toLowerCase() === 'orders') return null;
+          return <Route key={path} path={`/${path}`} element={<Page />} />;
+        })}
 
         <Route path="*" element={<PageNotFound />} />
       </Routes>
