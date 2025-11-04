@@ -76,48 +76,64 @@ const AuthenticatedApp = () => {
   return (
     <LayoutWrapper currentPageName={mainPageKey}>
       <Routes>
+        {/* Dashboard */}
         <Route path="/" element={<MainPage />} />
-        
-        {/* Root routes for key pages */}
+        <Route path="/dashboard" element={<MainPage />} />
+
+        {/* Legacy redirects - MUST come before canonical routes */}
+        <Route path="/productnew" element={<Navigate to="/products/new" replace />} />
+        <Route path="/admin/productnew" element={<Navigate to="/products/new" replace />} />
+        <Route path="/bundle-new" element={<Navigate to="/bundles/new" replace />} />
+        <Route path="/special-new" element={<Navigate to="/specials/new" replace />} />
+        <Route path="/orders-list" element={<Navigate to="/orders" replace />} />
+        {/* Redirect legacy /admin/* routes individually */}
+
+        {/* Products - Canonical Routes */}
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products/new" element={<ProductEdit />} />
+        <Route path="/products/:id" element={<ProductEdit />} />
+
+        {/* Bundles - Canonical Routes */}
+        <Route path="/bundles" element={<BundlesPage />} />
+        <Route path="/bundles/new" element={<BundleEdit />} />
+        <Route path="/bundles/:id" element={<BundleEdit />} />
+
+        {/* Specials - Canonical Routes (using Discounts for now) */}
+        <Route path="/specials" element={<Discounts />} />
+        <Route path="/specials/new" element={<Discounts />} />
+        <Route path="/specials/:id" element={<Discounts />} />
+
+        {/* Orders - Canonical Routes */}
         <Route path="/orders" element={<Orders/>} />
         <Route path="/orders/:id" element={<OrderDetail/>} />
+
+        {/* Reviews - Canonical Routes */}
+        <Route path="/reviews" element={<Reviews/>} />
+        <Route path="/reviews/:id" element={<Reviews/>} />
+
+        {/* Messages - Canonical Routes */}
+        <Route path="/messages" element={<ContactsPage/>} />
+        <Route path="/messages/:id" element={<ContactDetail/>} />
+
+        {/* Finance - Canonical Routes */}
         <Route path="/finance" element={<Finance/>} />
+        <Route path="/finance/daily" element={<Finance/>} />
+
+        {/* Settings - Canonical Routes (stub) */}
+        <Route path="/settings" element={<div className="p-6"><h1>Settings</h1><p>Settings page coming soon</p></div>} />
+        <Route path="/settings/users" element={<div className="p-6"><h1>Settings - Users</h1><p>User management coming soon</p></div>} />
+        <Route path="/settings/shipping" element={<div className="p-6"><h1>Settings - Shipping</h1><p>Shipping settings coming soon</p></div>} />
+
+        {/* Additional pages */}
         <Route path="/price-updates" element={<PriceUpdates/>} />
         <Route path="/discounts" element={<Discounts/>} />
         <Route path="/coupons" element={<CouponsPage/>} />
 
-        {/* Redirect legacy /productnew to new editor - MUST come before /products routes */}
-        <Route path="/productnew" element={<Navigate to="/products/new" replace />} />
-        <Route path="/admin/productnew" element={<Navigate to="/products/new" replace />} />
-
-        {/* Root routes for Products/Bundles editors */}
-        <Route path="/products" element={<ProductsPage />} />
-        <Route path="/products/new" element={<ProductEdit />} />
-        <Route path="/products/:id" element={<ProductEdit />} />
-        <Route path="/bundles" element={<BundlesPage />} />
-        <Route path="/bundles/new" element={<BundleEdit />} />
-        <Route path="/bundles/:id" element={<BundleEdit />} />
-        
-        {/* Redirect legacy /admin/* routes to root equivalents */}
-        <Route path="/admin/orders" element={<Navigate to="/orders" replace />} />
-        <Route path="/admin/orders/:id" element={<Navigate to="/orders/:id" replace />} />
-        <Route path="/admin/finance" element={<Navigate to="/finance" replace />} />
-        <Route path="/admin/products" element={<Navigate to="/products" replace />} />
-        <Route path="/admin/products/:id" element={<Navigate to="/products" replace />} />
-        <Route path="/admin/bundles" element={<Navigate to="/bundles" replace />} />
-        <Route path="/admin/bundles/:id" element={<Navigate to="/bundles" replace />} />
-        <Route path="/admin/reviews" element={<Navigate to="/reviews" replace />} />
-        <Route path="/admin/contacts" element={<Navigate to="/contacts" replace />} />
-        <Route path="/admin/contacts/:id" element={<Navigate to="/contacts" replace />} />
-        <Route path="/admin/stock" element={<Navigate to="/stock" replace />} />
-        <Route path="/admin/price-updates" element={<Navigate to="/price-updates" replace />} />
-        <Route path="/admin/discounts" element={<Navigate to="/discounts" replace />} />
-        <Route path="/admin/coupons" element={<Navigate to="/coupons" replace />} />
-
         {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
         {Object.entries(Pages).map(([path, Page]) => {
-          // Skip "Orders" if it exists in pagesConfig to avoid conflict
-          if (path.toLowerCase() === 'orders') return null;
+          // Skip conflicts
+          const skip = ['orders', 'products', 'bundles', 'specials', 'reviews', 'messages', 'finance', 'settings', 'dashboard'];
+          if (skip.includes(path.toLowerCase())) return null;
           return <Route key={path} path={`/${path}`} element={<Page />} />;
         })}
 

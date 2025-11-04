@@ -1,353 +1,296 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/use-toast";
 import { ImageUploader } from "@/components/ImageUploader";
-import { PreviewBar } from "@/components/PreviewBar";
-import { publishPR } from "@/lib/publish";
+import { supabase } from "@/components/supabaseClient";
+import { WebhookStatus } from "@/components/WebhookStatus";
 
-type Item = { product_id: string; quantity: number; product?: any };
-
-function slugifyClient(s: string) {
-  return (s || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-async function triggerPreview(branch: string, slug: string, title: string) {
-  const url =
-    import.meta.env.VITE_FLOW_D_BUNDLES_PREVIEW ||
-    import.meta.env.VITE_FLOW_B_PRODUCTS_PREVIEW || // fallback if you reuse Flow B
-    "/.netlify/functions/trigger-flow-b";
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ branchClean: branch, slug, title, templateType: "bundle" }),
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
+const FLOW_C_URL = 'https://dockerfile-1n82.onrender.com/webhook/bundles-intake';
 
 export default function BundleEdit() {
   const { id } = useParams();
   const nav = useNavigate();
   const isNew = id === "new";
-
-  const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  const [form, setForm] = useState<any>({
-    id: undefined,
-    name: "",
-    slug: "",
+  const [form, setForm] = useState({
+    id: '',
+    name: '',
+    slug: '',
+    status: 'active',
     price: 0,
-    active: true,
-    subtitle: "",
-    heroImage: "",
+    compare_at_price: null as number | null,
+    short_description: '',
+    long_description: '',
     images: [] as string[],
-    descriptionHtml: "",
-    seo: {} as any,
-    items: [] as Item[],
+    hover_image: '',
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [fireFlow, setFireFlow] = useState(true);
+  const [lastWebhookStatus, setLastWebhookStatus] = useState<string>('');
 
-  const [pr, setPr] = useState<{
-    prUrl?: string | null;
-    prNumber?: number | null;
-    previewUrl?: string | null;
-    branch?: string | null;
-  }>({});
-
-  // Load products + existing bundle (if editing)
   useEffect(() => {
-    (async () => {
-      const p = await fetch("/.netlify/functions/admin-products?pageSize=1000");
-      const pj = await p.json();
-      setAllProducts(pj.data || []);
-
-      if (!isNew) {
-        const b = await fetch(`/.netlify/functions/admin-bundle?id=${id}`);
-        const bj = await b.json();
+    if (isNew || !id) return;
+    
+    const loadBundle = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const { data, error: fetchError } = await supabase
+          .from('bundles')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        if (!data) throw new Error('Bundle not found');
+        
         setForm({
-          id: bj.bundle?.id,
-          name: bj.bundle?.name || "",
-          slug: bj.bundle?.slug || "",
-          price: Number(bj.bundle?.price || 0),
-          active: !!bj.bundle?.active,
-          subtitle: bj.bundle?.subtitle || "",
-          heroImage: bj.bundle?.heroImage || "",
-          images: Array.isArray(bj.bundle?.images) ? bj.bundle.images : [],
-          descriptionHtml: bj.bundle?.descriptionHtml || "",
-          seo: bj.bundle?.seo || {},
-          items: (bj.items || []).map((it: any) => ({
-            product_id: it.product_id,
-            quantity: Number(it.quantity || 1),
-            product: it.product,
-          })),
+          id: data.id,
+          name: data.name || '',
+          slug: data.slug || '',
+          status: data.status || 'active',
+          price: (data.price_cents || data.price || 0) / 100,
+          compare_at_price: data.compare_at_price_cents ? (data.compare_at_price_cents / 100) : null,
+          short_description: data.short_desc || data.short_description || '',
+          long_description: data.long_desc || data.long_description || '',
+          images: data.images || [],
+          hover_image: data.hover_image || '',
         });
+      } catch (err: any) {
+        console.error("Failed to load bundle:", err);
+        setError(err?.message || "Failed to load bundle");
+      } finally {
+        setLoading(false);
       }
-    })().catch((e) => console.error(e));
+    };
+    
+    loadBundle();
   }, [id, isNew]);
 
-  // Auto-slug on name change (only when slug empty or auto)
-  useEffect(() => {
-    setForm((f: any) => {
-      if (!f) return f;
-      if (!f.name) return f;
-      const should = !f.slug || f.slug === "auto-generated from name";
-      return should ? { ...f, slug: slugifyClient(f.name) } : f;
-    });
-  }, [form.name]);
-
-  function addItem() {
-    setForm((f: any) => ({ ...f, items: [...f.items, { product_id: "", quantity: 1 }] }));
-  }
-  function updateItem(ix: number, patch: Partial<Item>) {
-    setForm((f: any) => ({
-      ...f,
-      items: f.items.map((it: Item, i: number) => (i === ix ? { ...it, ...patch } : it)),
-    }));
-  }
-  function removeItem(ix: number) {
-    setForm((f: any) => ({ ...f, items: f.items.filter((_: any, i: number) => i !== ix) }));
-  }
-
-  async function save() {
-    if (!form.name) return alert("Bundle Name is required.");
-    setBusy(true);
+  async function onSave() {
+    console.log('[SAVE→fn]', form);
+    setLoading(true);
+    setError("");
+    
     try {
-      const res = await fetch("/.netlify/functions/save-bundle-and-pr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: form.id,
-          name: String(form.name || "").trim(),
-          slug: String(form.slug || "").trim(),
-          price: Number(form.price || 0),
-          active: !!form.active,
-          items: (form.items || [])
-            .filter((x: Item) => x.product_id)
-            .map((x: Item) => ({ product_id: x.product_id, quantity: Number(x.quantity || 1) })),
-          subtitle: form.subtitle,
-          heroImage: form.heroImage,
-          images: form.images || [],
-          descriptionHtml: form.descriptionHtml,
-          seo: form.seo || {},
-        }),
+      const payload = {
+        id: form.id || undefined,
+        name: form.name,
+        slug: form.slug,
+        status: form.status,
+        price: Number(form.price),
+        compare_at_price: form.compare_at_price ? Number(form.compare_at_price) : null,
+        short_description: form.short_description,
+        long_description: form.long_description,
+        images: form.images,
+        hover_image: form.hover_image,
+      };
+
+      const res = await fetch('/.netlify/functions/save-bundle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error("Save failed: " + t);
-      }
-      const out = await res.json(); // { bundleId, prUrl, previewUrl, branch }
+      
+      const saved = await res.json();
+      console.log('[SAVE OK]', saved);
 
-      // if new, navigate to edit route
-      if (isNew && out.bundleId) {
-        setTimeout(() => nav(`/admin/bundles/${out.bundleId}`), 0);
+      if (!res.ok || !saved?.ok) {
+        throw new Error(saved?.error || 'Save failed');
       }
 
-      // Try to trigger preview (Flow D)
-      try {
-        const prev = await triggerPreview(out.branch, form.slug, form.name);
-        setPr((p) => ({
-          ...p,
-          prUrl: prev.prUrl || out.prUrl || p?.prUrl || null,
-          previewUrl: prev.previewUrl || out.previewUrl || p?.previewUrl || null,
-          branch: prev.branch || out.branch || p?.branch || null,
-          prNumber: prev.prNumber || p?.prNumber || null,
-        }));
-      } catch (e: any) {
-        console.warn("Preview trigger error:", e.message);
-        setPr((p) => ({
-          ...p,
-          prUrl: out.prUrl || p?.prUrl || null,
-          previewUrl: out.previewUrl || p?.previewUrl || null,
-          branch: out.branch || p?.branch || null,
-        }));
+      if (!saved.bundle) {
+        throw new Error('Save failed: no bundle in response');
       }
-    } catch (e: any) {
-      alert(e.message || "Save failed");
+
+      // Webhook call
+      if (fireFlow) {
+        const bundleId = saved.bundle?.id ?? form.id ?? null;
+        const webhookPayload = {
+          action: 'create_or_update_bundle',
+          bundle: {
+            id: bundleId,
+            name: form.name,
+            slug: form.slug,
+            price: Number(form.price),
+            status: form.status,
+            short_description: form.short_description,
+            long_description: form.long_description,
+            images: form.images,
+          },
+        };
+
+        fetch(FLOW_C_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(webhookPayload),
+        })
+          .then(async (r2) => {
+            const text = await r2.text();
+            const status = `Flow C → ${r2.status} ${r2.ok ? 'OK' : 'ERR'} — ${text.slice(0, 200)}`;
+            setLastWebhookStatus(status);
+            console.log('[WEBHOOK→n8n]', FLOW_C_URL);
+            console.log('[WEBHOOK RESP]', r2.status, text.slice(0, 200));
+          })
+          .catch((webhookErr) => {
+            const status = `Flow C → ERROR — ${webhookErr?.message || String(webhookErr)}`;
+            setLastWebhookStatus(status);
+            console.warn("Webhook call failed (non-critical):", webhookErr);
+          });
+      } else {
+        setLastWebhookStatus('');
+      }
+
+      if (isNew && saved.bundle?.id) {
+        setForm(prev => ({ ...prev, id: saved.bundle.id }));
+      }
+
+      toast({ 
+        title: "Bundle Saved", 
+        description: `Saved ${form.name} (${form.slug})` 
+      });
+      
+    } catch (err: any) {
+      console.error('[SAVE ERROR]', err);
+      setError(err?.message || "Save failed");
+      toast({ 
+        title: "Error", 
+        description: err?.message || "Failed to save bundle",
+        variant: "destructive"
+      });
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
-  const previewThumbs = useMemo(() => form.images || [], [form.images]);
+  if (loading && !form.name && !isNew) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 grid grid-cols-12 gap-6 min-h-[calc(100vh-110px)]">
-      {/* Left = form */}
-      <div className="col-span-7 flex flex-col gap-4 overflow-auto">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => nav("/admin/bundles")}
-            className="px-3 py-2 border rounded"
-          >
-            ← Back
-          </button>
-          <h1 className="text-xl font-semibold">{isNew ? "New Bundle" : `Edit Bundle`}</h1>
-          <div className="ml-auto" />
-          <button
-            onClick={save}
-            disabled={busy}
-            className="px-4 py-2 rounded bg-black text-white disabled:opacity-60"
-          >
-            {busy ? "Saving…" : "Save Bundle"}
-          </button>
+    <div className="container mx-auto p-4 max-w-4xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{isNew ? "New Bundle" : `Edit: ${form.name || 'Bundle'}`}</h1>
+        <button
+          onClick={() => nav('/bundles')}
+          className="px-4 py-2 border rounded hover:bg-gray-50"
+        >
+          Back
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded p-3 text-red-700 text-sm">
+          {error}
         </div>
+      )}
 
-        {/* REMOVE legacy webhook banner */}
-        {/* (That old 'VITE_SPECIALS_WEBHOOK' notice came from previous UI; not needed here.) */}
-
-        <section className="grid grid-cols-2 gap-4">
-          <label className="flex flex-col gap-1">
-            <span>Bundle Name *</span>
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        onSave();
+      }} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input
-              className="border px-3 py-2 rounded"
-              value={form.name || ""}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              type="text"
+              required
+              value={form.name}
+              onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
             />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span>Slug</span>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Slug *</label>
             <input
-              className="border px-3 py-2 rounded"
-              value={form.slug || ""}
-              onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              type="text"
+              required
+              value={form.slug}
+              onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
             />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span>Price (ZAR)</span>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
             <input
               type="number"
               step="0.01"
-              className="border px-3 py-2 rounded"
-              value={form.price || 0}
-              onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-            />
-          </label>
-          <label className="flex items-center gap-2 mt-8">
-            <input
-              type="checkbox"
-              checked={!!form.active}
-              onChange={(e) => setForm({ ...form, active: e.target.checked })}
-            />
-            <span>Active</span>
-          </label>
-        </section>
-
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Bundle Items</h2>
-            <button className="px-3 py-1 border rounded" onClick={addItem}>
-              + Add item
-            </button>
-          </div>
-          {(form.items || []).map((it: Item, ix: number) => (
-            <div key={ix} className="flex gap-2 items-center">
-              <select
-                className="border px-3 py-2 rounded w-72"
-                value={it.product_id}
-                onChange={(e) => updateItem(ix, { product_id: e.target.value })}
-              >
-                <option value="">Select product…</option>
-                {allProducts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — R {Number(p.price).toFixed(2)}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={1}
-                className="border px-3 py-2 rounded w-24"
-                value={it.quantity}
-                onChange={(e) => updateItem(ix, { quantity: Number(e.target.value) })}
-              />
-              <button className="px-3 py-2 border rounded" onClick={() => removeItem(ix)}>
-                Remove
-              </button>
-            </div>
-          ))}
-        </section>
-
-        <section className="space-y-2">
-          <h2 className="font-semibold">Images</h2>
-          <div className="flex gap-2">
-            <ImageUploader
-              slug={form.slug || "temp"}
-              onAdd={(img) =>
-                setForm((f: any) => ({
-                  ...f,
-                  heroImage: f.heroImage || img.hero,
-                  images: Array.isArray(f.images) ? [...f.images, img.hero] : [img.hero],
-                }))
-              }
-              label="Upload image"
+              required
+              value={form.price}
+              onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
             />
           </div>
-          {!!previewThumbs?.length && (
-            <div className="grid grid-cols-4 gap-3">
-              {previewThumbs.map((u: string, i: number) => (
-                <div key={i} className="border rounded overflow-hidden">
-                  <img src={u} alt={`img-${i}`} className="w-full h-28 object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={form.status}
+              onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value }))}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+            >
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+        </div>
 
-        <section className="space-y-2">
-          <h2 className="font-semibold">Content</h2>
-          <label className="flex flex-col gap-1">
-            <span>Subtitle</span>
-            <input
-              className="border px-3 py-2 rounded"
-              value={form.subtitle || ""}
-              onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span>Long Description (HTML)</span>
-            <textarea
-              className="border px-3 py-2 rounded min-h-[120px]"
-              value={form.descriptionHtml || ""}
-              onChange={(e) => setForm({ ...form, descriptionHtml: e.target.value })}
-            />
-          </label>
-        </section>
-      </div>
-
-      {/* Right = meta / preview controls */}
-      <aside className="col-span-5 flex flex-col gap-4">
-        <div className="border rounded p-3">
-          <h3 className="font-semibold mb-2">PR / Preview / Publish</h3>
-          <PreviewBar
-            prNumber={pr?.prNumber}
-            prUrl={pr?.prUrl}
-            previewUrl={pr?.previewUrl}
-            branch={pr?.branch}
-            onPublish={async (num) => {
-              try {
-                const r = await publishPR(num);
-                if (r?.liveUrl) window.open(r.liveUrl, "_blank");
-                else alert("Published. Site will rebuild shortly.");
-              } catch (e: any) {
-                alert(e.message || "Publish failed");
-              }
-            }}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Short Description</label>
+          <textarea
+            value={form.short_description}
+            onChange={(e) => setForm(prev => ({ ...prev, short_description: e.target.value }))}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+            rows={3}
           />
         </div>
 
-        <div className="border rounded p-3">
-          <h3 className="font-semibold mb-2">Hero Preview</h3>
-          {form.heroImage ? (
-            <img src={form.heroImage} className="w-full rounded" />
-          ) : (
-            <div className="text-sm text-gray-500">No hero image yet.</div>
-          )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Long Description</label>
+          <textarea
+            value={form.long_description}
+            onChange={(e) => setForm(prev => ({ ...prev, long_description: e.target.value }))}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+            rows={6}
+          />
         </div>
-      </aside>
+
+        <div className="flex items-center gap-3 mb-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={fireFlow}
+              onChange={(e) => setFireFlow(e.target.checked)}
+              className="rounded"
+            />
+            <span>Fire Flow C (PR/Preview) after save</span>
+          </label>
+          <WebhookStatus status={lastWebhookStatus} />
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Saving..." : "Save Bundle"}
+          </button>
+          <button
+            type="button"
+            onClick={() => nav('/bundles')}
+            className="px-6 py-2 rounded border border-gray-300 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
+

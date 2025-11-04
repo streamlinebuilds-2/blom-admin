@@ -6,7 +6,51 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Single Page App routing (React Router / Vite)
+# Legacy redirects - Canonical Route Mapping (301 Permanent)
+[[redirects]]
+  from = "/productnew"
+  to = "/products/new"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/admin/productnew"
+  to = "/products/new"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/admin/products"
+  to = "/products"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bundle-new"
+  to = "/bundles/new"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/special-new"
+  to = "/specials/new"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/orders-list"
+  to = "/orders"
+  status = 301
+  force = true
+
+# Catch-all admin redirect (must come after specific redirects)
+[[redirects]]
+  from = "/admin/*"
+  to = "/:splat"
+  status = 301
+  force = true
+
+# Single Page App routing (React Router / Vite) - MUST be last
 [[redirects]]
   from = "/*"
   to = "/index.html"

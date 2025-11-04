@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { ImageUploader } from "@/components/ImageUploader";
+import { WebhookStatus } from "@/components/WebhookStatus";
 import { publishPR } from "@/lib/publish";
 import { supabase } from "@/components/supabaseClient";
 import { rowToForm, formToPayload, emptyProduct, saveProduct, type ProductForm } from "@/lib/products";
@@ -111,11 +112,11 @@ export default function ProductEdit() {
     try {
       // Convert form to payload
       const payload = formToPayload(form);
-      console.log('[SAVE] payload:', payload);
+      console.log('[SAVE→fn]', payload);
       
       // 1) Save via service-role Netlify function
       const saved = await saveProduct(payload);
-      console.log('[SAVE] saved response:', saved);
+      console.log('[SAVE OK]', saved.product?.id || saved.product?.slug || 'unknown');
       
       // Handle response structure: { ok: true, product: {...} } or direct product
       if (!saved) {
@@ -160,7 +161,8 @@ export default function ProductEdit() {
             const text = await r2.text(); // n8n may return text
             const status = `Flow A → ${r2.status} ${r2.ok ? 'OK' : 'ERR'} — ${text.slice(0, 200)}`;
             setLastWebhookStatus(status);
-            console.log('[Flow A webhook]', r2.status, text);
+            console.log('[WEBHOOK→n8n]', FLOW_A_URL);
+            console.log('[WEBHOOK RESP]', r2.status, text.slice(0, 200));
             
             // Try to parse response for PR/preview data
             if (r2.ok) {
@@ -402,9 +404,7 @@ export default function ProductEdit() {
             />
             <span>Fire Flow A (PR/Preview) after save</span>
           </label>
-          {lastWebhookStatus && (
-            <span className="text-xs text-gray-600 font-mono">{lastWebhookStatus}</span>
-          )}
+          <WebhookStatus status={lastWebhookStatus} />
         </div>
 
         <div className="flex gap-3">
