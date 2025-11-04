@@ -446,13 +446,17 @@ export default function ProductNew() {
       short_description: form.short_description,
       description: form.overview,
       overview: form.overview,
+      long_description: form.overview,
       inventory_quantity: Number.isFinite(inventoryQuantity) ? inventoryQuantity : 0,
+      stock: Number.isFinite(inventoryQuantity) ? inventoryQuantity : 0,
       track_inventory: !!form.track_inventory,
       weight: form.weight ? Number(form.weight) : null,
       barcode: form.barcode ? form.barcode.trim() : null,
       thumbnail_url: form.thumbnail_url || "",
+      image_url: form.thumbnail_url || "",
       hover_url: form.hover_url || "",
       gallery_urls: galleryUrls,
+      gallery: galleryUrls,
       features: filteredFeatures,
       how_to_use: filteredHowToUse,
       inci_ingredients: filteredInciIngredients,
@@ -474,17 +478,17 @@ export default function ProductNew() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch("/.netlify/functions/admin-product", {
+      const response = await fetch("/.netlify/functions/save-product", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action: "create_product", payload }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
+      if (!response.ok || data?.ok === false) {
         const message = data?.error || data?.message || "Failed to create product";
         setServerError(message);
         showToast("error", message);
@@ -493,8 +497,10 @@ export default function ProductNew() {
 
       showToast("success", "Product created successfully");
 
-      if (data && data.id) {
-        navigate(`/products/edit?id=${data.id}`);
+      const createdProduct = data?.product || data;
+
+      if (createdProduct && createdProduct.id) {
+        navigate(`/products/edit?id=${createdProduct.id}`);
       } else {
         navigate("/products");
       }
