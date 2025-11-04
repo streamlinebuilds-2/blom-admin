@@ -5,7 +5,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import VisualEditAgent from '@/lib/VisualEditAgent'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { setupIframeMessaging } from './lib/iframe-messaging';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -25,6 +25,11 @@ import Stock from '@/admin/pages/Stock'
 import Finance from '@/admin/pages/Finance'
 import Orders from '@/admin/pages/Orders'
 import OrderDetail from '@/admin/pages/OrderDetail'
+import CouponsPage from '@/admin/pages/Coupons'
+
+// Fallback to existing pages for price updates and discounts
+import PriceUpdates from '@/pages/PriceUpdates'
+import Discounts from '@/pages/Discounts'
 
 // Initialize Supabase adapter for real database access
 try {
@@ -73,31 +78,41 @@ const AuthenticatedApp = () => {
       <Routes>
         <Route path="/" element={<MainPage />} />
         
-        {/* Orders routes - MUST come before pagesConfig to override it */}
+        {/* Root routes for key pages */}
         <Route path="/orders" element={<Orders/>} />
         <Route path="/orders/:id" element={<OrderDetail/>} />
-        
-        {/* Keep /admin/orders for backwards compatibility */}
-        <Route path="/admin/orders" element={<Orders/>} />
-        <Route path="/admin/orders/:id" element={<OrderDetail/>} />
-
-        {/* Admin Routes */}
-        <Route path="/admin/products" element={<ProductsPage />} />
-        <Route path="/admin/products/new" element={<ProductEdit />} />
-        <Route path="/admin/products/:id" element={<ProductEdit />} />
-
-        <Route path="/admin/bundles" element={<BundlesPage />} />
-        <Route path="/admin/bundles/new" element={<BundleEdit />} />
-        <Route path="/admin/bundles/:id" element={<BundleEdit />} />
-
-        <Route path="/admin/reviews" element={<Reviews/>} />
-
-        <Route path="/admin/contacts" element={<ContactsPage/>} />
-        <Route path="/admin/contacts/:id" element={<ContactDetail/>} />
-
-        <Route path="/admin/stock" element={<Stock/>} />
-        <Route path="/admin/finance" element={<Finance/>} />
         <Route path="/finance" element={<Finance/>} />
+        <Route path="/price-updates" element={<PriceUpdates/>} />
+        <Route path="/discounts" element={<Discounts/>} />
+        <Route path="/coupons" element={<CouponsPage/>} />
+
+        {/* Redirect legacy /productnew to new editor - MUST come before /products routes */}
+        <Route path="/productnew" element={<Navigate to="/products/new" replace />} />
+        <Route path="/admin/productnew" element={<Navigate to="/products/new" replace />} />
+
+        {/* Root routes for Products/Bundles editors */}
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products/new" element={<ProductEdit />} />
+        <Route path="/products/:id" element={<ProductEdit />} />
+        <Route path="/bundles" element={<BundlesPage />} />
+        <Route path="/bundles/new" element={<BundleEdit />} />
+        <Route path="/bundles/:id" element={<BundleEdit />} />
+        
+        {/* Redirect legacy /admin/* routes to root equivalents */}
+        <Route path="/admin/orders" element={<Navigate to="/orders" replace />} />
+        <Route path="/admin/orders/:id" element={<Navigate to="/orders/:id" replace />} />
+        <Route path="/admin/finance" element={<Navigate to="/finance" replace />} />
+        <Route path="/admin/products" element={<Navigate to="/products" replace />} />
+        <Route path="/admin/products/:id" element={<Navigate to="/products" replace />} />
+        <Route path="/admin/bundles" element={<Navigate to="/bundles" replace />} />
+        <Route path="/admin/bundles/:id" element={<Navigate to="/bundles" replace />} />
+        <Route path="/admin/reviews" element={<Navigate to="/reviews" replace />} />
+        <Route path="/admin/contacts" element={<Navigate to="/contacts" replace />} />
+        <Route path="/admin/contacts/:id" element={<Navigate to="/contacts" replace />} />
+        <Route path="/admin/stock" element={<Navigate to="/stock" replace />} />
+        <Route path="/admin/price-updates" element={<Navigate to="/price-updates" replace />} />
+        <Route path="/admin/discounts" element={<Navigate to="/discounts" replace />} />
+        <Route path="/admin/coupons" element={<Navigate to="/coupons" replace />} />
 
         {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
         {Object.entries(Pages).map(([path, Page]) => {
