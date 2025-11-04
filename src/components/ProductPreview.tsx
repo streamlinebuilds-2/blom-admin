@@ -23,7 +23,7 @@ export function ProductPreview({ product }: ProductPreviewProps) {
   return (
     <div className="space-y-6">
       {/* Desktop Preview */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+      <div className="bg-white border rounded p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-700">Desktop Preview</h3>
           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -82,7 +82,7 @@ export function ProductPreview({ product }: ProductPreviewProps) {
       </div>
 
       {/* Mobile Preview */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+      <div className="bg-white border rounded p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-700">Mobile Preview</h3>
           <span className="text-xs text-gray-400">375px</span>

@@ -174,19 +174,19 @@ export default function BundleEdit() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{isNew ? "New Bundle" : `Edit: ${form.name || 'Bundle'}`}</h1>
+        <h1 className="text-2xl font-semibold">{isNew ? "New Bundle" : `Edit: ${form.name || 'Bundle'}`}</h1>
         <button
           onClick={() => nav('/bundles')}
-          className="px-4 py-2 border rounded hover:bg-gray-50"
+          className="px-3 py-2 border rounded"
         >
           Back
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded p-3 text-red-700 text-sm">
+        <div className="mb-4 bg-red-50 border border-red-200 rounded p-4 text-red-700 text-sm">
           {error}
         </div>
       )}
@@ -195,72 +195,66 @@ export default function BundleEdit() {
         e.preventDefault();
         onSave();
       }} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-sm">Name *
             <input
               type="text"
               required
               value={form.name}
               onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+              className="w-full border rounded px-3 py-2"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Slug *</label>
+          </label>
+          <label className="text-sm">Slug *
             <input
               type="text"
               required
               value={form.slug}
               onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+              className="w-full border rounded px-3 py-2 font-mono text-xs"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
+          </label>
+          <label className="text-sm">Price *
             <input
               type="number"
               step="0.01"
               required
               value={form.price}
               onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+              className="w-full border rounded px-3 py-2"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          </label>
+          <label className="text-sm">Status
             <select
               value={form.status}
               onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+              className="w-full border rounded px-3 py-2"
             >
               <option value="active">Active</option>
               <option value="draft">Draft</option>
             </select>
-          </div>
+          </label>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Short Description</label>
+        <label className="text-sm">Short Description
           <textarea
             value={form.short_description}
             onChange={(e) => setForm(prev => ({ ...prev, short_description: e.target.value }))}
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+            className="w-full border rounded px-3 py-2"
             rows={3}
           />
-        </div>
+        </label>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Long Description</label>
+        <label className="text-sm">Long Description
           <textarea
             value={form.long_description}
             onChange={(e) => setForm(prev => ({ ...prev, long_description: e.target.value }))}
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+            className="w-full border rounded px-3 py-2"
             rows={6}
           />
-        </div>
+        </label>
 
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -273,18 +267,18 @@ export default function BundleEdit() {
           <WebhookStatus status={lastWebhookStatus} />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 bg-blue-600 text-white rounded"
           >
-            {loading ? "Saving..." : "Save Bundle"}
+            {loading ? "Saving..." : "Save"}
           </button>
           <button
             type="button"
             onClick={() => nav('/bundles')}
-            className="px-6 py-2 rounded border border-gray-300 hover:bg-gray-50"
+            className="px-3 py-2 border rounded"
           >
             Cancel
           </button>

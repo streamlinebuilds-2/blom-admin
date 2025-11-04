@@ -51,12 +51,12 @@ function DeleteProductButton({ form, onDeleted }: { form: any; onDeleted: () => 
 
   return (
     <button
-      className="px-6 py-2 rounded bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="px-3 py-2 bg-red-600 text-white rounded disabled:opacity-50"
       disabled={!canDelete || busy}
       onClick={onDelete}
       title={!canDelete ? 'Save once first to get an id/slug' : 'Delete product'}
     >
-      {busy ? 'Deleting…' : 'Delete Product'}
+      {busy ? 'Deleting…' : 'Delete'}
     </button>
   );
 }
@@ -243,269 +243,227 @@ export default function ProductEdit() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {isNew ? "New Product" : `Edit: ${form.name || 'Product'}`}
-          </h1>
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold">{isNew ? "New Product" : `Edit: ${form.name || 'Product'}`}</h1>
+        <button
+          onClick={() => nav('/products')}
+          className="px-3 py-2 border rounded"
+        >
+          Back
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded p-4 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Two Column Layout: Form (Left) + Preview (Right) */}
+      <div className="flex gap-6">
+        {/* Left Column: Form (2/3 width) */}
+        <div className="w-2/3">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            onSave();
+          }} className="space-y-4">
+            {/* Image Upload */}
+            <div>
+              <label className="text-sm">Product Image</label>
+              <ImageUploader
+                onAdd={(img) => {
+                  setForm(prev => ({
+                    ...prev,
+                    image_url: img.hero,
+                    gallery: [...(prev.gallery || []), img.original]
+                  }));
+                }}
+                slug={form.slug || 'new'}
+              />
+            </div>
+
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm">Name *
+                <input
+                  type="text"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">Slug *
+                <input
+                  type="text"
+                  required
+                  value={form.slug}
+                  onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
+                  className="w-full border rounded px-3 py-2 font-mono text-xs"
+                />
+              </label>
+              <label className="text-sm">Price *
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={form.price}
+                  onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">Compare At Price
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.compare_at_price ?? ''}
+                  onChange={(e) => setForm(prev => ({ 
+                    ...prev, 
+                    compare_at_price: e.target.value ? Number(e.target.value) : null 
+                  }))}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">Stock *
+                <input
+                  type="number"
+                  required
+                  value={form.stock}
+                  onChange={(e) => setForm(prev => ({ ...prev, stock: Number(e.target.value) || 0 }))}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">Status
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as ProductForm['status'] }))}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </label>
+            </div>
+            
+            {/* Descriptions */}
+            <label className="text-sm">Short Description
+              <textarea
+                rows={3}
+                value={form.short_description}
+                onChange={(e) => setForm(prev => ({ ...prev, short_description: e.target.value }))}
+                className="w-full border rounded px-3 py-2"
+              />
+            </label>
+
+            <label className="text-sm">Long Description
+              <textarea
+                rows={8}
+                value={form.long_description}
+                onChange={(e) => setForm(prev => ({ ...prev, long_description: e.target.value }))}
+                className="w-full border rounded px-3 py-2"
+              />
+            </label>
+
+            {/* Webhook Toggle */}
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={fireFlow}
+                  onChange={(e) => setFireFlow(e.target.checked)}
+                  className="rounded"
+                />
+                <span>Fire Flow A (PR/Preview) after save</span>
+              </label>
+              <WebhookStatus status={lastWebhookStatus} />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-3 py-2 bg-blue-600 text-white rounded"
+              >
+                {loading ? "Saving..." : "Save"}
+              </button>
+              {!isNew && <DeleteProductButton form={form} onDeleted={() => nav('/products')} />}
+              <button
+                type="button"
+                onClick={() => nav('/products')}
+                className="px-3 py-2 border rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Right Column: Preview (1/3 width) */}
+        <div className="w-1/3">
+          <div className="sticky top-6">
+            <ProductPreview product={form} />
+          </div>
+        </div>
+      </div>
+
+      {/* Save Result: Show PR/Preview buttons */}
+      {saveResult && (
+        <div className="mt-6 bg-white border rounded p-4 space-y-3">
+          <p className="font-semibold">✓ Product saved successfully!</p>
+          <div className="flex gap-2 flex-wrap">
+            {saveResult.prUrl && (
+              <a
+                href={saveResult.prUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-2 bg-blue-600 text-white rounded text-sm"
+              >
+                Open PR →
+              </a>
+            )}
+            {saveResult.previewUrl && (
+              <a
+                href={saveResult.previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-2 bg-purple-600 text-white rounded text-sm"
+              >
+                Open Preview →
+              </a>
+            )}
+            {saveResult.prNumber && (
+              <button
+                className="px-3 py-2 bg-green-600 text-white rounded text-sm"
+                onClick={async ()=>{
+                  try {
+                    const out = await publishPR(Number(saveResult.prNumber));
+                    alert("Published! Netlify deploy will start now.");
+                  } catch (e:any) {
+                    alert(e.message||'Publish failed');
+                  }
+                }}
+              >
+                Publish
+              </button>
+            )}
+            {saveResult.branch && (
+              <span className="px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm font-mono">
+                {saveResult.branch}
+              </span>
+            )}
+          </div>
           <button
-            onClick={() => nav('/products')}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            onClick={() => setSaveResult(null)}
+            className="text-sm text-gray-600 underline"
           >
-            ← Back to Products
+            Continue editing
           </button>
         </div>
-
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Two Column Layout: Form (Left) + Preview (Right) */}
-        <div className="flex gap-6">
-          {/* Left Column: Form (2/3 width) */}
-          <div className="w-2/3">
-            <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                onSave();
-              }} className="space-y-6">
-                {/* Image Upload */}
-                <div className="border-b border-gray-200 pb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Product Image
-                  </label>
-                  <ImageUploader
-                    onAdd={(img) => {
-                      setForm(prev => ({
-                        ...prev,
-                        image_url: img.hero,
-                        gallery: [...(prev.gallery || []), img.original]
-                      }));
-                    }}
-                    slug={form.slug || 'new'}
-                  />
-                </div>
-
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      required
-                      value={form.name}
-                      onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="slug" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Slug *
-                    </label>
-                    <input
-                      type="text"
-                      id="slug"
-                      required
-                      value={form.slug}
-                      onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors font-mono text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="price" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Price *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      id="price"
-                      required
-                      value={form.price}
-                      onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="compare_at_price" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Compare At Price
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      id="compare_at_price"
-                      value={form.compare_at_price ?? ''}
-                      onChange={(e) => setForm(prev => ({ 
-                        ...prev, 
-                        compare_at_price: e.target.value ? Number(e.target.value) : null 
-                      }))}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="stock" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Stock *
-                    </label>
-                    <input
-                      type="number"
-                      id="stock"
-                      required
-                      value={form.stock}
-                      onChange={(e) => setForm(prev => ({ ...prev, stock: Number(e.target.value) || 0 }))}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="status" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      id="status"
-                      value={form.status}
-                      onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as ProductForm['status'] }))}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="draft">Draft</option>
-                    </select>
-                  </div>
-                </div>
-                
-                {/* Descriptions */}
-                <div>
-                  <label htmlFor="short_description" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Short Description
-                  </label>
-                  <textarea
-                    id="short_description"
-                    rows={3}
-                    value={form.short_description}
-                    onChange={(e) => setForm(prev => ({ ...prev, short_description: e.target.value }))}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    placeholder="Brief product description..."
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="long_description" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Long Description
-                  </label>
-                  <textarea
-                    id="long_description"
-                    rows={8}
-                    value={form.long_description}
-                    onChange={(e) => setForm(prev => ({ ...prev, long_description: e.target.value }))}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-                    placeholder="Detailed product description..."
-                  />
-                </div>
-
-                {/* Webhook Toggle */}
-                <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={fireFlow}
-                      onChange={(e) => setFireFlow(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Fire Flow A (PR/Preview) after save</span>
-                  </label>
-                  <WebhookStatus status={lastWebhookStatus} />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 border-t border-gray-200">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                  >
-                    {loading ? "Saving..." : "Save Product"}
-                  </button>
-                  {!isNew && <DeleteProductButton form={form} onDeleted={() => nav('/products')} />}
-                  <button
-                    type="button"
-                    onClick={() => nav('/products')}
-                    className="px-6 py-3 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          {/* Right Column: Preview (1/3 width) */}
-          <div className="w-1/3">
-            <div className="sticky top-6">
-              <ProductPreview product={form} />
-            </div>
-          </div>
-        </div>
-
-        {/* Save Result: Show PR/Preview buttons */}
-        {saveResult && (
-          <div className="mt-6 bg-green-50 border border-green-200 rounded-2xl p-6 shadow-md">
-            <p className="text-green-800 font-semibold mb-4">✓ Product saved successfully!</p>
-            <div className="flex gap-2 flex-wrap mb-4">
-              {saveResult.prUrl && (
-                <a
-                  href={saveResult.prUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Open PR →
-                </a>
-              )}
-              {saveResult.previewUrl && (
-                <a
-                  href={saveResult.previewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors"
-                >
-                  Open Preview →
-                </a>
-              )}
-              {saveResult.prNumber && (
-                <button
-                  className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
-                  onClick={async ()=>{
-                    try {
-                      const out = await publishPR(Number(saveResult.prNumber));
-                      alert("Published! Netlify deploy will start now.");
-                    } catch (e:any) {
-                      alert(e.message||'Publish failed');
-                    }
-                  }}
-                >
-                  Publish
-                </button>
-              )}
-              {saveResult.branch && (
-                <span className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-mono">
-                  {saveResult.branch}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setSaveResult(null)}
-              className="text-sm text-gray-600 underline hover:text-gray-800"
-            >
-              Continue editing
-            </button>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
