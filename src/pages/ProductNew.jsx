@@ -459,7 +459,7 @@ export default function ProductNew() {
       gallery: galleryUrls,
       features: filteredFeatures,
       how_to_use: filteredHowToUse,
-      inci_ingredients: filteredInciIngredients,
+      ingredients_inci: filteredInciIngredients,
       key_ingredients: filteredKeyIngredients,
       size: form.size || "",
       shelf_life: form.shelf_life || "",
