@@ -361,7 +361,7 @@ export default function ProductNew() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch("/.netlify/functions/admin-product", {
+      const response = await fetch("/.netlify/functions/save-product", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create_product", payload }),
@@ -369,7 +369,7 @@ export default function ProductNew() {
 
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
+      if (!response.ok || data?.ok === false) {
         const message = data?.error || data?.message || "Failed to create product";
         setServerError(message);
         showToast("error", message);
