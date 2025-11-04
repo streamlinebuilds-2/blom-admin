@@ -16,6 +16,7 @@ import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
 // Admin pages
 import ProductsPage from '@/admin/pages/Products'
 import ProductEdit from '@/admin/pages/ProductEdit'
+import ProductNew from '@/pages/ProductNew'
 import BundlesPage from '@/admin/pages/Bundles'
 import BundleEdit from '@/admin/pages/BundleEdit'
 import Reviews from '@/admin/pages/Reviews'
@@ -90,7 +91,7 @@ const AuthenticatedApp = () => {
 
         {/* Products - Canonical Routes */}
         <Route path="/products" element={<ProductsPage />} />
-        <Route path="/products/new" element={<ProductEdit />} />
+        <Route path="/products/new" element={<ProductNew />} />
         <Route path="/products/:id" element={<ProductEdit />} />
 
         {/* Bundles - Canonical Routes */}
