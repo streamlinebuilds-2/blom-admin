@@ -11,40 +11,50 @@ export default function BundleNew() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
+  // Initial bundle fields
   const initialBundle = {
     name: "",
     slug: "",
     status: "draft",
-    items: [],
-    pricing_mode: "manual",
+    items: [], // products will be selected via BundleEditor
+    pricing_mode: "manual", // manual | percent_off | amount_off
     discount_value: null,
     price_cents: 0,
     compare_at_price_cents: null,
     short_desc: "",
     long_desc: "",
     images: [],
-    hover_image: ""
+    hover_image: "",
   };
 
   const createMutation = useMutation({
     mutationFn: (data) => api.upsertBundle(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bundles'] });
-      showToast('success', 'Bundle created successfully');
+      // Invalidate bundles list and show toast
+      queryClient.invalidateQueries({ queryKey: ["bundles"] });
+      showToast("success", "Bundle created successfully");
+      // Navigate to edit page or back to list
       navigate(createPageUrl("Bundles"));
     },
     onError: (error) => {
-      showToast('error', error.message || 'Failed to create bundle');
+      showToast("error", error.message || "Failed to create bundle");
     },
   });
 
   return (
-    <BundleEditor
-      bundle={initialBundle}
-      onSave={(data) => createMutation.mutate(data)}
-      onCancel={() => navigate(createPageUrl("Bundles"))}
-      isSaving={createMutation.isPending}
-      title="New Bundle"
-    />
+    <>
+      <div className="topbar">
+        <div className="font-bold">New Bundle</div>
+      </div>
+      <div className="content-area">
+        <BundleEditor
+          bundle={initialBundle}
+          onSave={(data) => createMutation.mutate(data)}
+          onCancel={() => navigate(createPageUrl("Bundles"))}
+          isSaving={createMutation.isPending}
+          title="New Bundle"
+        />
+      </div>
+    </>
   );
 }
