@@ -19,6 +19,7 @@ import ProductEdit from '@/admin/pages/ProductEdit'
 import ProductNew from '@/pages/ProductNew'
 import BundlesPage from '@/admin/pages/Bundles'
 import BundleEdit from '@/admin/pages/BundleEdit'
+import BundleNew from '@/pages/BundleNew'
 import Reviews from '@/admin/pages/Reviews'
 import ContactsPage from '@/admin/pages/Contacts'
 import ContactDetail from '@/admin/pages/ContactDetail'
@@ -96,7 +97,7 @@ const AuthenticatedApp = () => {
 
         {/* Bundles - Canonical Routes */}
         <Route path="/bundles" element={<BundlesPage />} />
-        <Route path="/bundles/new" element={<BundleEdit />} />
+        <Route path="/bundles/new" element={<BundleNew />} />
         <Route path="/bundles/:id" element={<BundleEdit />} />
 
         {/* Specials - Canonical Routes (using Discounts for now) */}

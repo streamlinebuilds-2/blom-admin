@@ -1,371 +1,216 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductCard } from "../../ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 
+const PRODUCTS_WORKFLOW_URL = import.meta.env.VITE_PRODUCTS_WEBHOOK || "";
+
 const slugify = (value) =>
   value
+    .toString()
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
-
-const Section = ({ title, description, children }) => (
-  <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-    <div className="mb-4">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      {description ? (
-        <p className="mt-1 text-sm text-slate-600">{description}</p>
-      ) : null}
-    </div>
-    <div className="grid gap-4">{children}</div>
-  </section>
-);
-
-const FieldLabel = ({ label, required }) => (
-  <span className="text-sm font-medium text-slate-700">
-    {label}
-    {required ? <span className="ml-1 text-rose-500">*</span> : null}
-  </span>
-);
-
-const FieldError = ({ error }) =>
-  error ? <p className="text-xs text-rose-500">{error}</p> : null;
-
-const inputClasses = (error) =>
-  `w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-    error ? "border-rose-400" : "border-slate-300"
-  }`;
-
-const Text = ({ label, value, onChange, placeholder, required, error }) => (
-  <label className="flex flex-col gap-1">
-    <FieldLabel label={label} required={required} />
-    <input
-      type="text"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
-      className={inputClasses(error)}
-    />
-    <FieldError error={error} />
-  </label>
-);
-
-const NumberField = ({ label, value, onChange, placeholder, required, min, step, error }) => (
-  <label className="flex flex-col gap-1">
-    <FieldLabel label={label} required={required} />
-    <input
-      type="number"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
-      min={min}
-      step={step}
-      className={inputClasses(error)}
-    />
-    <FieldError error={error} />
-  </label>
-);
-
-const Textarea = ({ label, value, onChange, placeholder, rows = 4, required, error }) => (
-  <label className="flex flex-col gap-1">
-    <FieldLabel label={label} required={required} />
-    <textarea
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className={`${inputClasses(error)} resize-y`}
-    />
-    <FieldError error={error} />
-  </label>
-);
-
-const Checkbox = ({ label, checked, onChange, description }) => (
-  <label className="flex items-start gap-3">
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(event) => onChange(event.target.checked)}
-      className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-    />
-    <span className="text-sm text-slate-700">
-      <span className="font-medium">{label}</span>
-      {description ? (
-        <span className="ml-1 block text-slate-500">{description}</span>
-      ) : null}
-    </span>
-  </label>
-);
-
-const Select = ({ label, value, onChange, options, required, error }) => (
-  <label className="flex flex-col gap-1">
-    <FieldLabel label={label} required={required} />
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className={inputClasses(error)}
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-    <FieldError error={error} />
-  </label>
-);
-
-const ArrayText = ({ label, values = [], onChange, placeholder, addLabel = "Add", error }) => {
-  const items = values.length ? values : [""];
-
-  return (
-    <div className="flex flex-col gap-2">
-      <FieldLabel label={label} />
-      <div className="flex flex-col gap-2">
-        {items.map((item, index) => (
-          <div key={`${label}-${index}`} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={item}
-              placeholder={placeholder}
-              onChange={(event) => {
-                const next = [...items];
-                next[index] = event.target.value;
-                onChange(next);
-              }}
-              className={inputClasses(error)}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const next = items.filter((_, idx) => idx !== index);
-                onChange(next);
-              }}
-              className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange([...items, ""])}
-        className="inline-flex w-fit items-center gap-1 rounded-md bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
-      >
-        + {addLabel}
-      </button>
-      <FieldError error={error} />
-    </div>
-  );
-};
-
-const Tags = ({ label, values = [], onChange, placeholder }) => {
-  const [inputValue, setInputValue] = useState("");
-
-  const addTag = () => {
-    const trimmed = inputValue.trim();
-    if (!trimmed) return;
-    if (values.includes(trimmed)) {
-      setInputValue("");
-      return;
-    }
-    onChange([...values, trimmed]);
-    setInputValue("");
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <FieldLabel label={label} />
-      <div className="flex flex-wrap gap-2">
-        {values.map((tag, index) => (
-          <span
-            key={`${tag}-${index}`}
-            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
-          >
-            {tag}
-            <button
-              type="button"
-              className="text-emerald-600 hover:text-emerald-800"
-              onClick={() => {
-                const next = values.filter((_, idx) => idx !== index);
-                onChange(next);
-              }}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addTag();
-            }
-          }}
-          placeholder={placeholder}
-          className={inputClasses()}
-        />
-        <button
-          type="button"
-          onClick={addTag}
-          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-        >
-          Add
-        </button>
-      </div>
-    </div>
-  );
-};
 
 const initialFormState = {
   name: "",
   slug: "",
   sku: "",
   category: "",
-  status: "draft",
   price: "",
   compare_at_price: "",
-  short_description: "",
-  overview: "",
   inventory_quantity: "0",
   track_inventory: true,
   weight: "",
   barcode: "",
+  short_description: "",
+  overview: "",
   thumbnail_url: "",
   hover_url: "",
   gallery_urls: [""],
+  variants: [""],
   features: [""],
   how_to_use: [""],
   inci_ingredients: [""],
   key_ingredients: [""],
   size: "",
   shelf_life: "",
-  claims: [],
+  claims: [""],
   meta_title: "",
   meta_description: "",
   is_active: true,
   is_featured: false,
-  badges: [],
-  related: [],
-  variants: [""],
+  status: "draft",
+  badges: [""],
+  related: [""],
+};
+
+const ensureList = (value) => {
+  if (Array.isArray(value) && value.length > 0) return value;
+  return [""];
 };
 
 export default function ProductNew() {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [form, setForm] = useState(initialFormState);
-  const [slugLocked, setSlugLocked] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [previewTab, setPreviewTab] = useState("card");
 
-  const handleFieldChange = (field, value) => {
-    setForm((current) => ({ ...current, [field]: value }));
+  const [form, setForm] = useState(initialFormState);
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
+  const [previewTab, setPreviewTab] = useState("card");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setForm((previous) => {
+      if (!previous.name || previous.slug) return previous;
+      const nextSlug = slugify(previous.name);
+      if (previous.slug === nextSlug) return previous;
+      return { ...previous, slug: nextSlug };
+    });
+  }, [form.name]);
+
+  const update = (field, value) => {
+    setForm((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handleNameChange = (value) => {
-    setForm((current) => {
-      const next = { ...current, name: value };
-      if ((!slugLocked || !current.slug) && value) {
-        next.slug = slugify(value);
-      }
-      return next;
+  const getArrayFromPrevious = (previous, field) => {
+    const current = previous[field];
+    if (Array.isArray(current) && current.length > 0) {
+      return [...current];
+    }
+    return [""];
+  };
+
+  const updateArr = (field, index, value) => {
+    setForm((previous) => {
+      const next = getArrayFromPrevious(previous, field);
+      next[index] = value;
+      return { ...previous, [field]: next };
     });
   };
 
-  const handleSlugChange = (value) => {
-    if (!value) {
-      setSlugLocked(false);
-    } else {
-      setSlugLocked(true);
-    }
-    handleFieldChange("slug", value);
+  const addRow = (field) => {
+    setForm((previous) => {
+      const next = getArrayFromPrevious(previous, field);
+      next.push("");
+      return { ...previous, [field]: next };
+    });
   };
 
-  const inventoryQuantity = useMemo(() => {
+  const removeRow = (field, index) => {
+    setForm((previous) => {
+      const next = getArrayFromPrevious(previous, field);
+      next.splice(index, 1);
+      return { ...previous, [field]: next.length ? next : [""] };
+    });
+  };
+
+  const priceNumber = useMemo(() => {
+    const parsed = parseFloat(form.price);
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
+  }, [form.price]);
+
+  const compareAtNumber = useMemo(() => {
+    const parsed = parseFloat(form.compare_at_price);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [form.compare_at_price]);
+
+  const inventoryQuantityNumber = useMemo(() => {
     const parsed = Number(form.inventory_quantity);
     return Number.isFinite(parsed) ? parsed : Number.NaN;
   }, [form.inventory_quantity]);
 
-  const priceNumber = useMemo(() => {
-    const parsed = parseFloat(form.price || "");
-    return Number.isFinite(parsed) ? parsed : 0;
-  }, [form.price]);
-
-  const compareAtNumber = useMemo(() => {
-    const parsed = parseFloat(form.compare_at_price || "");
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }, [form.compare_at_price]);
+  const weightNumber = useMemo(() => {
+    if (form.weight === "" || form.weight === null || form.weight === undefined) return null;
+    const parsed = parseFloat(form.weight);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [form.weight]);
 
   const galleryUrls = useMemo(
-    () => (form.gallery_urls || []).map((url) => url.trim()).filter(Boolean),
+    () => ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean),
     [form.gallery_urls]
   );
 
-  const images = useMemo(() => {
-    const list = [form.thumbnail_url, form.hover_url, ...galleryUrls].filter(Boolean);
-    return list;
-  }, [form.thumbnail_url, form.hover_url, galleryUrls]);
-
-  const previewImages = images.length
-    ? images
-    : ["https://via.placeholder.com/800x800.png?text=Product+Preview"];
-
-  const stockLabel = useMemo(() => {
-    if (form.status === "archived") return "Archived";
-    if (inventoryQuantity > 0) return "In Stock";
-    return "Out of Stock";
-  }, [form.status, inventoryQuantity]);
-
-  const priceString = useMemo(() => `R${Math.round(priceNumber || 0)}`, [priceNumber]);
-
-  const filteredFeatures = useMemo(
-    () => (form.features || []).map((item) => item.trim()).filter(Boolean),
-    [form.features]
+  const badges = useMemo(
+    () => ensureList(form.badges).map((item) => item.trim()).filter(Boolean),
+    [form.badges]
   );
 
-  const filteredHowToUse = useMemo(
-    () => (form.how_to_use || []).map((item) => item.trim()).filter(Boolean),
-    [form.how_to_use]
+  const claims = useMemo(
+    () => ensureList(form.claims).map((item) => item.trim()).filter(Boolean),
+    [form.claims]
   );
 
-  const filteredInciIngredients = useMemo(
-    () => (form.inci_ingredients || []).map((item) => item.trim()).filter(Boolean),
-    [form.inci_ingredients]
+  const related = useMemo(
+    () => ensureList(form.related).map((item) => item.trim()).filter(Boolean),
+    [form.related]
   );
 
-  const filteredKeyIngredients = useMemo(
-    () => (form.key_ingredients || []).map((item) => item.trim()).filter(Boolean),
-    [form.key_ingredients]
-  );
-
-  const filteredVariants = useMemo(
-    () => (form.variants || []).map((item) => item.trim()).filter(Boolean),
+  const variants = useMemo(
+    () => ensureList(form.variants).map((item) => item.trim()).filter(Boolean),
     [form.variants]
   );
 
+  const features = useMemo(
+    () => ensureList(form.features).map((item) => item.trim()).filter(Boolean),
+    [form.features]
+  );
+
+  const howToUse = useMemo(
+    () => ensureList(form.how_to_use).map((item) => item.trim()).filter(Boolean),
+    [form.how_to_use]
+  );
+
+  const inciIngredients = useMemo(
+    () => ensureList(form.inci_ingredients).map((item) => item.trim()).filter(Boolean),
+    [form.inci_ingredients]
+  );
+
+  const keyIngredients = useMemo(
+    () => ensureList(form.key_ingredients).map((item) => item.trim()).filter(Boolean),
+    [form.key_ingredients]
+  );
+
+  const inStock = useMemo(() => inventoryQuantityNumber > 0, [inventoryQuantityNumber]);
+
+  const images = useMemo(() => {
+    const primary = form.thumbnail_url?.trim();
+    const hover = form.hover_url?.trim();
+    const list = [primary, hover, ...galleryUrls].filter(Boolean);
+    return list;
+  }, [form.thumbnail_url, form.hover_url, galleryUrls]);
+
+  const previewImages = useMemo(
+    () => (images.length ? images : ["https://via.placeholder.com/800x800.png?text=Product+Preview"]),
+    [images]
+  );
+
+  const stockLabel = useMemo(() => {
+    if (form.status === "archived") return "Archived";
+    if (inStock) return "In Stock";
+    return "Out of Stock";
+  }, [form.status, inStock]);
+
+  const priceString = useMemo(() => {
+    if (!Number.isFinite(priceNumber) || priceNumber <= 0) return "R0";
+    return `R${Math.round(priceNumber)}`;
+  }, [priceNumber]);
+
   const cardModel = useMemo(
     () => ({
-      id: "temp",
+      id: "new-product-preview",
       name: form.name || "New Product",
       slug: form.slug || "new-product",
-      price: priceNumber,
-      compareAtPrice: compareAtNumber,
+      price: Number.isFinite(priceNumber) ? priceNumber : 0,
+      compareAtPrice: compareAtNumber ?? undefined,
       shortDescription: form.short_description || "",
       images: previewImages,
-      inStock: inventoryQuantity > 0 && form.status !== "archived",
-      badges: form.badges || [],
+      inStock: form.status !== "archived" && inStock,
+      badges,
     }),
-    [compareAtNumber, form.badges, form.name, form.short_description, form.slug, form.status, inventoryQuantity, previewImages, priceNumber]
+    [badges, form.name, form.short_description, form.slug, form.status, inStock, previewImages, priceNumber, compareAtNumber]
   );
 
   const pageModel = useMemo(
@@ -376,31 +221,52 @@ export default function ProductNew() {
       shortDescription: form.short_description || "",
       overview: form.overview || "",
       price: priceString,
-      compareAtPrice: compareAtNumber !== undefined ? `R${compareAtNumber.toFixed(0)}` : undefined,
+      compareAtPrice: compareAtNumber ? `R${Math.round(compareAtNumber)}` : undefined,
       stock: stockLabel,
       images: previewImages,
-      features: filteredFeatures,
-      howToUse: filteredHowToUse,
+      features,
+      howToUse,
       ingredients: {
-        inci: filteredInciIngredients,
-        key: filteredKeyIngredients,
+        inci: inciIngredients,
+        key: keyIngredients,
       },
       details: {
         size: form.size || "",
         shelfLife: form.shelf_life || "",
-        claims: form.claims || [],
+        claims,
       },
-      variants: filteredVariants,
-      related: form.related || [],
+      variants,
+      related,
       rating: 4.8,
       reviewCount: 124,
       reviews: [],
       seo: {
-        title: form.meta_title || form.name || "",
-        description: form.meta_description || form.short_description || "",
+        title: form.meta_title?.trim() || form.name || "",
+        description: form.meta_description?.trim() || form.short_description || "",
       },
     }),
-    [compareAtNumber, filteredFeatures, filteredHowToUse, filteredInciIngredients, filteredKeyIngredients, filteredVariants, form.category, form.claims, form.meta_description, form.meta_title, form.name, form.overview, form.related, form.short_description, form.size, form.slug, form.shelf_life, priceString, previewImages, stockLabel]
+    [
+      claims,
+      compareAtNumber,
+      features,
+      form.category,
+      form.meta_description,
+      form.meta_title,
+      form.name,
+      form.overview,
+      form.short_description,
+      form.size,
+      form.slug,
+      form.shelf_life,
+      howToUse,
+      inciIngredients,
+      keyIngredients,
+      previewImages,
+      priceString,
+      related,
+      stockLabel,
+      variants,
+    ]
   );
 
   const validate = () => {
@@ -410,80 +276,95 @@ export default function ProductNew() {
     if (!form.sku.trim()) nextErrors.sku = "SKU is required";
     if (!form.category.trim()) nextErrors.category = "Category is required";
 
-    if (!priceNumber || priceNumber <= 0) nextErrors.price = "Price must be greater than 0";
+    if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
+      nextErrors.price = "Price must be greater than 0";
+    }
 
-    if (!Number.isFinite(inventoryQuantity) || inventoryQuantity < 0) {
-      nextErrors.inventory_quantity = "Inventory must be 0 or greater";
+    if (!Number.isFinite(inventoryQuantityNumber) || inventoryQuantityNumber < 0) {
+      nextErrors.inventory_quantity = "Inventory must be zero or greater";
     }
 
     if (images.length === 0) {
-      nextErrors.images = "At least one image is required";
+      nextErrors.images = "Add at least one product image";
     }
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
+  const triggerWorkflows = (createdProductId, payload) => {
+    if (!PRODUCTS_WORKFLOW_URL) return;
+    try {
+      fetch(PRODUCTS_WORKFLOW_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_product",
+          product: {
+            id: createdProductId ?? null,
+            ...payload,
+          },
+        }),
+      }).catch((workflowError) => {
+        console.warn("[ProductNew] Workflow trigger failed", workflowError);
+      });
+    } catch (workflowError) {
+      console.warn("[ProductNew] Workflow trigger error", workflowError);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setServerError(null);
+    setServerError("");
 
     if (!validate()) {
-      showToast("error", "Please fix the highlighted issues");
+      showToast("error", "Please fix the highlighted fields");
       return;
     }
-
-    const stock_label = stockLabel;
-    const price_string = priceString;
 
     const payload = {
       name: form.name.trim(),
       slug: form.slug.trim(),
       sku: form.sku.trim(),
       category: form.category.trim(),
-      price: priceNumber,
-      compare_at_price: compareAtNumber ?? null,
-      short_description: form.short_description,
-      description: form.overview,
-      overview: form.overview,
-      long_description: form.overview,
-      inventory_quantity: Number.isFinite(inventoryQuantity) ? inventoryQuantity : 0,
-      stock: Number.isFinite(inventoryQuantity) ? inventoryQuantity : 0,
-      track_inventory: !!form.track_inventory,
-      weight: form.weight ? Number(form.weight) : null,
-      barcode: form.barcode ? form.barcode.trim() : null,
-      thumbnail_url: form.thumbnail_url || "",
-      image_url: form.thumbnail_url || "",
-      hover_url: form.hover_url || "",
-      gallery_urls: galleryUrls,
-      gallery: galleryUrls,
-      features: filteredFeatures,
-      how_to_use: filteredHowToUse,
-      ingredients_inci: filteredInciIngredients,
-      key_ingredients: filteredKeyIngredients,
-      size: form.size || "",
-      shelf_life: form.shelf_life || "",
-      claims: form.claims || [],
-      meta_title: form.meta_title || form.name || "",
-      meta_description: form.meta_description || form.short_description || "",
-      is_active: !!form.is_active,
-      is_featured: !!form.is_featured,
       status: form.status,
-      badges: form.badges || [],
-      related: form.related || [],
-      stock_label,
-      price_string,
-      variants: filteredVariants,
+      price: Number.isFinite(priceNumber) ? priceNumber : 0,
+      compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
+      inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
+      track_inventory: Boolean(form.track_inventory),
+      weight: weightNumber,
+      barcode: form.barcode?.trim() || null,
+      short_description: form.short_description,
+      overview: form.overview,
+      description: form.overview,
+      thumbnail_url: form.thumbnail_url?.trim() || "",
+      hover_url: form.hover_url?.trim() || "",
+      gallery_urls: galleryUrls,
+      variants,
+      features,
+      how_to_use: howToUse,
+      inci_ingredients: inciIngredients,
+      key_ingredients: keyIngredients,
+      size: form.size,
+      shelf_life: form.shelf_life,
+      claims,
+      meta_title: form.meta_title,
+      meta_description: form.meta_description,
+      is_active: Boolean(form.is_active),
+      is_featured: Boolean(form.is_featured),
+      badges,
+      related,
+      stock_label: stockLabel,
+      price_string: priceString,
+      images: previewImages,
     };
 
     try {
       setIsSubmitting(true);
       const response = await fetch("/.netlify/functions/save-product", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create_product", payload }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -497,10 +378,11 @@ export default function ProductNew() {
 
       showToast("success", "Product created successfully");
 
-      const createdProduct = data?.product || data;
+      const createdId = data?.id || data?.product?.id || null;
+      triggerWorkflows(createdId, payload);
 
-      if (createdProduct && createdProduct.id) {
-        navigate(`/products/edit?id=${createdProduct.id}`);
+      if (createdId) {
+        navigate(`/products/edit?id=${createdId}`);
       } else {
         navigate("/products");
       }
@@ -513,326 +395,527 @@ export default function ProductNew() {
     }
   };
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-slate-200 bg-white p-6">
-        <h1 className="text-2xl font-bold text-slate-900">New Product</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Complete the product details and preview how it will appear across the store.
-        </p>
-      </div>
-      <div className="flex-1 overflow-auto p-6">
-        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <div className="grid gap-6">
-            <Section title="Basic Information" description="Core details that describe the product.">
-              <Text label="Name" value={form.name} onChange={handleNameChange} required error={errors.name} />
-              <Text
-                label="Slug"
-                value={form.slug}
-                onChange={handleSlugChange}
-                placeholder="auto-generated if left blank"
-                required
-                error={errors.slug}
+  const renderArrayField = (field, label, placeholder, addLabel, errorKey) => {
+    const items = ensureList(form[field]);
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-semibold text-slate-700">{label}</label>
+          {errorKey && errors[errorKey] ? (
+            <span className="text-xs font-medium text-rose-500">{errors[errorKey]}</span>
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          {items.map((item, index) => (
+            <div key={`${field}-${index}`} className="flex gap-2">
+              <input
+                type="text"
+                className="input flex-1"
+                value={item}
+                placeholder={placeholder}
+                onChange={(event) => updateArr(field, index, event.target.value)}
               />
-              <Text label="SKU" value={form.sku} onChange={(value) => handleFieldChange("sku", value)} required error={errors.sku} />
-              <Text
-                label="Category"
-                value={form.category}
-                onChange={(value) => handleFieldChange("category", value)}
-                required
-                error={errors.category}
-              />
-              <Select
-                label="Status"
-                value={form.status}
-                onChange={(value) => handleFieldChange("status", value)}
-                options={[
-                  { label: "Draft", value: "draft" },
-                  { label: "Published", value: "published" },
-                  { label: "Archived", value: "archived" },
-                ]}
-              />
-              <Tags
-                label="Badges"
-                values={form.badges}
-                onChange={(value) => handleFieldChange("badges", value)}
-                placeholder="Type a badge and press Enter"
-              />
-            </Section>
-
-            <Section title="Pricing & Stock" description="Manage how the product is sold and tracked.">
-              <NumberField
-                label="Price"
-                value={form.price}
-                onChange={(value) => handleFieldChange("price", value)}
-                placeholder="199.00"
-                required
-                error={errors.price}
-                min="0"
-                step="0.01"
-              />
-              <NumberField
-                label="Compare at Price"
-                value={form.compare_at_price}
-                onChange={(value) => handleFieldChange("compare_at_price", value)}
-                placeholder="249.00"
-                step="0.01"
-              />
-              <NumberField
-                label="Inventory Quantity"
-                value={form.inventory_quantity}
-                onChange={(value) => handleFieldChange("inventory_quantity", value)}
-                min="0"
-                step="1"
-                required
-                error={errors.inventory_quantity}
-              />
-              <Checkbox
-                label="Track Inventory"
-                checked={form.track_inventory}
-                onChange={(value) => handleFieldChange("track_inventory", value)}
-              />
-              <NumberField
-                label="Weight (grams)"
-                value={form.weight}
-                onChange={(value) => handleFieldChange("weight", value)}
-                placeholder="250"
-                step="0.01"
-              />
-              <Text
-                label="Barcode"
-                value={form.barcode}
-                onChange={(value) => handleFieldChange("barcode", value)}
-                placeholder="e.g. 6001234567890"
-              />
-            </Section>
-
-            <Section title="Images" description="Primary, hover and gallery imagery.">
-              <Text
-                label="Thumbnail URL"
-                value={form.thumbnail_url}
-                onChange={(value) => handleFieldChange("thumbnail_url", value)}
-                placeholder="https://..."
-              />
-              <Text
-                label="Hover URL"
-                value={form.hover_url}
-                onChange={(value) => handleFieldChange("hover_url", value)}
-                placeholder="https://..."
-              />
-              <ArrayText
-                label="Gallery URLs"
-                values={form.gallery_urls}
-                onChange={(value) => handleFieldChange("gallery_urls", value)}
-                placeholder="https://..."
-                addLabel="Add image"
-                error={errors.images}
-              />
-            </Section>
-
-            <Section title="Descriptions" description="Tell shoppers about the product.">
-              <Textarea
-                label="Short Description"
-                value={form.short_description}
-                onChange={(value) => handleFieldChange("short_description", value)}
-                rows={3}
-              />
-              <Textarea
-                label="Overview"
-                value={form.overview}
-                onChange={(value) => handleFieldChange("overview", value)}
-                rows={6}
-              />
-            </Section>
-
-            <Section title="Highlights & Usage" description="Outline benefits and usage guidance.">
-              <ArrayText
-                label="Features"
-                values={form.features}
-                onChange={(value) => handleFieldChange("features", value)}
-                placeholder="Key product feature"
-                addLabel="Add feature"
-              />
-              <ArrayText
-                label="How to Use"
-                values={form.how_to_use}
-                onChange={(value) => handleFieldChange("how_to_use", value)}
-                placeholder="Usage instruction"
-                addLabel="Add step"
-              />
-            </Section>
-
-            <Section title="Ingredients" description="Break down formulation details.">
-              <ArrayText
-                label="INCI Ingredients"
-                values={form.inci_ingredients}
-                onChange={(value) => handleFieldChange("inci_ingredients", value)}
-                placeholder="INCI name"
-                addLabel="Add ingredient"
-              />
-              <ArrayText
-                label="Key Ingredients"
-                values={form.key_ingredients}
-                onChange={(value) => handleFieldChange("key_ingredients", value)}
-                placeholder="Key ingredient"
-                addLabel="Add key ingredient"
-              />
-            </Section>
-
-            <Section title="Product Details" description="Additional merchandising attributes.">
-              <Text
-                label="Size"
-                value={form.size}
-                onChange={(value) => handleFieldChange("size", value)}
-                placeholder="e.g. 100ml"
-              />
-              <Text
-                label="Shelf Life"
-                value={form.shelf_life}
-                onChange={(value) => handleFieldChange("shelf_life", value)}
-                placeholder="e.g. 12 months"
-              />
-              <Tags
-                label="Claims"
-                values={form.claims}
-                onChange={(value) => handleFieldChange("claims", value)}
-                placeholder="Type a claim and press Enter"
-              />
-            </Section>
-
-            <Section title="Variants" description="List variant names such as sizes or shades.">
-              <ArrayText
-                label="Variants"
-                values={form.variants}
-                onChange={(value) => handleFieldChange("variants", value)}
-                placeholder="Variant name"
-                addLabel="Add variant"
-              />
-            </Section>
-
-            <Section title="SEO" description="Improve how the product is discovered.">
-              <Text
-                label="Meta Title"
-                value={form.meta_title}
-                onChange={(value) => handleFieldChange("meta_title", value)}
-                placeholder="Meta title"
-              />
-              <Textarea
-                label="Meta Description"
-                value={form.meta_description}
-                onChange={(value) => handleFieldChange("meta_description", value)}
-                rows={3}
-                placeholder="Meta description"
-              />
-            </Section>
-
-            <Section title="Related Products" description="Connect shoppers to complementary items.">
-              <Tags
-                label="Related Product IDs or Slugs"
-                values={form.related}
-                onChange={(value) => handleFieldChange("related", value)}
-                placeholder="Enter and press Enter"
-              />
-            </Section>
-
-            <Section title="Display Flags" description="Control visibility across storefront experiences.">
-              <Checkbox
-                label="Active"
-                checked={form.is_active}
-                onChange={(value) => handleFieldChange("is_active", value)}
-              />
-              <Checkbox
-                label="Featured"
-                checked={form.is_featured}
-                onChange={(value) => handleFieldChange("is_featured", value)}
-              />
-            </Section>
-
-            {serverError ? (
-              <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
-                {serverError}
-              </div>
-            ) : null}
-
-            <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => navigate("/products")}
-                className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                disabled={isSubmitting}
+                onClick={() => removeRow(field, index)}
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving..." : "Create Product"}
+                Remove
               </button>
             </div>
-          </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => addRow(field)}
+          className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+        >
+          + {addLabel}
+        </button>
+        {errorKey && errors[errorKey] ? (
+          <p className="text-xs text-rose-500">{errors[errorKey]}</p>
+        ) : null}
+      </div>
+    );
+  };
 
-          <div className="flex flex-col gap-4">
-            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center gap-2 border-b border-slate-200 p-3 text-sm font-semibold text-slate-600">
-                {[
-                  { id: "card", label: "Card" },
-                  { id: "page-desktop", label: "Page – Desktop" },
-                  { id: "page-mobile", label: "Page – Mobile" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setPreviewTab(tab.id)}
-                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                      previewTab === tab.id
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "text-slate-500 hover:bg-slate-100"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+  const inputClass = (hasError) => `input${hasError ? " border-rose-500 focus:ring-rose-500" : ""}`;
+  const textareaClass = (hasError) => `textarea${hasError ? " border-rose-500 focus:ring-rose-500" : ""}`;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="topbar">
+        <div className="font-bold text-lg">New Product</div>
+        <div className="text-sm text-slate-500">Create a new product and preview the merchandising experience.</div>
+      </div>
+
+      <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Basic Information</h2>
+              <p className="text-sm text-slate-600">Name, slug and classification for the product.</p>
+            </header>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="name">
+                  Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  className={inputClass(Boolean(errors.name))}
+                  value={form.name}
+                  onChange={(event) => update("name", event.target.value)}
+                  placeholder="Base 44 Nail Strengthener"
+                />
+                {errors.name ? <p className="text-xs text-rose-500">{errors.name}</p> : null}
               </div>
-              <div className="max-h-[75vh] overflow-auto p-4">
-                {previewTab === "card" ? (
-                  <div className="mx-auto max-w-sm">
-                    <ProductCard {...cardModel} />
-                  </div>
-                ) : null}
-                {previewTab === "page-desktop" ? (
-                  <div className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-slate-100 shadow-sm">
-                    <ProductPageTemplate product={pageModel} />
-                  </div>
-                ) : null}
-                {previewTab === "page-mobile" ? (
-                  <div className="mx-auto w-[390px] overflow-hidden rounded-lg border border-slate-200 shadow-sm">
-                    <ProductPageTemplate product={pageModel} />
-                  </div>
-                ) : null}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="slug">
+                  Slug <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="slug"
+                  type="text"
+                  className={inputClass(Boolean(errors.slug))}
+                  value={form.slug}
+                  onChange={(event) => update("slug", event.target.value)}
+                  placeholder="base-44-nail-strengthener"
+                />
+                {errors.slug ? <p className="text-xs text-rose-500">{errors.slug}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="sku">
+                  SKU <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="sku"
+                  type="text"
+                  className={inputClass(Boolean(errors.sku))}
+                  value={form.sku}
+                  onChange={(event) => update("sku", event.target.value)}
+                  placeholder="SKU-001"
+                />
+                {errors.sku ? <p className="text-xs text-rose-500">{errors.sku}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="category">
+                  Category <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="category"
+                  type="text"
+                  className={inputClass(Boolean(errors.category))}
+                  value={form.category}
+                  onChange={(event) => update("category", event.target.value)}
+                  placeholder="Treatments"
+                />
+                {errors.category ? <p className="text-xs text-rose-500">{errors.category}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="status">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  className="select"
+                  value={form.status}
+                  onChange={(event) => update("status", event.target.value)}
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                </select>
               </div>
             </div>
-
-            <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-900">Preview Details</h3>
-              <dl className="mt-3 space-y-2">
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Stock Label</dt>
-                  <dd className="font-medium text-slate-800">{stockLabel}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Price String</dt>
-                  <dd className="font-medium text-slate-800">{priceString}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Images</dt>
-                  <dd className="font-medium text-slate-800">{images.length}</dd>
-                </div>
-              </dl>
+            <div className="mt-4">
+              {renderArrayField("badges", "Badges", "e.g. Best Seller", "Add badge")}
             </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Pricing &amp; Stock</h2>
+              <p className="text-sm text-slate-600">Control pricing, inventory and identifiers.</p>
+            </header>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="price">
+                  Price <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className={inputClass(Boolean(errors.price))}
+                  value={form.price}
+                  onChange={(event) => update("price", event.target.value)}
+                  placeholder="199"
+                />
+                {errors.price ? <p className="text-xs text-rose-500">{errors.price}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="compare_at_price">
+                  Compare at Price
+                </label>
+                <input
+                  id="compare_at_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input"
+                  value={form.compare_at_price}
+                  onChange={(event) => update("compare_at_price", event.target.value)}
+                  placeholder="249"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="inventory_quantity">
+                  Inventory Quantity <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="inventory_quantity"
+                  type="number"
+                  min="0"
+                  step="1"
+                  className={inputClass(Boolean(errors.inventory_quantity))}
+                  value={form.inventory_quantity}
+                  onChange={(event) => update("inventory_quantity", event.target.value)}
+                  placeholder="25"
+                />
+                {errors.inventory_quantity ? (
+                  <p className="text-xs text-rose-500">{errors.inventory_quantity}</p>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-3 pt-6">
+                <input
+                  id="track_inventory"
+                  type="checkbox"
+                  checked={form.track_inventory}
+                  onChange={(event) => update("track_inventory", event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                <label className="text-sm font-medium text-slate-700" htmlFor="track_inventory">
+                  Track inventory automatically
+                </label>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="weight">
+                  Weight (grams)
+                </label>
+                <input
+                  id="weight"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input"
+                  value={form.weight}
+                  onChange={(event) => update("weight", event.target.value)}
+                  placeholder="250"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="barcode">
+                  Barcode
+                </label>
+                <input
+                  id="barcode"
+                  type="text"
+                  className="input"
+                  value={form.barcode}
+                  onChange={(event) => update("barcode", event.target.value)}
+                  placeholder="6001234567890"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Descriptions</h2>
+              <p className="text-sm text-slate-600">Short copy for cards and the full overview.</p>
+            </header>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="short_description">
+                  Short Description
+                </label>
+                <textarea
+                  id="short_description"
+                  className={textareaClass(false)}
+                  rows={3}
+                  value={form.short_description}
+                  onChange={(event) => update("short_description", event.target.value)}
+                  placeholder="A strengthening treatment that supports nail health."
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="overview">
+                  Overview
+                </label>
+                <textarea
+                  id="overview"
+                  className={textareaClass(false)}
+                  rows={6}
+                  value={form.overview}
+                  onChange={(event) => update("overview", event.target.value)}
+                  placeholder="Detailed product description, usage story and benefits."
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Images</h2>
+              <p className="text-sm text-slate-600">Primary, hover and gallery imagery.</p>
+            </header>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="thumbnail_url">
+                  Thumbnail URL
+                </label>
+                <input
+                  id="thumbnail_url"
+                  type="url"
+                  className={inputClass(Boolean(errors.images))}
+                  value={form.thumbnail_url}
+                  onChange={(event) => update("thumbnail_url", event.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="hover_url">
+                  Hover URL
+                </label>
+                <input
+                  id="hover_url"
+                  type="url"
+                  className="input"
+                  value={form.hover_url}
+                  onChange={(event) => update("hover_url", event.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              {renderArrayField("gallery_urls", "Gallery URLs", "https://...", "Add image", "images")}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Variants &amp; Highlights</h2>
+              <p className="text-sm text-slate-600">List variants, key features and how to use steps.</p>
+            </header>
+            <div className="space-y-6">
+              {renderArrayField("variants", "Variants", "Shade or size", "Add variant")}
+              {renderArrayField("features", "Features", "Key selling point", "Add feature")}
+              {renderArrayField("how_to_use", "How to Use", "Usage instruction", "Add step")}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
+              <p className="text-sm text-slate-600">Break down formulation details.</p>
+            </header>
+            <div className="space-y-6">
+              {renderArrayField("inci_ingredients", "INCI Ingredients", "Water (Aqua)", "Add INCI")}
+              {renderArrayField("key_ingredients", "Key Ingredients", "Biotin", "Add key ingredient")}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Product Details</h2>
+              <p className="text-sm text-slate-600">Supporting specifications and claims.</p>
+            </header>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="size">
+                  Size
+                </label>
+                <input
+                  id="size"
+                  type="text"
+                  className="input"
+                  value={form.size}
+                  onChange={(event) => update("size", event.target.value)}
+                  placeholder="100ml"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="shelf_life">
+                  Shelf Life
+                </label>
+                <input
+                  id="shelf_life"
+                  type="text"
+                  className="input"
+                  value={form.shelf_life}
+                  onChange={(event) => update("shelf_life", event.target.value)}
+                  placeholder="12 months"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              {renderArrayField("claims", "Claims", "Vegan", "Add claim")}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">SEO</h2>
+              <p className="text-sm text-slate-600">Meta information for search engines.</p>
+            </header>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="meta_title">
+                  Meta Title
+                </label>
+                <input
+                  id="meta_title"
+                  type="text"
+                  className="input"
+                  value={form.meta_title}
+                  onChange={(event) => update("meta_title", event.target.value)}
+                  placeholder="Base 44 | Nail Strengthener"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700" htmlFor="meta_description">
+                  Meta Description
+                </label>
+                <textarea
+                  id="meta_description"
+                  className={textareaClass(false)}
+                  rows={3}
+                  value={form.meta_description}
+                  onChange={(event) => update("meta_description", event.target.value)}
+                  placeholder="Boost your nails with Base 44's restorative strengthener."
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Display Settings</h2>
+              <p className="text-sm text-slate-600">Control visibility across storefront experiences.</p>
+            </header>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center gap-3 text-sm font-medium text-slate-700" htmlFor="is_active">
+                <input
+                  id="is_active"
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(event) => update("is_active", event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Active
+              </label>
+              <label className="flex items-center gap-3 text-sm font-medium text-slate-700" htmlFor="is_featured">
+                <input
+                  id="is_featured"
+                  type="checkbox"
+                  checked={form.is_featured}
+                  onChange={(event) => update("is_featured", event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Featured product
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <header className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Related Products</h2>
+              <p className="text-sm text-slate-600">Surface complementary products by ID or slug.</p>
+            </header>
+            {renderArrayField("related", "Related Product IDs or Slugs", "product-slug", "Add related product")}
+          </section>
+
+          {serverError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">{serverError}</div>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              onClick={() => navigate("/products")}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`btn-primary ${isSubmitting ? "opacity-70" : ""}`}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Saving..." : "Create Product"}
+            </button>
           </div>
         </form>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex gap-2 border-b border-slate-200 p-3 text-sm font-semibold text-slate-600">
+              {[
+                { id: "card", label: "Product Card" },
+                { id: "page-desktop", label: "Product Page – Desktop" },
+                { id: "page-mobile", label: "Product Page – Mobile" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setPreviewTab(tab.id)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                    previewTab === tab.id ? "bg-emerald-100 text-emerald-700" : "text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-[75vh] overflow-auto p-4">
+              {previewTab === "card" ? (
+                <div className="mx-auto max-w-sm">
+                  <ProductCard {...cardModel} />
+                </div>
+              ) : null}
+              {previewTab === "page-desktop" ? (
+                <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+                  <ProductPageTemplate product={pageModel} />
+                </div>
+              ) : null}
+              {previewTab === "page-mobile" ? (
+                <div className="mx-auto w-[390px] overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                  <ProductPageTemplate product={pageModel} />
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Preview Summary</h3>
+            <dl className="mt-3 space-y-2">
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Stock Label</dt>
+                <dd className="font-medium text-slate-800">{stockLabel}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Price String</dt>
+                <dd className="font-medium text-slate-800">{priceString}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Images</dt>
+                <dd className="font-medium text-slate-800">{previewImages.length}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
       </div>
     </div>
   );

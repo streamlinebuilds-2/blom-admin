@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { api } from "@/components/data/api";
 import { adminPaths } from "@/utils";
 
@@ -8,6 +8,8 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     loadProducts();
@@ -35,6 +37,20 @@ export default function ProductsPage() {
     if (typeof price === 'string') return `R ${parseFloat(price || '0').toFixed(2)}`;
     return 'R 0.00';
   }
+
+  // Filter products based on search and status
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch = !searchTerm || 
+        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.slug?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || product.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [products, searchTerm, statusFilter]);
 
   if (loading) {
     return (
@@ -65,61 +81,125 @@ export default function ProductsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Products</h1>
-        <button
-          className="btn-primary"
-          onClick={() => navigate(adminPaths.productNew)}
-        >
-          New Product
-        </button>
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+          Products
+        </h1>
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative w-60">
+            <svg
+              className="absolute left-4 top-1/2 transform -translate-y-1/2"
+              style={{ color: 'var(--text-muted)' }}
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input
+              type="text"
+              className="input pl-10"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <select
+            className="select"
+            style={{ minWidth: '140px' }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">All Status</option>
+            <option value="draft">Draft</option>
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+          </select>
+          <Link
+            to={adminPaths.productNew}
+            className="btn-primary flex items-center gap-2"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New Product
+          </Link>
+        </div>
       </div>
 
-      {products.length === 0 ? (
-        <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
-          <p>No products yet.</p>
+      {filteredProducts.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-title">
+            {products.length === 0 ? "No products yet" : "No products match your filters"}
+          </div>
         </div>
       ) : (
-        <div className="card">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Slug</th>
-                <th className="text-right">Price</th>
-                <th className="text-right">Stock</th>
-                <th>Status</th>
-                <th>Updated</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product: any) => (
-                <tr key={product.id}>
-                  <td className="font-medium">{product.name || '-'}</td>
-                  <td className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{product.slug || '-'}</td>
-                  <td className="text-right price">{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
-                  <td className="text-right">{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
-                  <td>
-                    <span className={`status-badge ${product.status || 'active'}`}>
-                      {product.status || 'active'}
-                    </span>
-                  </td>
-                  <td className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="text-right">
-                    <button
-                      className="link"
-                      onClick={() => navigate(adminPaths.productEdit(product.id))}
-                    >
-                      Edit
-                    </button>
-                  </td>
+        <div
+          style={{
+            background: 'var(--card)',
+            borderRadius: 20,
+            boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
+            overflow: 'hidden',
+          }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Name</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Slug</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Price</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Stock</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Updated</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredProducts.map((product: any) => (
+                  <tr key={product.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{product.name || '-'}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'monospace' }}>{product.slug || '-'}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text)' }} className="price-cell">{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text)' }}>{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span className={`status-badge status-${product.status || 'active'}`}>
+                        {product.status || 'active'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      {product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <button
+                        className="link"
+                        onClick={() => navigate(adminPaths.productEdit(product.id))}
+                        style={{ color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
