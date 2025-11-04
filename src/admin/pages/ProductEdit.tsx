@@ -6,6 +6,59 @@ import { publishPR } from "@/lib/publish";
 import { supabase } from "@/components/supabaseClient";
 import { rowToForm, formToPayload, emptyProduct, saveProduct, type ProductForm } from "@/lib/products";
 
+const FLOW_A_URL = 'https://dockerfile-1n82.onrender.com/webhook/products-intake';
+
+function DeleteProductButton({ form, onDeleted }: { form: any; onDeleted: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const canDelete = !!(form?.id || form?.slug);
+
+  const onDelete = async () => {
+    if (!canDelete) {
+      alert('No id or slug on this product.');
+      return;
+    }
+    if (!confirm('Delete this product? This cannot be undone.')) return;
+
+    try {
+      setBusy(true);
+      const res = await fetch('/.netlify/functions/delete-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: form.id ?? null, slug: form.slug ?? null }),
+      });
+      const a = await res.json().catch(() => ({}));
+      if (!res.ok || !a?.ok) {
+        throw new Error(a?.error || 'Delete failed');
+      }
+      toast({ 
+        title: "Product Deleted", 
+        description: "Product has been deleted successfully" 
+      });
+      onDeleted();
+    } catch (err: any) {
+      console.error('[DELETE ERROR]', err);
+      toast({ 
+        title: "Error", 
+        description: err?.message || "Failed to delete product",
+        variant: "destructive"
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      className="px-6 py-2 rounded bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled={!canDelete || busy}
+      onClick={onDelete}
+      title={!canDelete ? 'Save once first to get an id/slug' : 'Delete product'}
+    >
+      {busy ? 'Deleting…' : 'Delete Product'}
+    </button>
+  );
+}
+
 export default function ProductEdit() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -15,6 +68,7 @@ export default function ProductEdit() {
   const [error, setError] = useState("");
   const [saveResult, setSaveResult] = useState<any>(null);
   const [fireFlow, setFireFlow] = useState(true);
+  const [lastWebhookStatus, setLastWebhookStatus] = useState<string>('');
 
   useEffect(() => {
     if (isNew || !id) return;
@@ -76,38 +130,43 @@ export default function ProductEdit() {
         throw new Error('Save failed: no product in response');
       }
 
-      // 2) Optionally fire Flow A proxy (branch/PR), non-blocking
+      // 2) DIRECT webhook call (no Netlify proxy) - fire and log, non-blocking
       if (fireFlow) {
-        const proxyPayload = {
+        const productId = saved.product?.id ?? form.id ?? null;
+        const payload = {
           action: 'create_or_update_product',
           product: {
-            id: saved.product?.id ?? form.id ?? null,
+            id: productId,
             name: form.name,
             slug: form.slug,
             image_url: form.image_url,
-            gallery: form.gallery ?? [],
-            price: Number(form.price),
-            compare_at_price: form.compare_at_price ?? null,
+            gallery: form.gallery || [],
+            price: Number(form.price ?? 0),
+            compare_at_price: form.compare_at_price ? Number(form.compare_at_price) : null,
             stock: Number(form.stock ?? 0),
             status: form.status || 'active',
             short_description: form.short_description || '',
             long_description: form.long_description || '',
             category: form.category || '',
-          }
+          },
         };
-        
-        fetch("/.netlify/functions/products-intake-proxy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(proxyPayload)
+
+        fetch(FLOW_A_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         })
-          .then(async (res2) => {
-            const b = await res2.json().catch(async () => ({ raw: await res2.text() }));
-            console.log('[FlowA proxy]', res2.status, b);
+          .then(async (r2) => {
+            const text = await r2.text(); // n8n may return text
+            const status = `Flow A → ${r2.status} ${r2.ok ? 'OK' : 'ERR'} — ${text.slice(0, 200)}`;
+            setLastWebhookStatus(status);
+            console.log('[Flow A webhook]', r2.status, text);
             
-            if (res2.ok && b?.ok) {
+            // Try to parse response for PR/preview data
+            if (r2.ok) {
               try {
-                const response = b?.data || b;
+                const j = JSON.parse(text);
+                const response = j?.data || j;
                 if (response) {
                   setSaveResult({
                     prUrl: response.prUrl || response.pr || null,
@@ -116,14 +175,18 @@ export default function ProductEdit() {
                     branch: response.branch || response.ref || null,
                   });
                 }
-              } catch (parseErr) {
-                // Non-critical, continue
+              } catch {
+                // Non-JSON response, continue
               }
             }
           })
-          .catch((proxyErr) => {
-            console.warn("Proxy call failed (non-critical):", proxyErr);
+          .catch((webhookErr) => {
+            const status = `Flow A → ERROR — ${webhookErr?.message || String(webhookErr)}`;
+            setLastWebhookStatus(status);
+            console.warn("Webhook call failed (non-critical):", webhookErr);
           });
+      } else {
+        setLastWebhookStatus(''); // Clear status if Flow A is disabled
       }
 
       // Update form with saved product ID if new
@@ -329,16 +392,19 @@ export default function ProductEdit() {
           />
         </div>
 
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={fireFlow} 
+        <div className="flex items-center gap-3 mb-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={fireFlow}
               onChange={(e) => setFireFlow(e.target.checked)}
               className="rounded"
             />
-            <span className="text-sm">Fire Flow A (PR/Preview)</span>
+            <span>Fire Flow A (PR/Preview) after save</span>
           </label>
+          {lastWebhookStatus && (
+            <span className="text-xs text-gray-600 font-mono">{lastWebhookStatus}</span>
+          )}
         </div>
 
         <div className="flex gap-3">
@@ -349,42 +415,7 @@ export default function ProductEdit() {
           >
             {loading ? "Saving..." : "Save Product"}
           </button>
-          {!isNew && form.id && (
-            <button
-              type="button"
-              onClick={async () => {
-                if (!confirm('Delete this product? This cannot be undone.')) return;
-                
-                try {
-                  const res = await fetch('/.netlify/functions/delete-product', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: form.id ?? null, slug: form.slug ?? null }),
-                  });
-                  const a = await res.json().catch(() => ({}));
-                  if (!res.ok || !a?.ok) {
-                    throw new Error(a?.error || 'Delete failed');
-                  }
-                  toast({ 
-                    title: "Product Deleted", 
-                    description: "Product has been deleted successfully" 
-                  });
-                  nav('/products');
-                } catch (err: any) {
-                  console.error('[DELETE ERROR]', err);
-                  setError(err?.message || 'Delete failed');
-                  toast({ 
-                    title: "Error", 
-                    description: err?.message || "Failed to delete product",
-                    variant: "destructive"
-                  });
-                }
-              }}
-              className="px-6 py-2 rounded bg-red-600 text-white font-medium hover:bg-red-700"
-            >
-              Delete Product
-            </button>
-          )}
+          {!isNew && <DeleteProductButton form={form} onDeleted={() => nav('/products')} />}
           <button
             type="button"
             onClick={() => nav('/products')}
