@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/components/data/api";
+import { adminPaths } from "@/utils";
 
 export default function ProductsPage() {
   const navigate = useNavigate();
@@ -63,15 +64,12 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', minHeight: '100vh' }}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>Products</h1>
-        </div>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">Products</h1>
         <button
-          className="px-4 py-2 rounded-lg text-white font-medium"
-          style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
-          onClick={() => navigate('/products/new')}
+          className="btn-primary"
+          onClick={() => navigate(adminPaths.productNew)}
         >
           New Product
         </button>
@@ -82,35 +80,38 @@ export default function ProductsPage() {
           <p>No products yet.</p>
         </div>
       ) : (
-        <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-          <table className="w-full text-sm dark-table">
+        <div className="card">
+          <table className="admin-table">
             <thead>
-              <tr className="text-left border-b" style={{ borderBottomColor: 'var(--border-color)' }}>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Name</th>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Slug</th>
-                <th className="pb-3 text-right" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Price</th>
-                <th className="pb-3 text-right" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Stock</th>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Status</th>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Updated</th>
-                <th className="pb-3"></th>
+              <tr>
+                <th>Name</th>
+                <th>Slug</th>
+                <th className="text-right">Price</th>
+                <th className="text-right">Stock</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {products.map((product: any) => (
-                <tr key={product.id} className="border-b" style={{ borderBottomColor: 'var(--border-color)' }}>
-                  <td className="py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{product.name || '-'}</td>
-                  <td className="py-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{product.slug || '-'}</td>
-                  <td className="py-3 text-right" style={{ color: 'var(--text-primary)' }}>{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
-                  <td className="py-3 text-right" style={{ color: 'var(--text-primary)' }}>{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
-                  <td className="py-3" style={{ color: 'var(--text-primary)' }}>{product.status || 'active'}</td>
-                  <td className="py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                <tr key={product.id}>
+                  <td className="font-medium">{product.name || '-'}</td>
+                  <td className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{product.slug || '-'}</td>
+                  <td className="text-right price">{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
+                  <td className="text-right">{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
+                  <td>
+                    <span className={`status-badge ${product.status || 'active'}`}>
+                      {product.status || 'active'}
+                    </span>
+                  </td>
+                  <td className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     {product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}
                   </td>
-                  <td className="py-3 text-right">
+                  <td className="text-right">
                     <button
-                      className="underline"
-                      style={{ color: '#3b82f6' }}
-                      onClick={() => navigate(`/products/${product.id}`)}
+                      className="link"
+                      onClick={() => navigate(adminPaths.productEdit(product.id))}
                     >
                       Edit
                     </button>

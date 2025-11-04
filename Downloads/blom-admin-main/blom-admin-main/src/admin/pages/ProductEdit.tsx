@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { slugify } from '@/lib/slugify';
 import { toCardPreview, toPagePreview } from '@/lib/toTemplatePayload';
 import ProductCardPreview from '@/admin/components/ProductCardPreview';
 import ProductPagePreview from '@/admin/components/ProductPagePreview';
+import { adminPaths } from '@/utils';
 
 // Form state type matching the spec
 type ProductForm = {
@@ -164,7 +165,10 @@ async function triggerFlowA(form: ProductForm, savedId: string) {
 }
 
 export default function ProductEdit() {
-  const { id } = useParams();
+  const { id: paramId } = useParams();
+  const [searchParams] = useSearchParams();
+  const queryId = searchParams.get('id');
+  const id = paramId || queryId;
   const navigate = useNavigate();
   const isCreate = !id || id === 'new';
 
@@ -288,7 +292,7 @@ export default function ProductEdit() {
       // Update form with saved ID
       if (isCreate) {
         updateForm({ id: savedId });
-        navigate(`/products/${savedId}`);
+        navigate(adminPaths.productEdit(savedId));
       }
 
       // Fire Flow A (non-blocking)
@@ -328,26 +332,26 @@ export default function ProductEdit() {
 
   if (loading) {
     return (
-      <div className="p-6" style={{ backgroundColor: 'var(--bg-primary)', minHeight: '100vh' }}>
+      <div className="page-container">
         <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: 'var(--text-primary)' }}></div>
+          <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', minHeight: '100vh' }}>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">
           {isCreate ? 'New Product' : 'Edit Product'}
         </h1>
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
           {!isCreate && (
             <button
               onClick={handleDelete}
-              className="px-4 py-2 rounded-lg text-white font-medium"
-              style={{ backgroundColor: '#ef4444' }}
+              className="btn-primary"
+              style={{ background: '#ef4444' }}
             >
               Delete
             </button>
@@ -355,8 +359,7 @@ export default function ProductEdit() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 rounded-lg text-white font-medium disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+            className="btn-primary"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -364,20 +367,20 @@ export default function ProductEdit() {
       </div>
 
       {error && (
-        <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
+        <div className="card" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca', marginBottom: '1rem' }}>
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT: FORM (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="two-pane">
+        {/* LEFT: FORM */}
+        <div className="pane-left space-y-6">
           {/* Section 1: Basic Info */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Basic Info</h2>
+          <div className="card">
+            <h2 className="section-title">Basic Info</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Name *</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Name *</label>
                 <input
                   className="input"
                   value={form.name}
@@ -386,7 +389,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Slug *</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Slug *</label>
                 <input
                   className="input"
                   value={form.slug}
@@ -395,7 +398,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>SKU *</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>SKU *</label>
                 <input
                   className="input"
                   value={form.sku}
@@ -404,7 +407,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Category *</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Category *</label>
                 <input
                   className="input"
                   value={form.category}
@@ -416,11 +419,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 2: Pricing & Stock */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Pricing & Stock</h2>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="card">
+            <h2 className="section-title">Pricing & Stock</h2>
+            <div className="form-grid cols-2">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Price (ZAR) *</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Price (ZAR) *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -430,7 +433,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Compare At Price</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Compare At Price</label>
                 <input
                   type="number"
                   step="0.01"
@@ -440,7 +443,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Inventory Quantity *</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Inventory Quantity *</label>
                 <input
                   type="number"
                   className="input"
@@ -450,7 +453,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Track Inventory</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Track Inventory</label>
                 <select
                   className="input"
                   value={form.track_inventory ? '1' : '0'}
@@ -464,11 +467,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 3: Images */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Images</h2>
+          <div className="card">
+            <h2 className="section-title">Images</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Thumbnail URL *</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Thumbnail URL *</label>
                 <input
                   className="input"
                   value={form.thumbnail_url}
@@ -477,7 +480,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Hover Image URL</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Hover Image URL</label>
                 <input
                   className="input"
                   value={form.hover_image_url}
@@ -486,9 +489,9 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Gallery URLs (one per line)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Gallery URLs (one per line)</label>
                 <textarea
-                  className="input"
+                  className="textarea"
                   rows={4}
                   value={form.gallery_urls.join('\n')}
                   onChange={e => updateForm({ gallery_urls: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
@@ -499,15 +502,15 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 4: Descriptions */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Descriptions</h2>
+          <div className="card">
+            <h2 className="section-title">Descriptions</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
                   Short Description * (max 200 chars)
                 </label>
                 <textarea
-                  className="input"
+                  className="textarea"
                   rows={3}
                   maxLength={200}
                   value={form.short_description}
@@ -518,18 +521,18 @@ export default function ProductEdit() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Description (Rich Text)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Description (Rich Text)</label>
                 <textarea
-                  className="input"
+                  className="textarea"
                   rows={6}
                   value={form.description}
                   onChange={e => updateForm({ description: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Overview</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Overview</label>
                 <textarea
-                  className="input"
+                  className="textarea"
                   rows={6}
                   value={form.overview}
                   onChange={e => updateForm({ overview: e.target.value })}
@@ -539,11 +542,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 5: Product Details */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Product Details</h2>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="card">
+            <h2 className="section-title">Product Details</h2>
+            <div className="form-grid cols-2">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Size</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Size</label>
                 <input
                   className="input"
                   value={form.size}
@@ -552,7 +555,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Shelf Life</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Shelf Life</label>
                 <input
                   className="input"
                   value={form.shelf_life}
@@ -561,7 +564,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Weight (grams)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Weight (grams)</label>
                 <input
                   type="number"
                   className="input"
@@ -570,7 +573,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Barcode</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Barcode</label>
                 <input
                   className="input"
                   value={form.barcode}
@@ -581,11 +584,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 6: Features & Usage */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Features & Usage</h2>
+          <div className="card">
+            <h2 className="section-title">Features & Usage</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Features (comma separated)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Features (comma separated)</label>
                 <input
                   className="input"
                   value={form.features.join(', ')}
@@ -594,9 +597,9 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>How to Use (one per line, ordered)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>How to Use (one per line, ordered)</label>
                 <textarea
-                  className="input"
+                  className="textarea"
                   rows={4}
                   value={form.how_to_use.join('\n')}
                   onChange={e => updateForm({ how_to_use: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
@@ -607,11 +610,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 7: Ingredients */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Ingredients</h2>
+          <div className="card">
+            <h2 className="section-title">Ingredients</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>INCI Ingredients (comma separated)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>INCI Ingredients (comma separated)</label>
                 <input
                   className="input"
                   value={form.inci_ingredients.join(', ')}
@@ -619,7 +622,7 @@ export default function ProductEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Key Ingredients (comma separated)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Key Ingredients (comma separated)</label>
                 <input
                   className="input"
                   value={form.key_ingredients.join(', ')}
@@ -630,10 +633,10 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 8: Claims */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Claims & Certifications</h2>
+          <div className="card">
+            <h2 className="section-title">Claims & Certifications</h2>
             <div>
-              <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Claims (comma separated)</label>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Claims (comma separated)</label>
               <input
                 className="input"
                 value={form.claims.join(', ')}
@@ -647,12 +650,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 9: Variants */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Variants (Optional)</h2>
+          <div className="card">
+            <h2 className="section-title">Variants (Optional)</h2>
             <button
               type="button"
-              className="px-3 py-2 rounded-lg mb-3"
-              style={{ backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+              className="btn-icon mb-3"
               onClick={() => updateForm({
                 variants: [...form.variants, {
                   title: '',
@@ -729,11 +731,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 10: SEO */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>SEO</h2>
+          <div className="card">
+            <h2 className="section-title">SEO</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
                   Meta Title (max 60 chars)
                 </label>
                 <input
@@ -747,11 +749,11 @@ export default function ProductEdit() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
                   Meta Description (max 160 chars)
                 </label>
                 <textarea
-                  className="input"
+                  className="textarea"
                   rows={3}
                   maxLength={160}
                   value={form.meta_description}
@@ -765,11 +767,11 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 11: Display Settings */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Display Settings</h2>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="card">
+            <h2 className="section-title">Display Settings</h2>
+            <div className="form-grid cols-2">
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Status</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Status</label>
                 <select
                   className="input"
                   value={form.status}
@@ -781,7 +783,7 @@ export default function ProductEdit() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Active</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Active</label>
                 <select
                   className="input"
                   value={form.is_active ? '1' : '0'}
@@ -792,7 +794,7 @@ export default function ProductEdit() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Featured</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Featured</label>
                 <select
                   className="input"
                   value={form.is_featured ? '1' : '0'}
@@ -803,7 +805,7 @@ export default function ProductEdit() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Badges (comma separated)</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Badges (comma separated)</label>
                 <input
                   className="input"
                   value={form.badges.join(', ')}
@@ -815,10 +817,10 @@ export default function ProductEdit() {
           </div>
 
           {/* Section 12: Related */}
-          <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Related Products</h2>
+          <div className="card">
+            <h2 className="section-title">Related Products</h2>
             <div>
-              <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Related Product IDs (comma separated)</label>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Related Product IDs (comma separated)</label>
               <input
                 className="input"
                 value={form.related.join(', ')}
@@ -847,15 +849,15 @@ export default function ProductEdit() {
           </div>
         </div>
 
-        {/* RIGHT: PREVIEW (1/3 width, sticky) */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-6 space-y-6">
+        {/* RIGHT: PREVIEW */}
+        <div className="pane-right">
+          <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Card Preview</h2>
+              <h2 className="section-title">Card Preview</h2>
               <ProductCardPreview card={cardPreview} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Page Preview</h2>
+              <h2 className="section-title">Page Preview</h2>
               <ProductPagePreview page={pagePreview} />
             </div>
           </div>
