@@ -72,58 +72,47 @@ export default function BundlesPage() {
 
       {bundles.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          <p>No bundles found.</p>
-          <button
-            onClick={() => navigate('/bundles/new')}
-            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-          >
-            Create your first bundle
-          </button>
+          <p>No bundles yet.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left border-b bg-slate-50">
-                <th className="p-3">Name</th>
-                <th className="p-3">Slug</th>
-                <th className="p-3">Price</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Updated</th>
-                <th className="p-3 text-right">Actions</th>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b">
+              <th>Name</th>
+              <th>Slug</th>
+              <th>Price</th>
+              <th>Status</th>
+              <th>Updated</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {bundles.map((bundle: any) => (
+              <tr key={bundle.id} className="border-b">
+                <td className="font-medium">{bundle.name || '-'}</td>
+                <td className="font-mono text-xs">{bundle.slug || '-'}</td>
+                <td>R {((bundle.price_cents || bundle.price || 0) / 100).toFixed(2)}</td>
+                <td>{bundle.status || 'active'}</td>
+                <td className="text-xs text-gray-500">
+                  {bundle.updated_at ? new Date(bundle.updated_at).toLocaleDateString() : '-'}
+                </td>
+                <td className="text-right">
+                  <button
+                    className="text-blue-600 underline"
+                    onClick={() => navigate(`/bundles/${bundle.id}`)}
+                  >
+                    Edit
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {bundles.map((bundle: any) => (
-                <tr key={bundle.id} className="border-b hover:bg-slate-50">
-                  <td className="p-3 font-medium">{bundle.name || '-'}</td>
-                  <td className="p-3 font-mono text-xs text-gray-600">{bundle.slug || '-'}</td>
-                  <td className="p-3">R {((bundle.price_cents || bundle.price || 0) / 100).toFixed(2)}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      bundle.status === 'active' ? 'bg-green-100 text-green-800' :
-                      bundle.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {bundle.status || 'active'}
-                    </span>
-                  </td>
-                  <td className="p-3 text-xs text-gray-500">
-                    {bundle.updated_at ? new Date(bundle.updated_at).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="p-3 text-right">
-                    <button
-                      className="text-blue-600 underline hover:text-blue-800"
-                      onClick={() => navigate(`/bundles/${bundle.id}`)}
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {bundles.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-4 text-gray-500">No bundles yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       )}
     </div>
   );

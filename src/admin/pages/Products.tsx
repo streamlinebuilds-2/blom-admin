@@ -76,61 +76,51 @@ export default function ProductsPage() {
 
       {products.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          <p>No products found.</p>
-          <button
-            onClick={() => navigate('/products/new')}
-            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-          >
-            Create your first product
-          </button>
+          <p>No products yet.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left border-b bg-slate-50">
-                <th className="p-3">Name</th>
-                <th className="p-3">Slug</th>
-                <th className="p-3">Price</th>
-                <th className="p-3">Stock</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Updated</th>
-                <th className="p-3 text-right">Actions</th>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b">
+              <th>Name</th>
+              <th>Slug</th>
+              <th>Price</th>
+              <th>Stock</th>
+              <th>Status</th>
+              <th>Updated</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((product: any) => (
+              <tr key={product.id} className="border-b">
+                <td className="font-medium">{product.name || '-'}</td>
+                <td className="font-mono text-xs">{product.slug || '-'}</td>
+                <td>{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
+                <td>{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
+                <td>{product.status || 'active'}</td>
+                <td className="text-xs text-gray-500">
+                  {product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}
+                </td>
+                <td className="text-right">
+                  <button
+                    className="text-blue-600 underline"
+                    onClick={() => navigate(`/products/${product.id}`)}
+                  >
+                    Edit
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {products.map((product: any) => (
-                <tr key={product.id} className="border-b hover:bg-slate-50">
-                  <td className="p-3 font-medium">{product.name || '-'}</td>
-                  <td className="p-3 font-mono text-xs text-gray-600">{product.slug || '-'}</td>
-                  <td className="p-3">{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
-                  <td className="p-3">{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      product.status === 'active' ? 'bg-green-100 text-green-800' :
-                      product.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {product.status || 'active'}
-                    </span>
-                  </td>
-                  <td className="p-3 text-xs text-gray-500">
-                    {product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="p-3 text-right">
-                    <button
-                      className="text-blue-600 underline hover:text-blue-800"
-                      onClick={() => navigate(`/products/${product.id}`)}
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {products.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-4 text-gray-500">No products yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       )}
     </div>
   );
 }
+
