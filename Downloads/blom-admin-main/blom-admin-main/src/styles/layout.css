@@ -5,12 +5,12 @@
   --bg: #e0e0e0;
   --card: #e0e0e0;
   --text: #333333;
-  --text-muted: #6b7280;
-  --border: #d1d5db;
+  --text-muted: #7a7a7a;
+  --border: #d9d9d9;
   --accent: #6ec1ff;
-  --accent-2: #4e9fe0;
-  --shadow-dark: rgba(0, 0, 0, 0.18);
-  --shadow-light: rgba(255, 255, 255, 0.65);
+  --accent-2: #8bd1ff;
+  --shadow-dark: rgba(0,0,0,0.15);
+  --shadow-light: rgba(255,255,255,0.7);
 }
 
 /* Dark theme */
@@ -18,12 +18,12 @@
   --bg: #2a2a2a;
   --card: #2a2a2a;
   --text: #e0e0e0;
-  --text-muted: #9ca3af;
-  --border: #3f3f46;
+  --text-muted: #a1a1a1;
+  --border: #3a3a3a;
   --accent: #6ec1ff;
-  --accent-2: #4e9fe0;
-  --shadow-dark: rgba(0,0,0,0.7);
-  --shadow-light: rgba(255,255,255,0.08);
+  --accent-2: #8bd1ff;
+  --shadow-dark: rgba(0,0,0,0.6);
+  --shadow-light: rgba(255,255,255,0.06);
 }
 
 /* Universal transitions */
@@ -56,11 +56,25 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  margin-bottom: 16px;
   background: var(--card);
-  box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+}
+
+.content-area {
+  display: block;
+  padding: 16px;
+}
+
+/* Section card */
+.section-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
 }
 
 /* Form controls */
@@ -69,38 +83,40 @@ body {
 .textarea {
   width: 100%;
   border: none;
-  border-radius: 12px;
+  outline: none;
   background: var(--card);
   color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
   font-size: 14px;
-  padding: 12px 14px;
   box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
 }
 
 .textarea {
+  min-height: 120px;
   resize: vertical;
 }
 
 /* Primary button */
 .btn-primary {
-  padding: 12px 24px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
 }
 
 /* Icon button */
@@ -195,5 +211,31 @@ table tbody tr:hover {
   font-weight: 600;
   color: var(--text);
   margin-bottom: 8px;
+}
+
+/* Form layout helpers */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Muted text, labels */
+.label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.help {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 

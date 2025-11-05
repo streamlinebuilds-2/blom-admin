@@ -332,20 +332,23 @@ export default function ProductEdit() {
 
   if (loading) {
     return (
-      <div className="page-container">
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}></div>
+      <>
+        <div className="topbar">
+          <div className="font-bold">{isCreate ? 'New Product' : 'Edit Product'}</div>
         </div>
-      </div>
+        <div className="content-area">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
+            <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}></div>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">
-          {isCreate ? 'New Product' : 'Edit Product'}
-        </h1>
+    <>
+      <div className="topbar">
+        <div className="font-bold">{isCreate ? 'New Product' : 'Edit Product'}</div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {!isCreate && (
             <button
@@ -366,21 +369,21 @@ export default function ProductEdit() {
         </div>
       </div>
 
-      {error && (
-        <div className="card" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca', marginBottom: '1rem' }}>
-          {error}
-        </div>
-      )}
+      <div className="content-area">
+        {error && (
+          <div className="section-card" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca', marginBottom: '1rem' }}>
+            {error}
+          </div>
+        )}
 
-      <div className="two-pane">
-        {/* LEFT: FORM */}
-        <div className="pane-left space-y-6">
-          {/* Section 1: Basic Info */}
-          <div className="card">
-            <h2 className="section-title">Basic Info</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Name *</label>
+        <div className="form-grid">
+          <div className="form-col">
+            {/* Section 1: Basic Info */}
+            <div className="section-card">
+              <div className="label">Basic Info</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div className="label">Name *</div>
                 <input
                   className="input"
                   value={form.name}
@@ -388,42 +391,42 @@ export default function ProductEdit() {
                   placeholder="Product name"
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Slug *</label>
-                <input
-                  className="input"
-                  value={form.slug}
-                  onChange={e => { setSlugTouched(true); updateForm({ slug: e.target.value }); }}
-                  placeholder="product-slug"
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>SKU *</label>
-                <input
-                  className="input"
-                  value={form.sku}
-                  onChange={e => updateForm({ sku: e.target.value })}
-                  placeholder="SKU-001"
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Category *</label>
-                <input
-                  className="input"
-                  value={form.category}
-                  onChange={e => updateForm({ category: e.target.value })}
-                  placeholder="Tools & Essentials"
-                />
+                <div>
+                  <div className="label">Slug *</div>
+                  <input
+                    className="input"
+                    value={form.slug}
+                    onChange={e => { setSlugTouched(true); updateForm({ slug: e.target.value }); }}
+                    placeholder="product-slug"
+                  />
+                </div>
+                <div>
+                  <div className="label">SKU *</div>
+                  <input
+                    className="input"
+                    value={form.sku}
+                    onChange={e => updateForm({ sku: e.target.value })}
+                    placeholder="SKU-001"
+                  />
+                </div>
+                <div>
+                  <div className="label">Category *</div>
+                  <input
+                    className="input"
+                    value={form.category}
+                    onChange={e => updateForm({ category: e.target.value })}
+                    placeholder="Tools & Essentials"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Section 2: Pricing & Stock */}
-          <div className="card">
-            <h2 className="section-title">Pricing & Stock</h2>
-            <div className="form-grid cols-2">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Price (ZAR) *</label>
+            {/* Section 2: Pricing & Stock */}
+            <div className="section-card">
+              <div className="label">Pricing & Stock</div>
+              <div className="form-grid">
+                <div>
+                  <div className="label">Price (ZAR) *</div>
                 <input
                   type="number"
                   step="0.01"
@@ -432,46 +435,46 @@ export default function ProductEdit() {
                   onChange={e => updateForm({ price: parseFloat(e.target.value) || 0 })}
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Compare At Price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="input"
-                  value={form.compare_at_price ?? ''}
-                  onChange={e => updateForm({ compare_at_price: e.target.value ? parseFloat(e.target.value) : null })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Inventory Quantity *</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={form.inventory_quantity}
-                  onChange={e => updateForm({ inventory_quantity: parseInt(e.target.value) || 0 })}
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Track Inventory</label>
-                <select
-                  className="input"
-                  value={form.track_inventory ? '1' : '0'}
-                  onChange={e => updateForm({ track_inventory: e.target.value === '1' })}
-                >
-                  <option value="1">Yes</option>
-                  <option value="0">No</option>
-                </select>
+                <div>
+                  <div className="label">Compare At Price</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input"
+                    value={form.compare_at_price ?? ''}
+                    onChange={e => updateForm({ compare_at_price: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <div className="label">Inventory Quantity *</div>
+                  <input
+                    type="number"
+                    className="input"
+                    value={form.inventory_quantity}
+                    onChange={e => updateForm({ inventory_quantity: parseInt(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <div className="label">Track Inventory</div>
+                  <select
+                    className="select"
+                    value={form.track_inventory ? '1' : '0'}
+                    onChange={e => updateForm({ track_inventory: e.target.value === '1' })}
+                  >
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Section 3: Images */}
-          <div className="card">
-            <h2 className="section-title">Images</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Thumbnail URL *</label>
+            {/* Section 3: Images */}
+            <div className="section-card">
+              <div className="label">Images</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div className="label">Thumbnail URL *</div>
                 <input
                   className="input"
                   value={form.thumbnail_url}
@@ -479,36 +482,34 @@ export default function ProductEdit() {
                   placeholder="https://..."
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Hover Image URL</label>
-                <input
-                  className="input"
-                  value={form.hover_image_url}
-                  onChange={e => updateForm({ hover_image_url: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Gallery URLs (one per line)</label>
-                <textarea
-                  className="textarea"
-                  rows={4}
-                  value={form.gallery_urls.join('\n')}
-                  onChange={e => updateForm({ gallery_urls: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
-                  placeholder="https://...\nhttps://..."
-                />
+                <div>
+                  <div className="label">Hover Image URL</div>
+                  <input
+                    className="input"
+                    value={form.hover_image_url}
+                    onChange={e => updateForm({ hover_image_url: e.target.value })}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <div className="label">Gallery URLs (one per line)</div>
+                  <textarea
+                    className="textarea"
+                    rows={4}
+                    value={form.gallery_urls.join('\n')}
+                    onChange={e => updateForm({ gallery_urls: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
+                    placeholder="https://...\nhttps://..."
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Section 4: Descriptions */}
-          <div className="card">
-            <h2 className="section-title">Descriptions</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Short Description * (max 200 chars)
-                </label>
+            {/* Section 4: Descriptions */}
+            <div className="section-card">
+              <div className="label">Descriptions</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div className="label">Short Description * (max 200 chars)</div>
                 <textarea
                   className="textarea"
                   rows={3}
@@ -516,37 +517,35 @@ export default function ProductEdit() {
                   value={form.short_description}
                   onChange={e => updateForm({ short_description: e.target.value })}
                 />
-                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  {form.short_description.length}/200
+                  <div className="help">{form.short_description.length}/200</div>
+                </div>
+                <div>
+                  <div className="label">Description (Rich Text)</div>
+                  <textarea
+                    className="textarea"
+                    rows={6}
+                    value={form.description}
+                    onChange={e => updateForm({ description: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <div className="label">Overview</div>
+                  <textarea
+                    className="textarea"
+                    rows={6}
+                    value={form.overview}
+                    onChange={e => updateForm({ overview: e.target.value })}
+                  />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Description (Rich Text)</label>
-                <textarea
-                  className="textarea"
-                  rows={6}
-                  value={form.description}
-                  onChange={e => updateForm({ description: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Overview</label>
-                <textarea
-                  className="textarea"
-                  rows={6}
-                  value={form.overview}
-                  onChange={e => updateForm({ overview: e.target.value })}
-                />
-              </div>
             </div>
-          </div>
 
-          {/* Section 5: Product Details */}
-          <div className="card">
-            <h2 className="section-title">Product Details</h2>
-            <div className="form-grid cols-2">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Size</label>
+            {/* Section 5: Product Details */}
+            <div className="section-card">
+              <div className="label">Product Details</div>
+              <div className="form-grid">
+                <div>
+                  <div className="label">Size</div>
                 <input
                   className="input"
                   value={form.size}
@@ -554,41 +553,41 @@ export default function ProductEdit() {
                   placeholder="30ml"
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Shelf Life</label>
-                <input
-                  className="input"
-                  value={form.shelf_life}
-                  onChange={e => updateForm({ shelf_life: e.target.value })}
-                  placeholder="24 months"
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Weight (grams)</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={form.weight ?? ''}
-                  onChange={e => updateForm({ weight: e.target.value ? parseFloat(e.target.value) : null })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Barcode</label>
-                <input
-                  className="input"
-                  value={form.barcode}
-                  onChange={e => updateForm({ barcode: e.target.value })}
-                />
+                <div>
+                  <div className="label">Shelf Life</div>
+                  <input
+                    className="input"
+                    value={form.shelf_life}
+                    onChange={e => updateForm({ shelf_life: e.target.value })}
+                    placeholder="24 months"
+                  />
+                </div>
+                <div>
+                  <div className="label">Weight (grams)</div>
+                  <input
+                    type="number"
+                    className="input"
+                    value={form.weight ?? ''}
+                    onChange={e => updateForm({ weight: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <div className="label">Barcode</div>
+                  <input
+                    className="input"
+                    value={form.barcode}
+                    onChange={e => updateForm({ barcode: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Section 6: Features & Usage */}
-          <div className="card">
-            <h2 className="section-title">Features & Usage</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Features (comma separated)</label>
+            {/* Section 6: Features & Usage */}
+            <div className="section-card">
+              <div className="label">Features & Usage</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div className="label">Features (comma separated)</div>
                 <input
                   className="input"
                   value={form.features.join(', ')}
@@ -596,241 +595,233 @@ export default function ProductEdit() {
                   placeholder="Feature 1, Feature 2"
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>How to Use (one per line, ordered)</label>
-                <textarea
-                  className="textarea"
-                  rows={4}
-                  value={form.how_to_use.join('\n')}
-                  onChange={e => updateForm({ how_to_use: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
-                  placeholder="Step 1\nStep 2\nStep 3"
-                />
+                <div>
+                  <div className="label">How to Use (one per line, ordered)</div>
+                  <textarea
+                    className="textarea"
+                    rows={4}
+                    value={form.how_to_use.join('\n')}
+                    onChange={e => updateForm({ how_to_use: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
+                    placeholder="Step 1\nStep 2\nStep 3"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Section 7: Ingredients */}
-          <div className="card">
-            <h2 className="section-title">Ingredients</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>INCI Ingredients (comma separated)</label>
+            {/* Section 7: Ingredients */}
+            <div className="section-card">
+              <div className="label">Ingredients</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div className="label">INCI Ingredients (comma separated)</div>
                 <input
                   className="input"
                   value={form.inci_ingredients.join(', ')}
                   onChange={e => updateForm({ inci_ingredients: parseArray(e.target.value) })}
                 />
               </div>
+                <div>
+                  <div className="label">Key Ingredients (comma separated)</div>
+                  <input
+                    className="input"
+                    value={form.key_ingredients.join(', ')}
+                    onChange={e => updateForm({ key_ingredients: parseArray(e.target.value) })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 8: Claims */}
+            <div className="section-card">
+              <div className="label">Claims & Certifications</div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Key Ingredients (comma separated)</label>
+                <div className="label">Claims (comma separated)</div>
                 <input
                   className="input"
-                  value={form.key_ingredients.join(', ')}
-                  onChange={e => updateForm({ key_ingredients: parseArray(e.target.value) })}
+                  value={form.claims.join(', ')}
+                  onChange={e => updateForm({ claims: parseArray(e.target.value) })}
+                  placeholder="Vegan, Cruelty-Free, HEMA-Free"
                 />
+                <div className="help">
+                  Common: Vegan, Cruelty-Free, HEMA-Free, Paraben-Free, Toxic-Free
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Section 8: Claims */}
-          <div className="card">
-            <h2 className="section-title">Claims & Certifications</h2>
-            <div>
-              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Claims (comma separated)</label>
-              <input
-                className="input"
-                value={form.claims.join(', ')}
-                onChange={e => updateForm({ claims: parseArray(e.target.value) })}
-                placeholder="Vegan, Cruelty-Free, HEMA-Free"
-              />
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                Common: Vegan, Cruelty-Free, HEMA-Free, Paraben-Free, Toxic-Free
-              </div>
-            </div>
-          </div>
-
-          {/* Section 9: Variants */}
-          <div className="card">
-            <h2 className="section-title">Variants (Optional)</h2>
-            <button
-              type="button"
-              className="btn-icon mb-3"
-              onClick={() => updateForm({
-                variants: [...form.variants, {
-                  title: '',
-                  sku: '',
-                  inventory_quantity: 0,
-                  is_active: true
-                }]
-              })}
-            >
-              + Add Variant
-            </button>
-            <div className="space-y-3">
-              {form.variants.map((v, i) => (
-                <div key={i} className="p-3 rounded-lg border" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Variant {i + 1}</span>
-                    <button
-                      type="button"
-                      className="text-xs"
-                      style={{ color: '#ef4444' }}
-                      onClick={() => updateForm({ variants: form.variants.filter((_, idx) => idx !== i) })}
-                    >
-                      Remove
-                    </button>
+            {/* Section 9: Variants */}
+            <div className="section-card">
+              <div className="label">Variants (Optional)</div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => updateForm({
+                  variants: [...form.variants, {
+                    title: '',
+                    sku: '',
+                    inventory_quantity: 0,
+                    is_active: true
+                  }]
+                })}
+              >
+                + Add Variant
+              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {form.variants.map((v, i) => (
+                  <div key={i} className="section-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span className="label">Variant {i + 1}</span>
+                      <button
+                        type="button"
+                        className="help"
+                        style={{ color: '#ef4444', cursor: 'pointer' }}
+                        onClick={() => updateForm({ variants: form.variants.filter((_, idx) => idx !== i) })}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="form-grid">
+                      <input className="input" placeholder="Title *" value={v.title} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, title: e.target.value };
+                        updateForm({ variants });
+                      }} />
+                      <input className="input" placeholder="SKU *" value={v.sku} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, sku: e.target.value };
+                        updateForm({ variants });
+                      }} />
+                      <input type="number" className="input" placeholder="Price" value={v.price ?? ''} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, price: e.target.value ? parseFloat(e.target.value) : undefined };
+                        updateForm({ variants });
+                      }} />
+                      <input type="number" className="input" placeholder="Compare At" value={v.compare_at_price ?? ''} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, compare_at_price: e.target.value ? parseFloat(e.target.value) : null };
+                        updateForm({ variants });
+                      }} />
+                      <input className="input" placeholder="Option 1" value={v.option1 || ''} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, option1: e.target.value };
+                        updateForm({ variants });
+                      }} />
+                      <input className="input" placeholder="Option 2" value={v.option2 || ''} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, option2: e.target.value };
+                        updateForm({ variants });
+                      }} />
+                      <input type="number" className="input" placeholder="Inventory Qty" value={v.inventory_quantity} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, inventory_quantity: parseInt(e.target.value) || 0 };
+                        updateForm({ variants });
+                      }} />
+                      <select className="select" value={v.is_active ? '1' : '0'} onChange={e => {
+                        const variants = [...form.variants];
+                        variants[i] = { ...v, is_active: e.target.value === '1' };
+                        updateForm({ variants });
+                      }}>
+                        <option value="1">Active</option>
+                        <option value="0">Inactive</option>
+                      </select>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input className="input" placeholder="Title *" value={v.title} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, title: e.target.value };
-                      updateForm({ variants });
-                    }} />
-                    <input className="input" placeholder="SKU *" value={v.sku} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, sku: e.target.value };
-                      updateForm({ variants });
-                    }} />
-                    <input type="number" className="input" placeholder="Price" value={v.price ?? ''} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, price: e.target.value ? parseFloat(e.target.value) : undefined };
-                      updateForm({ variants });
-                    }} />
-                    <input type="number" className="input" placeholder="Compare At" value={v.compare_at_price ?? ''} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, compare_at_price: e.target.value ? parseFloat(e.target.value) : null };
-                      updateForm({ variants });
-                    }} />
-                    <input className="input" placeholder="Option 1" value={v.option1 || ''} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, option1: e.target.value };
-                      updateForm({ variants });
-                    }} />
-                    <input className="input" placeholder="Option 2" value={v.option2 || ''} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, option2: e.target.value };
-                      updateForm({ variants });
-                    }} />
-                    <input type="number" className="input" placeholder="Inventory Qty" value={v.inventory_quantity} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, inventory_quantity: parseInt(e.target.value) || 0 };
-                      updateForm({ variants });
-                    }} />
-                    <select className="input" value={v.is_active ? '1' : '0'} onChange={e => {
-                      const variants = [...form.variants];
-                      variants[i] = { ...v, is_active: e.target.value === '1' };
-                      updateForm({ variants });
-                    }}>
-                      <option value="1">Active</option>
-                      <option value="0">Inactive</option>
-                    </select>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Section 10: SEO */}
-          <div className="card">
-            <h2 className="section-title">SEO</h2>
-            <div className="space-y-3">
+            {/* Section 10: SEO */}
+            <div className="section-card">
+              <div className="label">SEO</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div className="label">Meta Title (max 60 chars)</div>
+                  <input
+                    className="input"
+                    maxLength={60}
+                    value={form.meta_title}
+                    onChange={e => updateForm({ meta_title: e.target.value })}
+                  />
+                  <div className="help">{form.meta_title.length}/60</div>
+                </div>
+                <div>
+                  <div className="label">Meta Description (max 160 chars)</div>
+                  <textarea
+                    className="textarea"
+                    rows={3}
+                    maxLength={160}
+                    value={form.meta_description}
+                    onChange={e => updateForm({ meta_description: e.target.value })}
+                  />
+                  <div className="help">{form.meta_description.length}/160</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 11: Display Settings */}
+            <div className="section-card">
+              <div className="label">Display Settings</div>
+              <div className="form-grid">
+                <div>
+                  <div className="label">Status</div>
+                  <select
+                    className="select"
+                    value={form.status}
+                    onChange={e => updateForm({ status: e.target.value as any })}
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="label">Active</div>
+                  <select
+                    className="select"
+                    value={form.is_active ? '1' : '0'}
+                    onChange={e => updateForm({ is_active: e.target.value === '1' })}
+                  >
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="label">Featured</div>
+                  <select
+                    className="select"
+                    value={form.is_featured ? '1' : '0'}
+                    onChange={e => updateForm({ is_featured: e.target.value === '1' })}
+                  >
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="label">Badges (comma separated)</div>
+                  <input
+                    className="input"
+                    value={form.badges.join(', ')}
+                    onChange={e => updateForm({ badges: parseArray(e.target.value) })}
+                    placeholder="Bestseller, New, Sale"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 12: Related */}
+            <div className="section-card">
+              <div className="label">Related Products</div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Meta Title (max 60 chars)
-                </label>
+                <div className="label">Related Product IDs (comma separated)</div>
                 <input
                   className="input"
-                  maxLength={60}
-                  value={form.meta_title}
-                  onChange={e => updateForm({ meta_title: e.target.value })}
+                  value={form.related.join(', ')}
+                  onChange={e => updateForm({ related: parseArray(e.target.value) })}
+                  placeholder="id1, id2, id3"
                 />
-                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  {form.meta_title.length}/60
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Meta Description (max 160 chars)
-                </label>
-                <textarea
-                  className="textarea"
-                  rows={3}
-                  maxLength={160}
-                  value={form.meta_description}
-                  onChange={e => updateForm({ meta_description: e.target.value })}
-                />
-                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  {form.meta_description.length}/160
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 11: Display Settings */}
-          <div className="card">
-            <h2 className="section-title">Display Settings</h2>
-            <div className="form-grid cols-2">
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Status</label>
-                <select
-                  className="input"
-                  value={form.status}
-                  onChange={e => updateForm({ status: e.target.value as any })}
-                >
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Active</label>
-                <select
-                  className="input"
-                  value={form.is_active ? '1' : '0'}
-                  onChange={e => updateForm({ is_active: e.target.value === '1' })}
-                >
-                  <option value="1">Yes</option>
-                  <option value="0">No</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Featured</label>
-                <select
-                  className="input"
-                  value={form.is_featured ? '1' : '0'}
-                  onChange={e => updateForm({ is_featured: e.target.value === '1' })}
-                >
-                  <option value="1">Yes</option>
-                  <option value="0">No</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Badges (comma separated)</label>
-                <input
-                  className="input"
-                  value={form.badges.join(', ')}
-                  onChange={e => updateForm({ badges: parseArray(e.target.value) })}
-                  placeholder="Bestseller, New, Sale"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 12: Related */}
-          <div className="card">
-            <h2 className="section-title">Related Products</h2>
-            <div>
-              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Related Product IDs (comma separated)</label>
-              <input
-                className="input"
-                value={form.related.join(', ')}
-                onChange={e => updateForm({ related: parseArray(e.target.value) })}
-                placeholder="id1, id2, id3"
-              />
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                 {allProducts.length > 0 && (
                   <select
-                    className="input mt-2"
+                    className="select"
+                    style={{ marginTop: '8px' }}
                     onChange={e => {
                       if (e.target.value && !form.related.includes(e.target.value)) {
                         updateForm({ related: [...form.related, e.target.value] });
@@ -847,22 +838,20 @@ export default function ProductEdit() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* RIGHT: PREVIEW */}
-        <div className="pane-right">
-          <div className="space-y-6">
-            <div>
-              <h2 className="section-title">Card Preview</h2>
+          {/* RIGHT: PREVIEW */}
+          <div className="form-col">
+            <div className="section-card">
+              <div className="label">Card Preview</div>
               <ProductCardPreview card={cardPreview} />
             </div>
-            <div>
-              <h2 className="section-title">Page Preview</h2>
+            <div className="section-card">
+              <div className="label">Page Preview</div>
               <ProductPagePreview page={pagePreview} />
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
