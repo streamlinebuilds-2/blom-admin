@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from '../layout/Header';
-import { Footer } from '../layout/Footer';
-import { Container } from '../layout/Container';
-import { Card, CardContent } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { ReviewSection } from '../review/ReviewSection';
-import { PaymentMethods } from '../payment/PaymentMethods';
-import { StickyCart } from '../cart/StickyCart';
-import { cartStore, showNotification } from '../../lib/cart';
-import { ShareButton } from '../ui/ShareButton';
+import { Header } from '@/components/product-page/Header';
+import { Footer } from '@/components/product-page/Footer';
+import { Container } from '@/components/product-page/Container';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ReviewSection } from '@/components/product-page/ReviewSection';
+import { PaymentMethods } from '@/components/product-page/PaymentMethods';
+import { StickyCart } from '@/components/product-page/StickyCart';
+import { cartStore, showNotification } from '@/lib/cart';
+import { ShareButton } from '@/components/product-page/ShareButton';
 import { 
   Star, 
   Heart, 
-  Share2, 
   ShoppingCart, 
   Plus, 
   Minus,

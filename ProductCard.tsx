@@ -1,8 +1,8 @@
 import React from 'react';
 import { Heart, ShoppingCart, ShoppingBag } from 'lucide-react';
-import { cartStore } from '../lib/cart';
-import { wishlistStore } from '../lib/wishlist';
-import { OptimizedImage } from './seo/OptimizedImage';
+import { cartStore } from '@/lib/cart';
+import { wishlistStore } from '@/lib/wishlist';
+import { OptimizedImage } from '@/components/seo/OptimizedImage';
 
 interface ProductCardProps {
   id: string;
