@@ -12,6 +12,8 @@ type OrderRow = {
   status?: string | null;
   created_at?: string | null;
   paid_at?: string | null;
+  collection_location?: string | null;
+  delivery_method?: string | null;
 };
 
 export default function Orders() {
@@ -27,7 +29,7 @@ export default function Orders() {
       setError(null);
       const { data, error } = await supabase
         .from('orders')
-        .select('id,m_payment_id,order_number,total,total_cents,status,created_at,paid_at')
+        .select('id,m_payment_id,order_number,total,total_cents,status,created_at,paid_at,collection_location,delivery_method')
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -56,6 +58,13 @@ export default function Orders() {
     if (typeof r.total === 'number') return `R ${r.total.toFixed(2)}`;
     if (typeof r.total_cents === 'number') return `R ${(r.total_cents / 100).toFixed(2)}`;
     return 'R 0.00';
+  };
+
+  const getFulfillmentType = (r: OrderRow) => {
+    if (r.collection_location || r.delivery_method === 'collection' || r.delivery_method === 'store-pickup') {
+      return '📦 collection';
+    }
+    return '🚚 delivery';
   };
 
   if (loading) {
@@ -103,6 +112,7 @@ export default function Orders() {
                 <tr>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>ID</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Payment/Order #</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Fulfillment</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>Total</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left' }}>Created</th>
@@ -115,6 +125,7 @@ export default function Orders() {
                   <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '12px 16px' }}>{r.id}</td>
                     <td style={{ padding: '12px 16px' }}>{r.m_payment_id || r.order_number || '-'}</td>
+                    <td style={{ padding: '12px 16px' }}>{getFulfillmentType(r)}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>{formatTotal(r)}</td>
                     <td style={{ padding: '12px 16px' }}><span className="status-badge">{r.status || '-'}</span></td>
                     <td style={{ padding: '12px 16px' }}>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
