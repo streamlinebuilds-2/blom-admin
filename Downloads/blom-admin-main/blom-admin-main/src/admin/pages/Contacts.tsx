@@ -165,6 +165,24 @@ export default function ContactsPage() {
                         View
                       </button>
                     </td>
+                    <td style={{ fontWeight: '600' }}>{contact.name}</td>
+                    <td>{contact.email}</td>
+                    <td>{contact.phone || '-'}</td>
+                    <td>{truncateMessage(contact.message)}</td>
+                    <td>{getStatusBadge(contact.status)}</td>
+                    <td>{new Date(contact.created_at).toLocaleDateString()}</td>
+                    <td>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/messages/${contact.id}`);
+                        }}
+                        className="btn-primary"
+                        style={{ fontSize: '12px', padding: '6px 12px' }}
+                      >
+                        View
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
