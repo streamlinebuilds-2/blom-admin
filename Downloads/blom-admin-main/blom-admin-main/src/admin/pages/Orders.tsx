@@ -69,67 +69,113 @@ export default function Orders() {
 
   if (loading) {
     return (
-      <>
-        <div className="topbar">
-          <div className="font-bold">Orders</div>
+      <div className="page-container">
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
         </div>
-        <div className="content-area">Loading…</div>
-      </>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <>
-        <div className="topbar">
-          <div className="font-bold">Orders</div>
-          <div className="flex gap-2">
-            <button className="btn-primary" onClick={load}>Reload</button>
-          </div>
+      <div className="page-container">
+        <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
+          <p className="font-semibold">Error loading orders</p>
+          <p className="text-sm mt-1">{error}</p>
+          <button
+            onClick={load}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
-        <div className="content-area">
-          <div className="section-card" style={{ color: '#991b1b', background: '#fee2e2', borderColor: '#fecaca' }}>{error}</div>
-        </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="topbar">
-        <div className="font-bold">Orders</div>
-        <div className="flex gap-2">
-          <input className="input" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+    <div className="page-container">
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+          Orders
+        </h1>
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative w-60">
+            <svg
+              className="absolute left-4 top-1/2 transform -translate-y-1/2"
+              style={{ color: 'var(--text-muted)' }}
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input
+              type="text"
+              className="input pl-10"
+              placeholder="Search orders..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <button className="btn-primary" onClick={load}>Reload</button>
         </div>
       </div>
 
-      <div className="content-area">
-        <div className="section-card">
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-title">
+            {rows.length === 0 ? "No orders yet" : "No orders match your search"}
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            background: 'var(--card)',
+            borderRadius: 20,
+            boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
+            overflow: 'hidden',
+          }}
+        >
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>ID</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Payment/Order #</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Fulfillment</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Total</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Created</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Paid</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}></th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>ID</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Payment/Order #</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Fulfillment</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Total</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Created</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Paid</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '12px 16px' }}>{r.id}</td>
-                    <td style={{ padding: '12px 16px' }}>{r.m_payment_id || r.order_number || '-'}</td>
-                    <td style={{ padding: '12px 16px' }}>{getFulfillmentType(r)}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>{formatTotal(r)}</td>
-                    <td style={{ padding: '12px 16px' }}><span className="status-badge">{r.status || '-'}</span></td>
-                    <td style={{ padding: '12px 16px' }}>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
-                    <td style={{ padding: '12px 16px' }}>{r.paid_at ? new Date(r.paid_at).toLocaleString() : '-'}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{r.id}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{r.m_payment_id || r.order_number || '-'}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{getFulfillmentType(r)}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text)' }}>{formatTotal(r)}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span className={`status-badge status-${r.status || 'active'}`}>
+                        {r.status || 'active'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      {r.created_at ? new Date(r.created_at).toLocaleString() : '-'}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      {r.paid_at ? new Date(r.paid_at).toLocaleString() : '-'}
+                    </td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                       <button className="btn-primary" onClick={() => navigate(adminPaths.orders + '/' + r.id)}>View</button>
                     </td>
@@ -139,8 +185,8 @@ export default function Orders() {
             </table>
           </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }
 

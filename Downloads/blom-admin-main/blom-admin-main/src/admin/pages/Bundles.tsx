@@ -59,58 +59,87 @@ export default function BundlesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', minHeight: '100vh' }}>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>Bundles</h1>
+    <div className="page-container">
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+          Bundles
+        </h1>
         <button
-          className="px-4 py-2 rounded-lg text-white font-medium"
-          style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+          className="btn-primary flex items-center gap-2"
           onClick={() => navigate('/bundles/new')}
         >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
           New Bundle
         </button>
       </div>
 
       {bundles.length === 0 ? (
-        <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
-          <p>No bundles yet.</p>
+        <div className="empty-state">
+          <div className="empty-state-title">
+            No bundles yet
+          </div>
         </div>
       ) : (
-        <div className="card" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '0.75rem', padding: '1.5rem' }}>
-          <table className="w-full text-sm dark-table">
-            <thead>
-              <tr className="text-left border-b" style={{ borderBottomColor: 'var(--border-color)' }}>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Name</th>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Slug</th>
-                <th className="pb-3 text-right" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Price</th>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Status</th>
-                <th className="pb-3" style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Updated</th>
-                <th className="pb-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {bundles.map((bundle: any) => (
-                <tr key={bundle.id} className="border-b" style={{ borderBottomColor: 'var(--border-color)' }}>
-                  <td className="py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{bundle.name || '-'}</td>
-                  <td className="py-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{bundle.slug || '-'}</td>
-                  <td className="py-3 text-right" style={{ color: 'var(--text-primary)' }}>R {((bundle.price_cents || bundle.price || 0) / 100).toFixed(2)}</td>
-                  <td className="py-3" style={{ color: 'var(--text-primary)' }}>{bundle.status || 'active'}</td>
-                  <td className="py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {bundle.updated_at ? new Date(bundle.updated_at).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="py-3 text-right">
-                    <button
-                      className="underline"
-                      style={{ color: '#3b82f6' }}
-                      onClick={() => navigate(`/bundles/${bundle.id}`)}
-                    >
-                      Edit
-                    </button>
-                  </td>
+        <div
+          style={{
+            background: 'var(--card)',
+            borderRadius: 20,
+            boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
+            overflow: 'hidden',
+          }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Name</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Slug</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Price</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Updated</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {bundles.map((bundle: any) => (
+                  <tr key={bundle.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{bundle.name || '-'}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'monospace' }}>{bundle.slug || '-'}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text)' }}>R {((bundle.price_cents || bundle.price || 0) / 100).toFixed(2)}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span className={`status-badge status-${bundle.status || 'active'}`}>
+                        {bundle.status || 'active'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      {bundle.updated_at ? new Date(bundle.updated_at).toLocaleDateString() : '-'}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <button
+                        className="link"
+                        onClick={() => navigate(`/bundles/${bundle.id}`)}
+                        style={{ color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
