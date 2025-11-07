@@ -165,7 +165,6 @@ async function triggerFlowA(form: ProductForm, savedId: string) {
 }
 
 export default function ProductEdit() {
-  console.info("[ACTIVE ProductNew]", import.meta.url);
   const { id: paramId } = useParams();
   const [searchParams] = useSearchParams();
   const queryId = searchParams.get('id');
@@ -344,7 +343,7 @@ export default function ProductEdit() {
 
   return (
     <>
-      <div className="topbar debug-ring">
+      <div className="topbar">
         <div className="font-bold">{isCreate ? "New Product" : `Edit: ${form.name || 'Product'}`}</div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {!isCreate && (
@@ -368,7 +367,7 @@ export default function ProductEdit() {
 
       <div className="content-area">
         {error && (
-          <div className="section-card error-message debug-bg">
+          <div className="section-card error-message">
             {error}
           </div>
         )}
