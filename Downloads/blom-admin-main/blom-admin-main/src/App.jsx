@@ -47,17 +47,20 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 setupIframeMessaging();
 
 const LayoutWrapper = ({ children, currentPageName }) => {
-  // Use AppLayout for admin routes, fallback to pagesConfig Layout for others
-  const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/products') ||
-    window.location.pathname.startsWith('/bundles') ||
-    window.location.pathname.startsWith('/orders') ||
-    window.location.pathname.startsWith('/bulk-price-updates');
-  
-  if (isAdminRoute) {
-    return <AppLayout>{children}</AppLayout>;
-  }
-  
-  return Layout ? <Layout currentPageName={currentPageName}>{children}</Layout> : <>{children}</>;
+ // Use AppLayout for admin routes, fallback to pagesConfig Layout for others
+ const isAdminRoute = typeof window !== 'undefined' && (
+   window.location.pathname.startsWith('/products') ||
+   window.location.pathname.startsWith('/bundles') ||
+   window.location.pathname.startsWith('/orders') ||
+   window.location.pathname.startsWith('/bulk-price-updates') ||
+   window.location.pathname.startsWith('/messages')
+ );
+
+ if (isAdminRoute) {
+   return <AppLayout>{children}</AppLayout>;
+ }
+
+ return Layout ? <Layout currentPageName={currentPageName}>{children}</Layout> : <>{children}</>;
 };
 
 // Wrapper for ProductEdit to handle ?id= query param
