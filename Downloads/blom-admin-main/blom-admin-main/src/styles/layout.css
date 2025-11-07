@@ -251,3 +251,8 @@ table tbody tr:hover {
   margin-bottom: 1rem;
 }
 
+/* Debug test rules */
+:root { --_debug-style: 1; }
+.debug-ring { outline: 2px dashed magenta !important; }
+.section-card.debug-bg { background: rgba(255,0,255,.06) !important; }
+

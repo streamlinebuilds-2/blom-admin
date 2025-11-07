@@ -8,6 +8,7 @@ import { WebhookStatus } from "@/components/WebhookStatus";
 const FLOW_C_URL = 'https://dockerfile-1n82.onrender.com/webhook/bundles-intake';
 
 export default function BundleEdit() {
+  console.info("[ACTIVE BundleNew]", import.meta.url);
   const { id } = useParams();
   const nav = useNavigate();
   const isNew = id === "new";
@@ -167,7 +168,7 @@ export default function BundleEdit() {
   if (loading && !form.name && !isNew) {
     return (
       <>
-        <div className="topbar">
+        <div className="topbar debug-ring">
           <div className="font-bold">{isNew ? "New Bundle" : `Edit: ${form.name || 'Bundle'}`}</div>
         </div>
         <div className="content-area">
@@ -196,7 +197,7 @@ export default function BundleEdit() {
 
       <div className="content-area">
         {error && (
-          <div className="section-card" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca', marginBottom: '1rem' }}>
+          <div className="section-card debug-bg" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca', marginBottom: '1rem' }}>
             {error}
           </div>
         )}
