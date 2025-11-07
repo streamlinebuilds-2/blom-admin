@@ -332,24 +332,21 @@ export default function ProductEdit() {
 
   if (loading) {
     return (
-      <>
-        <div className="topbar">
-          <div className="font-bold">{isCreate ? 'New Product' : 'Edit Product'}</div>
+      <div className="page-container">
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
         </div>
-        <div className="content-area">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
-            <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}></div>
-          </div>
-        </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="topbar">
-        <div className="font-bold">{isCreate ? 'New Product' : 'Edit Product'}</div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <div className="page-container">
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+          {isCreate ? 'New Product' : 'Edit Product'}
+        </h1>
+        <div className="flex gap-3 flex-wrap">
           {!isCreate && (
             <button
               onClick={handleDelete}
@@ -369,15 +366,15 @@ export default function ProductEdit() {
         </div>
       </div>
 
-      <div className="content-area">
-        {error && (
-          <div className="section-card" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca', marginBottom: '1rem' }}>
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700 mb-6">
+          <p className="font-semibold">Error</p>
+          <p className="text-sm mt-1">{error}</p>
+        </div>
+      )}
 
-        <div className="form-grid">
-          <div className="form-col">
+        <div className="two-pane">
+          <div className="pane-left">
             {/* Section 1: Basic Info */}
             <div className="section-card">
               <div className="label">Basic Info</div>
@@ -840,18 +837,33 @@ export default function ProductEdit() {
           </div>
 
           {/* RIGHT: PREVIEW */}
-          <div className="form-col">
-            <div className="section-card">
-              <div className="label">Card Preview</div>
+          <div className="pane-right">
+            <div
+              style={{
+                background: 'var(--card)',
+                borderRadius: 20,
+                boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
+                padding: '1.5rem',
+                marginBottom: '1.5rem'
+              }}
+            >
+              <h3 style={{ color: 'var(--text)', fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Card Preview</h3>
               <ProductCardPreview card={cardPreview} />
             </div>
-            <div className="section-card">
-              <div className="label">Page Preview</div>
+            <div
+              style={{
+                background: 'var(--card)',
+                borderRadius: 20,
+                boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
+                padding: '1.5rem'
+              }}
+            >
+              <h3 style={{ color: 'var(--text)', fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Page Preview</h3>
               <ProductPagePreview page={pagePreview} />
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
