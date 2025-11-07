@@ -1,4 +1,5 @@
 import React from 'react';
+import { ProductPageTemplate } from '../../../ProductPageTemplate';
 
 /**
  * Page Preview - matches exact shape from spec
@@ -7,8 +8,56 @@ export default function ProductPagePreview({ page }: { page: any }) {
   const images = page.images || [];
   const primaryImage = images[0] || null;
 
+  // Transform the page data to match ProductPageTemplate interface
+  const templateData = {
+    name: page.name || 'Product Name',
+    slug: page.slug || 'product-slug',
+    category: page.category || 'Category',
+    shortDescription: page.shortDescription || page.short_desc || '',
+    overview: page.overview || page.description || '',
+    price: page.price || 'R0.00',
+    compareAtPrice: page.compareAtPrice || page.compare_at_price,
+    stock: page.stock || 'In Stock',
+    images: images,
+    features: page.features || [],
+    howToUse: page.howToUse || page.how_to_use || [],
+    ingredients: {
+      inci: page.ingredients?.inci || page.inci_ingredients || [],
+      key: page.ingredients?.key || page.key_ingredients || []
+    },
+    details: {
+      size: page.details?.size || page.size || '',
+      shelfLife: page.details?.shelfLife || page.shelf_life || '',
+      claims: page.details?.claims || page.claims || []
+    },
+    variants: page.variants || [],
+    related: page.related || [],
+    rating: page.rating || 4.5,
+    reviewCount: page.reviewCount || 124,
+    reviews: page.reviews || [],
+    seo: {
+      title: page.seo?.title || page.name || 'Product',
+      description: page.seo?.description || page.shortDescription || ''
+    }
+  };
+
   return (
     <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <div className="p-4">
+        <div className="text-sm text-gray-600 mb-2">Desktop Preview</div>
+        <div className="border rounded-lg overflow-hidden" style={{ height: '400px', transform: 'scale(0.3)', transformOrigin: 'top left', width: '333.33%' }}>
+          <ProductPageTemplate product={templateData} />
+        </div>
+      </div>
+      <div className="border-t p-4">
+        <div className="text-sm text-gray-600 mb-2">Mobile Preview</div>
+        <div className="border rounded-lg overflow-hidden mx-auto" style={{ height: '600px', width: '375px', transform: 'scale(0.4)', transformOrigin: 'top center' }}>
+          <ProductPageTemplate product={templateData} />
+        </div>
+      </div>
+    </div>
+  );
+}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
         <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--input-bg)' }}>
           {primaryImage ? (
