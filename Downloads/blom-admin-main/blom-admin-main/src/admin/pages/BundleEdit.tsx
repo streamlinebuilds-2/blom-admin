@@ -11,6 +11,8 @@ export default function BundleEdit() {
   const { id } = useParams();
   const nav = useNavigate();
   const isNew = id === "new";
+
+  console.info("[ACTIVE] BundleNew renders from", import.meta.url);
   const [form, setForm] = useState({
     id: '',
     name: '',
