@@ -71,7 +71,10 @@ export default function Orders() {
     return (
       <div className="page-container">
         <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+          <div
+            className="w-8 h-8 border-4 rounded-full animate-spin"
+            style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}
+          ></div>
         </div>
       </div>
     );
