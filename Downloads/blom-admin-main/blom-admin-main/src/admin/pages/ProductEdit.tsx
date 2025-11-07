@@ -341,12 +341,10 @@ export default function ProductEdit() {
   }
 
   return (
-    <div className="page-container">
-      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
-          {isCreate ? 'New Product' : 'Edit Product'}
-        </h1>
-        <div className="flex gap-3 flex-wrap">
+    <>
+      <div className="topbar">
+        <div className="font-bold">{isCreate ? "New Product" : `Edit: ${form.name || 'Product'}`}</div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
           {!isCreate && (
             <button
               onClick={handleDelete}
@@ -366,18 +364,17 @@ export default function ProductEdit() {
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700 mb-6">
-          <p className="font-semibold">Error</p>
-          <p className="text-sm mt-1">{error}</p>
-        </div>
-      )}
+      <div className="content-area">
+        {error && (
+          <div className="section-card error-message">
+            {error}
+          </div>
+        )}
 
-        <div className="two-pane">
-          <div className="pane-left">
-            {/* Section 1: Basic Info */}
-            <div className="section-card">
-              <div className="label">Basic Info</div>
+        <div className="form-col">
+          {/* Section 1: Basic Info */}
+          <div className="section-card">
+            <div className="label">Basic Info</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
                   <div className="label">Name *</div>
@@ -838,32 +835,17 @@ export default function ProductEdit() {
 
           {/* RIGHT: PREVIEW */}
           <div className="pane-right">
-            <div
-              style={{
-                background: 'var(--card)',
-                borderRadius: 20,
-                boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
-                padding: '1.5rem',
-                marginBottom: '1.5rem'
-              }}
-            >
-              <h3 style={{ color: 'var(--text)', fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Card Preview</h3>
+            <div className="section-card">
+              <h3 className="section-title">Card Preview</h3>
               <ProductCardPreview card={cardPreview} />
             </div>
-            <div
-              style={{
-                background: 'var(--card)',
-                borderRadius: 20,
-                boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
-                padding: '1.5rem'
-              }}
-            >
-              <h3 style={{ color: 'var(--text)', fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Page Preview</h3>
+            <div className="section-card">
+              <h3 className="section-title">Page Preview</h3>
               <ProductPagePreview page={pagePreview} />
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

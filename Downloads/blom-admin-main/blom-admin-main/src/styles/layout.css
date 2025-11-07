@@ -239,3 +239,15 @@ table tbody tr:hover {
   color: var(--text-muted);
 }
 
+/* Utility classes */
+.hidden {
+  display: none;
+}
+
+.error-message {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+  margin-bottom: 1rem;
+}
+
