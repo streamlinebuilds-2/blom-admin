@@ -172,7 +172,6 @@ export default function ProductEdit() {
   const navigate = useNavigate();
   const isCreate = !id || id === 'new';
 
-  console.info("[ACTIVE] ProductNew renders from", import.meta.url);
 
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [loading, setLoading] = useState(false);
