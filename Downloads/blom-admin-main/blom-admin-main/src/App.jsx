@@ -49,11 +49,8 @@ setupIframeMessaging();
 const LayoutWrapper = ({ children, currentPageName }) => {
  // Use AppLayout for admin routes, fallback to pagesConfig Layout for others
  const isAdminRoute = typeof window !== 'undefined' && (
-   window.location.pathname.startsWith('/products') ||
-   window.location.pathname.startsWith('/bundles') ||
-   window.location.pathname.startsWith('/orders') ||
-   window.location.pathname.startsWith('/bulk-price-updates') ||
-   window.location.pathname.startsWith('/messages')
+   ['/products','/bundles','/orders','/bulk-price-updates','/messages','/reviews','/finance','/settings','/coupons']
+     .some(p => window.location.pathname.startsWith(p))
  );
 
  if (isAdminRoute) {

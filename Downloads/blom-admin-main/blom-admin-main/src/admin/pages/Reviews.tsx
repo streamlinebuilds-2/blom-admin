@@ -21,6 +21,12 @@ const statusOptions = [
   { value: "rejected", label: "Rejected" },
 ];
 
+const statusClassMap: Record<ReviewRow["status"], string> = {
+  approved: "status-active",
+  rejected: "status-archived",
+  pending: "status-draft",
+};
+
 export default function Reviews() {
   const { showToast } = useToast();
   const [rows, setRows] = useState<ReviewRow[]>([]);
@@ -90,18 +96,19 @@ export default function Reviews() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <h1 className="text-xl font-semibold">Product Reviews</h1>
-        <div className="ml-auto flex items-center gap-2">
+    <>
+      <div className="topbar">
+        <div className="font-bold">Product Reviews</div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
-            className="border px-3 py-2 rounded w-64"
+            placeholder="Search reviews…"
+            className="input"
+            style={{ width: 240 }}
           />
           <select
-            className="border px-3 py-2 rounded"
+            className="select"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
@@ -114,86 +121,80 @@ export default function Reviews() {
         </div>
       </div>
 
-      <div className="section-card" style={{ background: "var(--card)", borderRadius: 12 }}>
+      <div className="content-area">
         {loading ? (
-          <div className="flex items-center justify-center py-10">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
             <div
               className="w-8 h-8 border-4 rounded-full animate-spin"
               style={{ borderColor: "var(--border)", borderTopColor: "var(--accent)" }}
             />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="p-6 text-center text-sm text-gray-500">No reviews found</div>
+          <div className="section-card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No reviews found</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="py-2 px-3">Date</th>
-                  <th className="py-2 px-3">Reviewer</th>
-                  <th className="py-2 px-3">Email</th>
-                  <th className="py-2 px-3">Rating</th>
-                  <th className="py-2 px-3">Title</th>
-                  <th className="py-2 px-3">Comment</th>
-                  <th className="py-2 px-3">Status</th>
-                  <th className="py-2 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => (
-                  <tr key={r.id} className="border-b align-top">
-                    <td className="py-2 px-3">
-                      {r.created_at ? new Date(r.created_at).toLocaleString() : "-"}
-                    </td>
-                    <td className="py-2 px-3 font-medium">{r.reviewer_name}</td>
-                    <td className="py-2 px-3 text-xs text-gray-500">{r.reviewer_email}</td>
-                    <td className="py-2 px-3">{r.rating}</td>
-                    <td className="py-2 px-3">{r.title ?? "-"}</td>
-                    <td className="py-2 px-3">
-                      <div className="max-w-[420px] whitespace-pre-wrap text-gray-700">
-                        {r.comment ?? "-"}
-                      </div>
-                    </td>
-                    <td className="py-2 px-3">
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          r.status === "approved"
-                            ? "bg-green-100 text-green-800"
-                            : r.status === "rejected"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <div className="flex gap-2 justify-end">
-                        {r.status !== "approved" && (
-                          <button
-                            onClick={() => moderate(r.id, "approve")}
-                            className="px-3 py-1 rounded bg-green-600 text-white"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        {r.status !== "rejected" && (
-                          <button
-                            onClick={() => moderate(r.id, "reject")}
-                            className="px-3 py-1 rounded bg-red-600 text-white"
-                          >
-                            Reject
-                          </button>
-                        )}
-                      </div>
-                    </td>
+          <div className="section-card">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Date</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Reviewer</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Email</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Rating</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Title</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Comment</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Status</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '12px 16px', color: 'var(--text)' }}>
+                        {r.created_at ? new Date(r.created_at).toLocaleString() : "-"}
+                      </td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 600 }}>{r.reviewer_name}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>{r.reviewer_email}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text)' }}>{r.rating}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text)' }}>{r.title ?? "-"}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text)' }}>
+                        <div style={{ maxWidth: 420, whiteSpace: 'pre-wrap' }}>
+                          {r.comment ?? "-"}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className={`status-badge ${statusClassMap[r.status]}`}>{r.status}</span>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          {r.status !== "approved" && (
+                            <button
+                              onClick={() => moderate(r.id, "approve")}
+                              className="btn-primary"
+                              style={{ background: '#10B981' }}
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {r.status !== "rejected" && (
+                            <button
+                              onClick={() => moderate(r.id, "reject")}
+                              className="btn-primary"
+                              style={{ background: '#EF4444' }}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

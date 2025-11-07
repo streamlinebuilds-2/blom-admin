@@ -103,7 +103,9 @@ export default function OrderDetail() {
           buyer_name: row.customer_name,
           buyer_email: row.customer_email,
           buyer_phone: row.customer_phone || '',
-          site_url: window.location.origin.includes('netlify') ? 'https://blom-cosmetics.co.za' : window.location.origin
+          site_url: window.location.origin.includes('netlify')
+            ? 'https://cute-stroopwafel-203cac.netlify.app'
+            : window.location.origin
         })
       });
 
