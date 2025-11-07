@@ -1,5 +1,9 @@
 {
   "dependencies": {
     "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^5.1.0",
+    "@types/node": "^24.10.0"
   }
 }
