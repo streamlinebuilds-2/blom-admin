@@ -410,7 +410,7 @@ export default function ProductNew() {
             <div key={`${field}-${index}`} className="flex gap-2">
               <input
                 type="text"
-                className="input flex-1"
+                className="product-form-input flex-1"
                 value={item}
                 placeholder={placeholder}
                 onChange={(event) => updateArr(field, index, event.target.value)}
@@ -418,7 +418,7 @@ export default function ProductNew() {
               <button
                 type="button"
                 onClick={() => removeRow(field, index)}
-                className="rounded-md border border-[var(--card)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--card)]"
+                className="product-btn-secondary"
               >
                 Remove
               </button>
@@ -428,7 +428,7 @@ export default function ProductNew() {
         <button
           type="button"
           onClick={() => addRow(field)}
-          className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white hover:opacity-90"
+          className="product-btn-add"
         >
           + {addLabel}
         </button>
@@ -443,15 +443,127 @@ export default function ProductNew() {
   const textareaClass = (hasError) => `textarea${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="topbar">
-        <div className="font-bold text-lg">New Product</div>
-        <div className="text-sm text-[var(--text-muted)]">Create a new product and preview the merchandising experience.</div>
-      </div>
+    <>
+      <style>{`
+        /* Product Form Styling - Matching BundleEditor */
+        .product-form-input, .product-form-textarea, .product-form-select {
+          width: 100%;
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 15px;
+          font-family: inherit;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          transition: box-shadow .2s;
+        }
+        .product-form-input:focus, .product-form-textarea:focus, .product-form-select:focus {
+          outline: none;
+          box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+        }
+        .product-form-textarea {
+          min-height: 100px;
+          resize: vertical;
+        }
+        .product-form-section {
+          background: var(--card);
+          border-radius: 20px;
+          padding: 32px;
+          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+        }
+        .product-section-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 8px;
+        }
+        .product-section-desc {
+          font-size: 14px;
+          color: var(--text-muted);
+          margin-bottom: 20px;
+        }
+        .product-form-label {
+          display: block;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-muted);
+          margin-bottom: 10px;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+        }
+        .product-btn-primary {
+          padding: 12px 28px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          transition: transform 0.2s;
+        }
+        .product-btn-primary:disabled {
+          opacity: .6;
+          cursor: not-allowed;
+        }
+        .product-btn-primary:not(:disabled):hover {
+          transform: translateY(-2px);
+        }
+        .product-btn-secondary {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+        .product-btn-secondary:hover {
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+        .product-btn-secondary:active {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+        .product-btn-add {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          margin-top: 8px;
+        }
+        .product-btn-add:hover {
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+        .product-error-text {
+          color: #ef4444;
+          font-size: 12px;
+          margin-top: 4px;
+        }
+        .product-required {
+          color: #ef4444;
+        }
+      `}</style>
+      <div className="flex h-full flex-col">
+        <div className="topbar">
+          <div className="font-bold text-lg">New Product</div>
+          <div className="text-sm text-[var(--text-muted)]">Create a new product and preview the merchandising experience.</div>
+        </div>
 
-      <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <section className="section-card p-6">
+        <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Basic Information</h2>
               <p className="text-sm text-[var(--text-muted)]">Name, slug and classification for the product.</p>
@@ -464,7 +576,7 @@ export default function ProductNew() {
                 <input
                   id="name"
                   type="text"
-                  className={inputClass(Boolean(errors.name))}
+                  className="product-form-input"
                   value={form.name}
                   onChange={(event) => update("name", event.target.value)}
                   placeholder="Base 44 Nail Strengthener"
@@ -478,7 +590,7 @@ export default function ProductNew() {
                 <input
                   id="slug"
                   type="text"
-                  className={inputClass(Boolean(errors.slug))}
+                  className="product-form-input"
                   value={form.slug}
                   onChange={(event) => update("slug", event.target.value)}
                   placeholder="base-44-nail-strengthener"
@@ -492,7 +604,7 @@ export default function ProductNew() {
                 <input
                   id="sku"
                   type="text"
-                  className={inputClass(Boolean(errors.sku))}
+                  className="product-form-input"
                   value={form.sku}
                   onChange={(event) => update("sku", event.target.value)}
                   placeholder="SKU-001"
@@ -506,7 +618,7 @@ export default function ProductNew() {
                 <input
                   id="category"
                   type="text"
-                  className={inputClass(Boolean(errors.category))}
+                  className="product-form-input"
                   value={form.category}
                   onChange={(event) => update("category", event.target.value)}
                   placeholder="Treatments"
@@ -519,7 +631,7 @@ export default function ProductNew() {
                 </label>
                 <select
                   id="status"
-                  className="select"
+                  className="product-form-select"
                   value={form.status}
                   onChange={(event) => update("status", event.target.value)}
                 >
@@ -534,7 +646,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Pricing &amp; Stock</h2>
               <p className="text-sm text-[var(--text-muted)]">Control pricing, inventory and identifiers.</p>
@@ -549,7 +661,7 @@ export default function ProductNew() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className={inputClass(Boolean(errors.price))}
+                  className="product-form-input"
                   value={form.price}
                   onChange={(event) => update("price", event.target.value)}
                   placeholder="199"
@@ -565,7 +677,7 @@ export default function ProductNew() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="input"
+                  className="product-form-input"
                   value={form.compare_at_price}
                   onChange={(event) => update("compare_at_price", event.target.value)}
                   placeholder="249"
@@ -580,7 +692,7 @@ export default function ProductNew() {
                   type="number"
                   min="0"
                   step="1"
-                  className={inputClass(Boolean(errors.inventory_quantity))}
+                  className="product-form-input"
                   value={form.inventory_quantity}
                   onChange={(event) => update("inventory_quantity", event.target.value)}
                   placeholder="25"
@@ -610,7 +722,7 @@ export default function ProductNew() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="input"
+                  className="product-form-input"
                   value={form.weight}
                   onChange={(event) => update("weight", event.target.value)}
                   placeholder="250"
@@ -623,7 +735,7 @@ export default function ProductNew() {
                 <input
                   id="barcode"
                   type="text"
-                  className="input"
+                  className="product-form-input"
                   value={form.barcode}
                   onChange={(event) => update("barcode", event.target.value)}
                   placeholder="6001234567890"
@@ -632,7 +744,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Descriptions</h2>
               <p className="text-sm text-[var(--text-muted)]">Short copy for cards and the full overview.</p>
@@ -667,7 +779,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Images</h2>
               <p className="text-sm text-[var(--text-muted)]">Primary, hover and gallery imagery.</p>
@@ -680,7 +792,7 @@ export default function ProductNew() {
                 <input
                   id="thumbnail_url"
                   type="url"
-                  className={inputClass(Boolean(errors.images))}
+                  className="product-form-input"
                   value={form.thumbnail_url}
                   onChange={(event) => update("thumbnail_url", event.target.value)}
                   placeholder="https://..."
@@ -693,7 +805,7 @@ export default function ProductNew() {
                 <input
                   id="hover_url"
                   type="url"
-                  className="input"
+                  className="product-form-input"
                   value={form.hover_url}
                   onChange={(event) => update("hover_url", event.target.value)}
                   placeholder="https://..."
@@ -703,7 +815,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Variants &amp; Highlights</h2>
               <p className="text-sm text-[var(--text-muted)]">List variants, key features and how to use steps.</p>
@@ -715,7 +827,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Ingredients</h2>
               <p className="text-sm text-[var(--text-muted)]">Break down formulation details.</p>
@@ -726,7 +838,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Product Details</h2>
               <p className="text-sm text-[var(--text-muted)]">Supporting specifications and claims.</p>
@@ -739,7 +851,7 @@ export default function ProductNew() {
                 <input
                   id="size"
                   type="text"
-                  className="input"
+                  className="product-form-input"
                   value={form.size}
                   onChange={(event) => update("size", event.target.value)}
                   placeholder="100ml"
@@ -752,7 +864,7 @@ export default function ProductNew() {
                 <input
                   id="shelf_life"
                   type="text"
-                  className="input"
+                  className="product-form-input"
                   value={form.shelf_life}
                   onChange={(event) => update("shelf_life", event.target.value)}
                   placeholder="12 months"
@@ -764,7 +876,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">SEO</h2>
               <p className="text-sm text-[var(--text-muted)]">Meta information for search engines.</p>
@@ -777,7 +889,7 @@ export default function ProductNew() {
                 <input
                   id="meta_title"
                   type="text"
-                  className="input"
+                  className="product-form-input"
                   value={form.meta_title}
                   onChange={(event) => update("meta_title", event.target.value)}
                   placeholder="Base 44 | Nail Strengthener"
@@ -799,7 +911,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Display Settings</h2>
               <p className="text-sm text-[var(--text-muted)]">Control visibility across storefront experiences.</p>
@@ -828,7 +940,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="section-card p-6">
+          <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Related Products</h2>
               <p className="text-sm text-[var(--text-muted)]">Surface complementary products by ID or slug.</p>
@@ -843,7 +955,7 @@ export default function ProductNew() {
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              className="rounded-md border border-[var(--card)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--card)]"
+              className="product-btn-secondary"
               onClick={() => navigate("/products")}
               disabled={isSubmitting}
             >
@@ -851,7 +963,7 @@ export default function ProductNew() {
             </button>
             <button
               type="submit"
-              className={`btn-primary ${isSubmitting ? "opacity-70" : ""}`}
+              className={`product-btn-primary ${isSubmitting ? "opacity-70" : ""}`}
               disabled={isSubmitting}
             >
               {isSubmitting ? "Saving..." : "Create Product"}
