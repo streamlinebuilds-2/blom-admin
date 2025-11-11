@@ -5,18 +5,18 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { RefreshCw } from "lucide-react";
 
 export default function Orders() {
-  const [rows, setRows] = useState<any[]>([]);
-  const [status, setStatus] = useState<string>("");
-  const [fulfillment, setFulfillment] = useState<string>("");
-  const [search, setSearch] = useState<string>("");
-  const [searchInput, setSearchInput] = useState<string>("");
+  const [rows, setRows] = useState([]);
+  const [status, setStatus] = useState("");
+  const [fulfillment, setFulfillment] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef(null);
 
   async function load() {
     setLoading(true);
@@ -49,7 +49,7 @@ export default function Orders() {
         showToast('error', errMsg);
         console.error('Function error:', j);
       }
-    } catch (err: any) {
+    } catch (err) {
       const errMsg = err.message || "Failed to fetch orders";
       setError(errMsg);
       showToast('error', errMsg);
@@ -85,7 +85,7 @@ export default function Orders() {
   //   return () => clearInterval(interval);
   // }, [status, fulfillment, search, page]);
 
-  async function updateStatus(orderId: string, newStatus: string) {
+  async function updateStatus(orderId, newStatus) {
     const r = await fetch(`/.netlify/functions/admin-order-status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -102,14 +102,14 @@ export default function Orders() {
 
   useEffect(() => { load(); }, [status, fulfillment, search, page]);
 
-  const moneyZAR = (n: number) => `R${(n || 0).toFixed(2)}`;
-  const formatDate = (d: string) => {
+  const moneyZAR = (n) => `R${(n || 0).toFixed(2)}`;
+  const formatDate = (d) => {
     if (!d) return "-";
     const date = new Date(d);
     return date.toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
-  const getStatusColor = (s: string) => {
+  const getStatusColor = (s) => {
     const colors: Record<string, string> = {
       paid: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
       packed: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
@@ -120,13 +120,13 @@ export default function Orders() {
     return colors[s] || colors.paid;
   };
 
-  const getFulfillmentColor = (f: string) => {
+  const getFulfillmentColor = (f) => {
     if (f === 'delivery') return "bg-teal-500/20 text-teal-700 dark:text-teal-400";
     if (f === 'collection') return "bg-purple-500/20 text-purple-700 dark:text-purple-400";
     return "bg-gray-500/20 text-gray-700 dark:text-gray-400";
   };
 
-  const getActionButtonText = (order: any) => {
+  const getActionButtonText = (order) => {
     const status = order.status || 'paid';
     const fulfillment = order.fulfillment_type || 'delivery';
     

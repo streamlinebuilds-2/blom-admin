@@ -1,12 +1,12 @@
-// src/admin/pages/ContactDetail.tsx
+// src/pages/ContactDetail.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/ToastProvider";
 
 export default function ContactDetail(){
-  const { id } = useParams<{id: string}>();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
@@ -21,94 +21,164 @@ export default function ContactDetail(){
 
   useEffect(()=>{ load(); }, [id]);
 
-  async function moderate(action:"handled"|"spam"|"new"){
+  async function moderate(action){
     if (!id) return;
     const r = await fetch("/.netlify/functions/moderate-contact", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ id, action })
     });
-    if(!r.ok){ 
-      showToast('error', await r.text()); 
-      return; 
+    if(!r.ok){
+      showToast('error', await r.text());
+      return;
     }
     showToast('success', `Marked as ${action}`);
     await load();
   }
 
-  if (loading) return <div className="p-6">Loading...</div>;
-  if (!data) return <div className="p-6">Message not found</div>;
+  if (loading) return <div className="p-6" style={{ color: 'var(--text)' }}>Loading...</div>;
+  if (!data) return <div className="p-6" style={{ color: 'var(--text)' }}>Message not found</div>;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4" style={{ color: 'var(--text)' }}>
       <div className="flex items-center gap-4">
-        <button onClick={()=>navigate("/admin/contacts")} className="px-3 py-1 border rounded">← Back</button>
+        <button
+          onClick={()=>navigate("/messages")}
+          style={{
+            padding: '4px 12px',
+            border: '1px solid var(--card)',
+            background: 'var(--card)',
+            color: 'var(--text)',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          ← Back
+        </button>
         <h1 className="text-xl font-semibold">Contact Message</h1>
         <div className="ml-auto flex gap-2">
           {data.status !== "handled" && (
-            <button className="px-3 py-1 rounded bg-green-600 text-white" onClick={()=>moderate("handled")}>Mark Handled</button>
+            <button
+              style={{
+                padding: '4px 12px',
+                borderRadius: '6px',
+                background: '#16a34a',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+              onClick={()=>moderate("handled")}
+            >
+              Mark Handled
+            </button>
           )}
           {data.status !== "spam" && (
-            <button className="px-3 py-1 rounded bg-red-600 text-white" onClick={()=>moderate("spam")}>Mark Spam</button>
+            <button
+              style={{
+                padding: '4px 12px',
+                borderRadius: '6px',
+                background: '#dc2626',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+              onClick={()=>moderate("spam")}
+            >
+              Mark Spam
+            </button>
           )}
           {data.status !== "new" && (
-            <button className="px-3 py-1 rounded border" onClick={()=>moderate("new")}>Mark New</button>
+            <button
+              style={{
+                padding: '4px 12px',
+                borderRadius: '6px',
+                border: '1px solid var(--card)',
+                background: 'var(--card)',
+                color: 'var(--text)',
+                cursor: 'pointer'
+              }}
+              onClick={()=>moderate("new")}
+            >
+              Mark New
+            </button>
           )}
         </div>
       </div>
 
-      <div className="border rounded-lg p-6 space-y-4">
+      <div style={{
+        border: '1px solid var(--card)',
+        borderRadius: '8px',
+        padding: '24px',
+        background: 'var(--card)'
+      }} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-semibold text-gray-500">Name</label>
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Name</label>
             <div className="mt-1">{data.name}</div>
           </div>
           <div>
-            <label className="text-sm font-semibold text-gray-500">Status</label>
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Status</label>
             <div className="mt-1">
-              <span className={`px-2 py-1 rounded text-xs ${data.status === "new" ? "bg-yellow-100 text-yellow-800" : data.status === "handled" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
+              <span style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                background: data.status === "new" ? '#fef3c7' : data.status === "handled" ? '#d1fae5' : '#f3f4f6',
+                color: data.status === "new" ? '#92400e' : data.status === "handled" ? '#065f46' : '#1f2937'
+              }}>
                 {data.status}
               </span>
             </div>
           </div>
           {data.email && (
             <div>
-              <label className="text-sm font-semibold text-gray-500">Email</label>
-              <div className="mt-1"><a href={`mailto:${data.email}`} className="text-blue-600">{data.email}</a></div>
+              <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Email</label>
+              <div className="mt-1"><a href={`mailto:${data.email}`} style={{ color: 'var(--accent)' }}>{data.email}</a></div>
             </div>
           )}
           {data.phone && (
             <div>
-              <label className="text-sm font-semibold text-gray-500">Phone</label>
-              <div className="mt-1"><a href={`tel:${data.phone}`} className="text-blue-600">{data.phone}</a></div>
+              <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Phone</label>
+              <div className="mt-1"><a href={`tel:${data.phone}`} style={{ color: 'var(--accent)' }}>{data.phone}</a></div>
             </div>
           )}
           {data.subject && (
             <div>
-              <label className="text-sm font-semibold text-gray-500">Subject</label>
+              <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Subject</label>
               <div className="mt-1">{data.subject}</div>
             </div>
           )}
           <div>
-            <label className="text-sm font-semibold text-gray-500">Source</label>
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Source</label>
             <div className="mt-1">{data.source || "website"}</div>
           </div>
           <div>
-            <label className="text-sm font-semibold text-gray-500">Date</label>
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Date</label>
             <div className="mt-1">{new Date(data.created_at).toLocaleString()}</div>
           </div>
         </div>
 
         <div>
-          <label className="text-sm font-semibold text-gray-500">Message</label>
-          <div className="mt-2 p-4 bg-gray-50 rounded whitespace-pre-wrap">{data.message}</div>
+          <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Message</label>
+          <div className="mt-2 p-4 rounded" style={{
+            background: 'var(--bg)',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {data.message}
+          </div>
         </div>
 
         {data.images && Array.isArray(data.images) && data.images.length > 0 && (
           <div>
-            <label className="text-sm font-semibold text-gray-500">Images</label>
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Images</label>
             <div className="mt-2 grid grid-cols-3 gap-2">
-              {data.images.map((url: string, i: number) => (
-                <img key={i} src={url} alt="" className="w-full h-32 object-cover rounded border" />
+              {data.images.map((url, i) => (
+                <img key={i} src={url} alt="" style={{
+                  width: '100%',
+                  height: '128px',
+                  objectFit: 'cover',
+                  borderRadius: '6px',
+                  border: '1px solid var(--card)'
+                }} />
               ))}
             </div>
           </div>
@@ -116,22 +186,22 @@ export default function ContactDetail(){
 
         {data.product_slug && (
           <div>
-            <label className="text-sm font-semibold text-gray-500">Product</label>
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Product</label>
             <div className="mt-1">{data.product_slug}</div>
           </div>
         )}
 
         {data.order_id && (
           <div>
-            <label className="text-sm font-semibold text-gray-500">Order ID</label>
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Order ID</label>
             <div className="mt-1">{data.order_id}</div>
           </div>
         )}
 
         {data.meta && Object.keys(data.meta).length > 0 && (
           <div>
-            <label className="text-sm font-semibold text-gray-500">Metadata</label>
-            <div className="mt-2 p-4 bg-gray-50 rounded">
+            <label className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Metadata</label>
+            <div className="mt-2 p-4 rounded" style={{ background: 'var(--bg)' }}>
               <pre className="text-xs">{JSON.stringify(data.meta, null, 2)}</pre>
             </div>
           </div>
@@ -140,6 +210,3 @@ export default function ContactDetail(){
     </div>
   );
 }
-
-
-
