@@ -110,7 +110,7 @@ export default function Orders() {
   };
 
   const getStatusColor = (s) => {
-    const colors: Record<string, string> = {
+    const colors = {
       paid: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
       packed: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
       collected: "bg-green-500/20 text-green-700 dark:text-green-400",
