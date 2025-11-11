@@ -2,21 +2,36 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Search } from "lucide-react";
+import { ShoppingCart, Search, RefreshCw } from "lucide-react";
 import { moneyZAR, dateShort, shortId } from "../components/formatUtils";
-import { api } from "@/components/data/api";
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: ordersData = [], isLoading, error } = useQuery({
+  const { data: ordersResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
-    queryFn: () => api?.listOrders() || [],
-    enabled: !!api,
+    queryFn: async () => {
+      const response = await fetch('/.netlify/functions/admin-orders');
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
+      }
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to fetch orders');
+      }
+      return result;
+    },
   });
 
-  const orders = ordersData || []
+  // Map the response data to match the expected format
+  const orders = (ordersResponse?.data || []).map(order => ({
+    ...order,
+    order_number: order.short_code || order.m_payment_id,
+    customer_name: order.buyer_name,
+    customer_email: order.buyer_email,
+    total_cents: order.total,
+  }))
 
   const filteredOrders = orders.filter(order => {
     const searchLower = searchTerm.toLowerCase();
@@ -183,6 +198,39 @@ export default function Orders() {
           color: var(--text);
           margin-bottom: 8px;
         }
+
+        .btn-reload {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          transition: all 0.2s;
+        }
+
+        .btn-reload:hover {
+          background: var(--accent);
+          color: white;
+        }
+
+        .btn-reload:active {
+          transform: scale(0.95);
+        }
+
+        .btn-reload.spinning {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
       `}</style>
 
       <div className="orders-header">
@@ -215,6 +263,14 @@ export default function Orders() {
             <option value="refunded">Refunded</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          <button
+            className={`btn-reload ${isLoading ? 'spinning' : ''}`}
+            onClick={() => refetch()}
+            disabled={isLoading}
+            title="Reload orders"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
