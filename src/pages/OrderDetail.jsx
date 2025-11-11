@@ -50,6 +50,35 @@ export default function OrderDetail() {
     },
   });
 
+  const updateFulfillmentStatusMutation = useMutation({
+    mutationFn: async (newStatus) => {
+      const response = await fetch('/.netlify/functions/admin-order-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
+      }
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to update order status');
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      showToast('success', 'Order status updated successfully');
+    },
+    onError: (error) => {
+      showToast('error', error.message || 'Failed to update order status');
+    },
+  });
+
   const markPaidMutation = useMutation({
     mutationFn: async () => {
       await base44.entities.Payment.create({
@@ -119,10 +148,40 @@ export default function OrderDetail() {
     return colors[status] || '#6b7280';
   };
 
+  // Helper function to get the next workflow action
+  const getWorkflowAction = () => {
+    const fulfillmentType = order.fulfillment_type || 'delivery';
+    const currentStatus = order.status;
+
+    if (fulfillmentType === 'collection') {
+      if (currentStatus === 'paid') {
+        return { label: 'Mark Ready for Collection', nextStatus: 'packed' };
+      } else if (currentStatus === 'packed') {
+        return { label: 'Mark Collected', nextStatus: 'collected' };
+      } else if (currentStatus === 'collected') {
+        return { label: 'Order Collected', nextStatus: null, completed: true };
+      }
+    } else if (fulfillmentType === 'delivery') {
+      if (currentStatus === 'paid') {
+        return { label: 'Mark Packed', nextStatus: 'packed' };
+      } else if (currentStatus === 'packed') {
+        return { label: 'Mark Out for Delivery', nextStatus: 'out_for_delivery' };
+      } else if (currentStatus === 'out_for_delivery') {
+        return { label: 'Mark Delivered', nextStatus: 'delivered' };
+      } else if (currentStatus === 'delivered') {
+        return { label: 'Order Delivered', nextStatus: null, completed: true };
+      }
+    }
+
+    return null;
+  };
+
+  const workflowAction = getWorkflowAction();
+
   const timeline = [
     { label: 'Created', status: 'created', completed: true },
-    { label: 'Paid', status: 'paid', completed: ['paid', 'packed', 'shipped', 'delivered'].includes(order.status) },
-    { label: 'Packed', status: 'packed', completed: ['packed', 'shipped', 'delivered'].includes(order.status) },
+    { label: 'Paid', status: 'paid', completed: ['paid', 'packed', 'shipped', 'delivered', 'collected', 'out_for_delivery'].includes(order.status) },
+    { label: 'Packed', status: 'packed', completed: ['packed', 'shipped', 'delivered', 'collected', 'out_for_delivery'].includes(order.status) },
     { label: 'Shipped', status: 'shipped', completed: ['shipped', 'delivered'].includes(order.status) },
     { label: 'Delivered', status: 'delivered', completed: order.status === 'delivered' }
   ];
@@ -404,6 +463,80 @@ export default function OrderDetail() {
           cursor: pointer;
           box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
         }
+
+        .workflow-section {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          padding: 30px 24px;
+        }
+
+        .workflow-info {
+          text-align: center;
+          margin-bottom: 8px;
+        }
+
+        .workflow-type {
+          display: inline-flex;
+          padding: 6px 14px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          text-transform: capitalize;
+          background: var(--bg);
+          color: var(--text-muted);
+          margin-bottom: 8px;
+        }
+
+        .workflow-status {
+          font-size: 15px;
+          color: var(--text);
+        }
+
+        .btn-workflow {
+          padding: 14px 32px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 4px 4px 10px var(--shadow-dark), -4px -4px 10px var(--shadow-light);
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .btn-workflow:hover {
+          transform: translateY(-2px);
+          box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+        }
+
+        .btn-workflow:active {
+          transform: translateY(0);
+        }
+
+        .btn-workflow:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .completion-message {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 16px 24px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #10b98120, #10b98110);
+          color: #10b981;
+          font-size: 15px;
+          font-weight: 600;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+        }
       `}</style>
 
       <div className="order-detail-header">
@@ -586,6 +719,38 @@ export default function OrderDetail() {
             ))}
           </div>
         </div>
+
+        {workflowAction && (
+          <div className="order-card">
+            <h2 className="card-title">Fulfillment Workflow</h2>
+            <div className="workflow-section">
+              <div className="workflow-info">
+                <div className="workflow-type">
+                  {order.fulfillment_type || 'delivery'}
+                </div>
+                <div className="workflow-status">
+                  Current Status: <strong style={{ textTransform: 'capitalize' }}>{order.status}</strong>
+                </div>
+              </div>
+
+              {workflowAction.completed ? (
+                <div className="completion-message">
+                  <CheckCircle className="w-6 h-6" />
+                  <span>{workflowAction.label}</span>
+                </div>
+              ) : (
+                <button
+                  className="btn-workflow"
+                  onClick={() => updateFulfillmentStatusMutation.mutate(workflowAction.nextStatus)}
+                  disabled={updateFulfillmentStatusMutation.isPending}
+                >
+                  <Package className="w-5 h-5" />
+                  {updateFulfillmentStatusMutation.isPending ? 'Updating...' : workflowAction.label}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="order-card">
           <h2 className="card-title">
