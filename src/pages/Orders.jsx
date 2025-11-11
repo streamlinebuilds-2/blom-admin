@@ -1,350 +1,377 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Search, RefreshCw } from "lucide-react";
-import { moneyZAR, dateShort, shortId } from "../components/formatUtils";
+// src/admin/pages/Orders.tsx
+import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/ToastProvider";
+import { RefreshCw } from "lucide-react";
 
 export default function Orders() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [rows, setRows] = useState<any[]>([]);
+  const [status, setStatus] = useState<string>("");
+  const [fulfillment, setFulfillment] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: ordersResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['orders'],
-    queryFn: async () => {
-      const response = await fetch('/.netlify/functions/admin-orders');
-      if (!response.ok) {
-        throw new Error('Failed to fetch orders');
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("size", "50");
+      if (status) params.set("status", status);
+      if (fulfillment) params.set("fulfillment", fulfillment);
+      if (search) params.set("search", search);
+      
+      const url = `/.netlify/functions/admin-orders?${params}`;
+      const r = await fetch(url);
+      
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
       }
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to fetch orders');
+      
+      const j = await r.json();
+      if (j.ok) {
+        setRows(j.data || []);
+        setTotal(j.total || 0);
+        if (j.error) {
+          console.warn('Function returned ok but with error:', j.error);
+        }
+      } else {
+        const errMsg = j.error || "Failed to load orders";
+        setError(errMsg);
+        showToast('error', errMsg);
+        console.error('Function error:', j);
       }
-      return result;
-    },
-  });
+    } catch (err: any) {
+      const errMsg = err.message || "Failed to fetch orders";
+      setError(errMsg);
+      showToast('error', errMsg);
+      console.error('Load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  // Map the response data to match the expected format
-  const orders = (ordersResponse?.data || []).map(order => ({
-    ...order,
-    order_number: order.short_code || order.m_payment_id,
-    customer_name: order.buyer_name,
-    customer_email: order.buyer_email,
-    total_cents: order.total,
-  }))
-
-  const filteredOrders = orders.filter(order => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      !searchTerm ||
-      order.order_number?.toLowerCase().includes(searchLower) ||
-      shortId(order.id).toLowerCase().includes(searchLower) ||
-      order.customer_name?.toLowerCase().includes(searchLower) ||
-      order.customer_email?.toLowerCase().includes(searchLower) ||
-      order.merchant_payment_id?.toLowerCase().includes(searchLower);
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const getStatusColor = (status) => {
-    const colors = {
-      unpaid: '#f59e0b',
-      paid: '#10b981',
-      packed: '#3b82f6',
-      shipped: '#8b5cf6',
-      delivered: '#10b981',
-      refunded: '#6b7280',
-      cancelled: '#ef4444'
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
     };
-    return colors[status] || '#6b7280';
+  }, [searchInput]);
+
+  // Polling (every 10s when page focused) - disabled for now to avoid spam
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (document.hasFocus()) {
+  //       load();
+  //     }
+  //   }, 10000);
+  //   return () => clearInterval(interval);
+  // }, [status, fulfillment, search, page]);
+
+  async function updateStatus(orderId: string, newStatus: string) {
+    const r = await fetch(`/.netlify/functions/admin-order-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: orderId, status: newStatus })
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast('success', "Order status updated");
+      load();
+    } else {
+      showToast('error', j.error || "Failed to update status");
+    }
+  }
+
+  useEffect(() => { load(); }, [status, fulfillment, search, page]);
+
+  const moneyZAR = (n: number) => `R${(n || 0).toFixed(2)}`;
+  const formatDate = (d: string) => {
+    if (!d) return "-";
+    const date = new Date(d);
+    return date.toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getStatusColor = (s: string) => {
+    const colors: Record<string, string> = {
+      paid: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
+      packed: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
+      collected: "bg-green-500/20 text-green-700 dark:text-green-400",
+      out_for_delivery: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-400",
+      delivered: "bg-green-500/20 text-green-700 dark:text-green-400"
+    };
+    return colors[s] || colors.paid;
+  };
+
+  const getFulfillmentColor = (f: string) => {
+    if (f === 'delivery') return "bg-teal-500/20 text-teal-700 dark:text-teal-400";
+    if (f === 'collection') return "bg-purple-500/20 text-purple-700 dark:text-purple-400";
+    return "bg-gray-500/20 text-gray-700 dark:text-gray-400";
+  };
+
+  const getActionButtonText = (order: any) => {
+    const status = order.status || 'paid';
+    const fulfillment = order.fulfillment_type || 'delivery';
+    
+    if (status === 'packed' && fulfillment === 'collection') {
+      return 'Ready for Collection';
+    }
+    if (status === 'packed' && fulfillment === 'delivery') {
+      return 'Out for Delivery';
+    }
+    return 'View Details';
   };
 
   return (
-    <>
+    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
       <style>{`
-        .orders-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 32px;
-          flex-wrap: wrap;
-          gap: 16px;
-        }
-
-        .header-title {
-          font-size: 28px;
-          font-weight: 700;
+        .orders-container {
+          background: var(--bg);
           color: var(--text);
-          display: flex;
-          align-items: center;
-          gap: 12px;
         }
-
-        .header-actions {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .search-box {
-          position: relative;
-          width: 260px;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 12px 16px 12px 44px;
-          border-radius: 12px;
-          border: none;
+        .orders-card {
           background: var(--card);
-          color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 24px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-
-        .search-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
+        .orders-input {
+          background: var(--card);
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 10px 14px;
+        }
+        .orders-input::placeholder {
           color: var(--text-muted);
         }
-
-        .filter-select {
-          padding: 12px 16px;
-          border-radius: 12px;
-          border: none;
+        .orders-select {
           background: var(--card);
+          border: 1px solid var(--border);
           color: var(--text);
-          font-size: 14px;
-          cursor: pointer;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
-          min-width: 140px;
+          border-radius: 8px;
+          padding: 10px 14px;
         }
-
-        .orders-table {
+        .orders-button {
           background: var(--card);
-          border-radius: 16px;
-          padding: 0;
-          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
-          overflow: hidden;
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 10px 16px;
+          transition: all 0.2s;
         }
-
-        table {
+        .orders-button:hover {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+        .orders-table {
           width: 100%;
           border-collapse: collapse;
         }
-
-        th {
-          text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+        .orders-table thead {
+          background: var(--card);
           border-bottom: 2px solid var(--border);
-          background: var(--card);
         }
-
-        td {
-          padding: 20px 24px;
+        .orders-table th {
+          padding: 12px;
+          text-align: left;
+          font-weight: 600;
           color: var(--text);
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .orders-table td {
+          padding: 14px 12px;
           border-bottom: 1px solid var(--border);
-        }
-
-        tr:last-child td {
-          border-bottom: none;
-        }
-
-        tbody tr {
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        tbody tr:hover {
-          background: rgba(110, 193, 255, 0.05);
-        }
-
-        .order-number {
-          font-weight: 700;
-          color: var(--accent);
-        }
-
-        .status-badge {
-          display: inline-flex;
-          padding: 6px 14px;
-          border-radius: 10px;
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: capitalize;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .total-cell {
-          font-weight: 700;
-          font-size: 15px;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-          color: var(--text-muted);
-        }
-
-        .empty-state-title {
-          font-size: 18px;
-          font-weight: 600;
           color: var(--text);
-          margin-bottom: 8px;
         }
-
-        .btn-reload {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          border: none;
+        .orders-table tbody tr:hover {
           background: var(--card);
-          color: var(--text);
-          cursor: pointer;
-          display: flex;
+        }
+        .orders-badge {
+          display: inline-flex;
           align-items: center;
-          justify-content: center;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
-          transition: all 0.2s;
-        }
-
-        .btn-reload:hover {
-          background: var(--accent);
-          color: white;
-        }
-
-        .btn-reload:active {
-          transform: scale(0.95);
-        }
-
-        .btn-reload.spinning {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 500;
         }
       `}</style>
 
-      <div className="orders-header">
-        <h1 className="header-title">
-          <ShoppingCart className="w-8 h-8" />
-          Orders
-        </h1>
-        <div className="header-actions">
-          <div className="search-box">
-            <Search className="search-icon w-5 h-5" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <select
-            className="filter-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="paid">Paid</option>
-            <option value="packed">Packed</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="refunded">Refunded</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+      <div className="orders-container">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Orders</h1>
           <button
-            className={`btn-reload ${isLoading ? 'spinning' : ''}`}
-            onClick={() => refetch()}
-            disabled={isLoading}
-            title="Reload orders"
+            onClick={() => load()}
+            className="orders-button flex items-center gap-2"
           >
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw className="w-4 h-4" />
+            Refresh
           </button>
         </div>
-      </div>
 
-      <div className="orders-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Order #</th>
-              <th>Customer</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan="5" className="empty-state">
-                  Loading orders...
-                </td>
-              </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan="5" className="empty-state">
-                  <div className="empty-state-title">Error loading orders</div>
-                  <div>{error.message || 'Please try again later'}</div>
-                </td>
-              </tr>
-            ) : filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="empty-state">
-                  <div className="empty-state-title">No orders found</div>
-                  <div>{searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Orders will appear here'}</div>
-                </td>
-              </tr>
-            ) : (
-              filteredOrders.map(order => (
-                <Link key={order.id} to={createPageUrl(`OrderDetail?id=${order.id}`)} style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}>
-                  <tr>
-                    <td>
-                      <div className="order-number">
-                        {order.order_number || `#${shortId(order.id)}`}
-                      </div>
-                    </td>
-                    <td>
-                      <div>{order.customer_name || '-'}</div>
-                      {order.customer_email && (
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          {order.customer_email}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className="status-badge"
-                        style={{
-                          background: `${getStatusColor(order.status)}20`,
-                          color: getStatusColor(order.status)
-                        }}
-                      >
-                        {order.status}
+        <div className="orders-card mb-6">
+          <div className="flex items-center gap-4 flex-wrap">
+            <input
+              type="text"
+              placeholder="Search (ref, email, name, phone)..."
+              className="orders-input flex-1 min-w-[250px]"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+            />
+            <select className="orders-select" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
+              <option value="">All Status</option>
+              <option value="paid">Paid</option>
+              <option value="packed">Packed</option>
+              <option value="collected">Collected</option>
+              <option value="out_for_delivery">Out for Delivery</option>
+              <option value="delivered">Delivered</option>
+            </select>
+            <select className="orders-select" value={fulfillment} onChange={e => { setFulfillment(e.target.value); setPage(1); }}>
+              <option value="">All Fulfillment</option>
+              <option value="delivery">Delivery</option>
+              <option value="collection">Collection</option>
+            </select>
+          </div>
+        </div>
+
+        {loading && (
+          <div className="orders-card text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+            <div style={{ color: 'var(--text-muted)' }}>Loading orders...</div>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="orders-card p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="text-red-600 dark:text-red-400 font-semibold mb-2">Error loading orders</div>
+            <div className="text-sm text-red-500 dark:text-red-300">{error}</div>
+            <button onClick={() => load()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && (
+          <div className="orders-card overflow-x-auto">
+            <table className="orders-table">
+              <thead>
+                <tr>
+                  <th>Short Code</th>
+                  <th>Buyer</th>
+                  <th>Fulfillment</th>
+                  <th>Status</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Placed At</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                <tr key={r.id}>
+                  <td className="font-mono text-xs font-medium">{r.short_code || "-"}</td>
+                  <td>
+                    <div className="font-medium">{r.buyer_name || "-"}</div>
+                    <div className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{r.buyer_email || "-"}</div>
+                  </td>
+                  <td>
+                    {r.fulfillment_type ? (
+                      <span className={`orders-badge ${getFulfillmentColor(r.fulfillment_type)}`}>
+                        {r.fulfillment_type === 'delivery' ? '🚚' : '📦'} {r.fulfillment_type}
                       </span>
-                    </td>
-                    <td className="total-cell">{moneyZAR(order.total_cents)}</td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {dateShort(order.placed_at || order.created_at)}
-                    </td>
-                  </tr>
-                </Link>
-              ))
+                    ) : (
+                      <span className="opacity-50">-</span>
+                    )}
+                  </td>
+                  <td>
+                    <select
+                      className="orders-select text-xs py-1 px-2 min-w-[100px]"
+                      value={r.status || "paid"}
+                      onChange={e => updateStatus(r.id, e.target.value)}
+                    >
+                      {r.fulfillment_type === 'collection' ? (
+                        <>
+                          <option value="paid">Paid</option>
+                          <option value="packed">Packed</option>
+                          <option value="collected">Collected</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="paid">Paid</option>
+                          <option value="packed">Packed</option>
+                          <option value="out_for_delivery">Out for Delivery</option>
+                          <option value="delivered">Delivered</option>
+                        </>
+                      )}
+                    </select>
+                  </td>
+                  <td className="text-center font-medium">{r.item_count || 0}</td>
+                  <td className="font-semibold">{moneyZAR(r.total)}</td>
+                  <td className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{formatDate(r.placed_at || r.created_at)}</td>
+                  <td>
+                    <button
+                      onClick={() => navigate(`/orders/${r.id}`)}
+                      className="orders-button text-xs px-3 py-1.5"
+                    >
+                      {getActionButtonText(r)}
+                    </button>
+                  </td>
+                </tr>
+                ))}
+              </tbody>
+            </table>
+            {rows.length === 0 && (
+              <div className="text-center py-12 opacity-50" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-lg font-semibold mb-2">No orders found</div>
+                <div className="text-sm">Orders will appear here when they are created</div>
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+        )}
+        
+        {total > 50 && (
+          <div className="flex items-center gap-4 justify-center mt-6">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="orders-button disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm" style={{ color: 'var(--text)' }}>
+              Page {page} of {Math.ceil(total / 50)}
+            </span>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= Math.ceil(total / 50)}
+              className="orders-button disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }
