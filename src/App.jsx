@@ -13,23 +13,21 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { setAPI } from '@/components/data/api'
 import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
 
-// Admin pages
-import ProductsPage from '@/admin/pages/Products'
-import ProductEdit from '@/admin/pages/ProductEdit'
+// All pages now from src/pages/ (consolidated from admin/pages)
+import ProductsPage from '@/pages/Products'
+import ProductEdit from '@/pages/ProductEdit'
 import ProductNew from '@/pages/ProductNew'
-import BundlesPage from '@/admin/pages/Bundles'
-import BundleEdit from '@/admin/pages/BundleEdit'
+import BundlesPage from '@/pages/Bundles'
+import BundleEdit from '@/pages/BundleEdit'
 import BundleNew from '@/pages/BundleNew'
-import Reviews from '@/admin/pages/Reviews'
-import ContactsPage from '@/admin/pages/Contacts'
-import ContactDetail from '@/admin/pages/ContactDetail'
-import Stock from '@/admin/pages/Stock'
-import Finance from '@/admin/pages/Finance'
-import Orders from '@/admin/pages/Orders'
-import OrderDetail from '@/admin/pages/OrderDetail'
-import CouponsPage from '@/admin/pages/Coupons'
-
-// Fallback to existing pages for price updates and discounts
+import Reviews from '@/pages/Reviews'
+import ContactsPage from '@/pages/Contacts'
+import ContactDetail from '@/pages/ContactDetail'
+import Stock from '@/pages/Stock'
+import Finance from '@/pages/Finance'
+import Orders from '@/pages/Orders'
+import OrderDetail from '@/pages/OrderDetail'
+import CouponsPage from '@/pages/Coupons'
 import PriceUpdates from '@/pages/PriceUpdates'
 import Discounts from '@/pages/Discounts'
 
