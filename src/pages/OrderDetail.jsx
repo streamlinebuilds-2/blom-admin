@@ -178,13 +178,22 @@ export default function OrderDetail() {
 
   const workflowAction = getWorkflowAction();
 
-  const timeline = [
-    { label: 'Created', status: 'created', completed: true },
-    { label: 'Paid', status: 'paid', completed: ['paid', 'packed', 'shipped', 'delivered', 'collected', 'out_for_delivery'].includes(order.status) },
-    { label: 'Packed', status: 'packed', completed: ['packed', 'shipped', 'delivered', 'collected', 'out_for_delivery'].includes(order.status) },
-    { label: 'Shipped', status: 'shipped', completed: ['shipped', 'delivered'].includes(order.status) },
-    { label: 'Delivered', status: 'delivered', completed: order.status === 'delivered' }
-  ];
+  // Dynamic timeline based on fulfillment type
+  const fulfillmentType = order.fulfillment_type || 'delivery';
+  const timeline = fulfillmentType === 'collection'
+    ? [
+        { label: 'Created', status: 'created', completed: true },
+        { label: 'Paid', status: 'paid', completed: ['paid', 'packed', 'collected'].includes(order.status) },
+        { label: 'Packed', status: 'packed', completed: ['packed', 'collected'].includes(order.status) },
+        { label: 'Collected', status: 'collected', completed: order.status === 'collected' }
+      ]
+    : [
+        { label: 'Created', status: 'created', completed: true },
+        { label: 'Paid', status: 'paid', completed: ['paid', 'packed', 'out_for_delivery', 'delivered'].includes(order.status) },
+        { label: 'Packed', status: 'packed', completed: ['packed', 'out_for_delivery', 'delivered'].includes(order.status) },
+        { label: 'Out for Delivery', status: 'out_for_delivery', completed: ['out_for_delivery', 'delivered'].includes(order.status) },
+        { label: 'Delivered', status: 'delivered', completed: order.status === 'delivered' }
+      ];
 
   return (
     <>
