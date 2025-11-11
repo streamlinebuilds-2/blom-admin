@@ -400,9 +400,9 @@ export default function ProductNew() {
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-slate-700">{label}</label>
+          <label className="text-sm font-semibold text-[var(--text)]">{label}</label>
           {errorKey && errors[errorKey] ? (
-            <span className="text-xs font-medium text-rose-500">{errors[errorKey]}</span>
+            <span className="text-xs font-medium text-red-500">{errors[errorKey]}</span>
           ) : null}
         </div>
         <div className="space-y-2">
@@ -418,7 +418,7 @@ export default function ProductNew() {
               <button
                 type="button"
                 onClick={() => removeRow(field, index)}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                className="rounded-md border border-[var(--card)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--card)]"
               >
                 Remove
               </button>
@@ -428,38 +428,38 @@ export default function ProductNew() {
         <button
           type="button"
           onClick={() => addRow(field)}
-          className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+          className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white hover:opacity-90"
         >
           + {addLabel}
         </button>
         {errorKey && errors[errorKey] ? (
-          <p className="text-xs text-rose-500">{errors[errorKey]}</p>
+          <p className="text-xs text-red-500">{errors[errorKey]}</p>
         ) : null}
       </div>
     );
   };
 
-  const inputClass = (hasError) => `input${hasError ? " border-rose-500 focus:ring-rose-500" : ""}`;
-  const textareaClass = (hasError) => `textarea${hasError ? " border-rose-500 focus:ring-rose-500" : ""}`;
+  const inputClass = (hasError) => `input${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
+  const textareaClass = (hasError) => `textarea${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
 
   return (
     <div className="flex h-full flex-col">
       <div className="topbar">
         <div className="font-bold text-lg">New Product</div>
-        <div className="text-sm text-slate-500">Create a new product and preview the merchandising experience.</div>
+        <div className="text-sm text-[var(--text-muted)]">Create a new product and preview the merchandising experience.</div>
       </div>
 
       <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
         <form className="space-y-6" onSubmit={handleSubmit}>
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Basic Information</h2>
-              <p className="text-sm text-slate-600">Name, slug and classification for the product.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Basic Information</h2>
+              <p className="text-sm text-[var(--text-muted)]">Name, slug and classification for the product.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="name">
-                  Name <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="name">
+                  Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="name"
@@ -469,11 +469,11 @@ export default function ProductNew() {
                   onChange={(event) => update("name", event.target.value)}
                   placeholder="Base 44 Nail Strengthener"
                 />
-                {errors.name ? <p className="text-xs text-rose-500">{errors.name}</p> : null}
+                {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="slug">
-                  Slug <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="slug">
+                  Slug <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="slug"
@@ -483,11 +483,11 @@ export default function ProductNew() {
                   onChange={(event) => update("slug", event.target.value)}
                   placeholder="base-44-nail-strengthener"
                 />
-                {errors.slug ? <p className="text-xs text-rose-500">{errors.slug}</p> : null}
+                {errors.slug ? <p className="text-xs text-red-500">{errors.slug}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="sku">
-                  SKU <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="sku">
+                  SKU <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="sku"
@@ -497,11 +497,11 @@ export default function ProductNew() {
                   onChange={(event) => update("sku", event.target.value)}
                   placeholder="SKU-001"
                 />
-                {errors.sku ? <p className="text-xs text-rose-500">{errors.sku}</p> : null}
+                {errors.sku ? <p className="text-xs text-red-500">{errors.sku}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="category">
-                  Category <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="category">
+                  Category <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="category"
@@ -511,10 +511,10 @@ export default function ProductNew() {
                   onChange={(event) => update("category", event.target.value)}
                   placeholder="Treatments"
                 />
-                {errors.category ? <p className="text-xs text-rose-500">{errors.category}</p> : null}
+                {errors.category ? <p className="text-xs text-red-500">{errors.category}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="status">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
                   Status
                 </label>
                 <select
@@ -534,15 +534,15 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Pricing &amp; Stock</h2>
-              <p className="text-sm text-slate-600">Control pricing, inventory and identifiers.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Pricing &amp; Stock</h2>
+              <p className="text-sm text-[var(--text-muted)]">Control pricing, inventory and identifiers.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="price">
-                  Price <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="price">
+                  Price <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="price"
@@ -554,10 +554,10 @@ export default function ProductNew() {
                   onChange={(event) => update("price", event.target.value)}
                   placeholder="199"
                 />
-                {errors.price ? <p className="text-xs text-rose-500">{errors.price}</p> : null}
+                {errors.price ? <p className="text-xs text-red-500">{errors.price}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="compare_at_price">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="compare_at_price">
                   Compare at Price
                 </label>
                 <input
@@ -572,8 +572,8 @@ export default function ProductNew() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="inventory_quantity">
-                  Inventory Quantity <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="inventory_quantity">
+                  Inventory Quantity <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="inventory_quantity"
@@ -586,7 +586,7 @@ export default function ProductNew() {
                   placeholder="25"
                 />
                 {errors.inventory_quantity ? (
-                  <p className="text-xs text-rose-500">{errors.inventory_quantity}</p>
+                  <p className="text-xs text-red-500">{errors.inventory_quantity}</p>
                 ) : null}
               </div>
               <div className="flex items-center gap-3 pt-6">
@@ -595,14 +595,14 @@ export default function ProductNew() {
                   type="checkbox"
                   checked={form.track_inventory}
                   onChange={(event) => update("track_inventory", event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
+                  className="h-4 w-4 rounded border-[var(--card)]"
                 />
-                <label className="text-sm font-medium text-slate-700" htmlFor="track_inventory">
+                <label className="text-sm font-medium text-[var(--text)]" htmlFor="track_inventory">
                   Track inventory automatically
                 </label>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="weight">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="weight">
                   Weight (grams)
                 </label>
                 <input
@@ -617,7 +617,7 @@ export default function ProductNew() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="barcode">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="barcode">
                   Barcode
                 </label>
                 <input
@@ -632,14 +632,14 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Descriptions</h2>
-              <p className="text-sm text-slate-600">Short copy for cards and the full overview.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Descriptions</h2>
+              <p className="text-sm text-[var(--text-muted)]">Short copy for cards and the full overview.</p>
             </header>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="short_description">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="short_description">
                   Short Description
                 </label>
                 <textarea
@@ -652,7 +652,7 @@ export default function ProductNew() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="overview">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="overview">
                   Overview
                 </label>
                 <textarea
@@ -667,14 +667,14 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Images</h2>
-              <p className="text-sm text-slate-600">Primary, hover and gallery imagery.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Images</h2>
+              <p className="text-sm text-[var(--text-muted)]">Primary, hover and gallery imagery.</p>
             </header>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="thumbnail_url">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="thumbnail_url">
                   Thumbnail URL
                 </label>
                 <input
@@ -687,7 +687,7 @@ export default function ProductNew() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="hover_url">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
                   Hover URL
                 </label>
                 <input
@@ -703,10 +703,10 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Variants &amp; Highlights</h2>
-              <p className="text-sm text-slate-600">List variants, key features and how to use steps.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Variants &amp; Highlights</h2>
+              <p className="text-sm text-[var(--text-muted)]">List variants, key features and how to use steps.</p>
             </header>
             <div className="space-y-6">
               {renderArrayField("variants", "Variants", "Shade or size", "Add variant")}
@@ -715,10 +715,10 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
-              <p className="text-sm text-slate-600">Break down formulation details.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Ingredients</h2>
+              <p className="text-sm text-[var(--text-muted)]">Break down formulation details.</p>
             </header>
             <div className="space-y-6">
               {renderArrayField("inci_ingredients", "INCI Ingredients", "Water (Aqua)", "Add INCI")}
@@ -726,14 +726,14 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Product Details</h2>
-              <p className="text-sm text-slate-600">Supporting specifications and claims.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Product Details</h2>
+              <p className="text-sm text-[var(--text-muted)]">Supporting specifications and claims.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="size">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="size">
                   Size
                 </label>
                 <input
@@ -746,7 +746,7 @@ export default function ProductNew() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="shelf_life">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="shelf_life">
                   Shelf Life
                 </label>
                 <input
@@ -764,14 +764,14 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">SEO</h2>
-              <p className="text-sm text-slate-600">Meta information for search engines.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">SEO</h2>
+              <p className="text-sm text-[var(--text-muted)]">Meta information for search engines.</p>
             </header>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="meta_title">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_title">
                   Meta Title
                 </label>
                 <input
@@ -784,7 +784,7 @@ export default function ProductNew() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="meta_description">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_description">
                   Meta Description
                 </label>
                 <textarea
@@ -799,39 +799,39 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Display Settings</h2>
-              <p className="text-sm text-slate-600">Control visibility across storefront experiences.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Display Settings</h2>
+              <p className="text-sm text-[var(--text-muted)]">Control visibility across storefront experiences.</p>
             </header>
             <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-3 text-sm font-medium text-slate-700" htmlFor="is_active">
+              <label className="flex items-center gap-3 text-sm font-medium text-[var(--text)]" htmlFor="is_active">
                 <input
                   id="is_active"
                   type="checkbox"
                   checked={form.is_active}
                   onChange={(event) => update("is_active", event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
+                  className="h-4 w-4 rounded border-[var(--card)]"
                 />
                 Active
               </label>
-              <label className="flex items-center gap-3 text-sm font-medium text-slate-700" htmlFor="is_featured">
+              <label className="flex items-center gap-3 text-sm font-medium text-[var(--text)]" htmlFor="is_featured">
                 <input
                   id="is_featured"
                   type="checkbox"
                   checked={form.is_featured}
                   onChange={(event) => update("is_featured", event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
+                  className="h-4 w-4 rounded border-[var(--card)]"
                 />
                 Featured product
               </label>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="section-card p-6">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Related Products</h2>
-              <p className="text-sm text-slate-600">Surface complementary products by ID or slug.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Related Products</h2>
+              <p className="text-sm text-[var(--text-muted)]">Surface complementary products by ID or slug.</p>
             </header>
             {renderArrayField("related", "Related Product IDs or Slugs", "product-slug", "Add related product")}
           </section>
@@ -843,7 +843,7 @@ export default function ProductNew() {
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded-md border border-[var(--card)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--card)]"
               onClick={() => navigate("/products")}
               disabled={isSubmitting}
             >
@@ -860,8 +860,8 @@ export default function ProductNew() {
         </form>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex gap-2 border-b border-slate-200 p-3 text-sm font-semibold text-slate-600">
+          <div className="rounded-2xl border border-[var(--card)] bg-[var(--card)] shadow-sm">
+            <div className="flex gap-2 border-b border-[var(--card)] p-3 text-sm font-semibold text-[var(--text-muted)]">
               {[
                 { id: "card", label: "Product Card" },
                 { id: "page-desktop", label: "Product Page – Desktop" },
@@ -872,7 +872,7 @@ export default function ProductNew() {
                   type="button"
                   onClick={() => setPreviewTab(tab.id)}
                   className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                    previewTab === tab.id ? "bg-emerald-100 text-emerald-700" : "text-slate-500 hover:bg-slate-100"
+                    previewTab === tab.id ? "bg-[var(--accent)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--card)]"
                   }`}
                 >
                   {tab.label}
@@ -886,32 +886,32 @@ export default function ProductNew() {
                 </div>
               ) : null}
               {previewTab === "page-desktop" ? (
-                <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-slate-100 shadow-sm">
+                <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
                   <ProductPageTemplate product={pageModel} />
                 </div>
               ) : null}
               {previewTab === "page-mobile" ? (
-                <div className="mx-auto w-[390px] overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                <div className="mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
                   <ProductPageTemplate product={pageModel} />
                 </div>
               ) : null}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Preview Summary</h3>
+          <div className="rounded-2xl border border-[var(--card)] bg-[var(--card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
+            <h3 className="text-sm font-semibold text-[var(--text)]">Preview Summary</h3>
             <dl className="mt-3 space-y-2">
               <div className="flex justify-between">
-                <dt className="text-slate-500">Stock Label</dt>
-                <dd className="font-medium text-slate-800">{stockLabel}</dd>
+                <dt className="text-[var(--text-muted)]">Stock Label</dt>
+                <dd className="font-medium text-[var(--text)]">{stockLabel}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Price String</dt>
-                <dd className="font-medium text-slate-800">{priceString}</dd>
+                <dt className="text-[var(--text-muted)]">Price String</dt>
+                <dd className="font-medium text-[var(--text)]">{priceString}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Images</dt>
-                <dd className="font-medium text-slate-800">{previewImages.length}</dd>
+                <dt className="text-[var(--text-muted)]">Images</dt>
+                <dd className="font-medium text-[var(--text)]">{previewImages.length}</dd>
               </div>
             </dl>
           </div>
