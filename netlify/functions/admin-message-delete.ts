@@ -1,4 +1,4 @@
-// netlify/functions/admin-message-update.ts
+// netlify/functions/admin-message-delete.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
@@ -6,7 +6,7 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
@@ -15,7 +15,7 @@ export const handler: Handler = async (e) => {
     return { statusCode: 200, headers: CORS, body: "ok" };
   }
 
-  if (e.httpMethod !== "POST") {
+  if (e.httpMethod !== "POST" && e.httpMethod !== "DELETE") {
     return {
       statusCode: 405,
       headers: { ...CORS, "Content-Type": "application/json" },
@@ -34,7 +34,7 @@ export const handler: Handler = async (e) => {
 
   try {
     const payload = JSON.parse(e.body || "{}");
-    const { id, status } = payload;
+    const { id } = payload;
 
     if (!id) {
       return {
@@ -44,17 +44,9 @@ export const handler: Handler = async (e) => {
       };
     }
 
-    if (!status || !["new", "responded"].includes(status)) {
-      return {
-        statusCode: 400,
-        headers: { ...CORS, "Content-Type": "application/json" },
-        body: JSON.stringify({ ok: false, error: "Invalid status. Must be 'new' or 'responded'" })
-      };
-    }
-
     const { error } = await s
       .from("contact_messages")
-      .update({ status })
+      .delete()
       .eq("id", id);
 
     if (error) throw error;
