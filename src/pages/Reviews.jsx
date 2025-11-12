@@ -14,11 +14,28 @@ export default function Reviews() {
 
   const { data: reviews = [], isLoading, error } = useQuery({
     queryKey: ['reviews', statusFilter],
-    queryFn: () => api.listReviews(statusFilter === 'all' ? null : statusFilter),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      params.set('limit', '100');
+
+      const response = await fetch(`/.netlify/functions/admin-reviews?${params}`);
+      if (!response.ok) throw new Error('Failed to load reviews');
+      const json = await response.json();
+      return json.data || [];
+    },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, patch }) => api.updateReview(id, patch),
+    mutationFn: async ({ id, status }) => {
+      const response = await fetch('/.netlify/functions/admin-review-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status })
+      });
+      if (!response.ok) throw new Error('Failed to update');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       showToast('success', 'Review updated');
@@ -281,10 +298,10 @@ export default function Reviews() {
                     }}
                   >
                     <td>
-                      <div className="product-name">{review.product_name || 'Unknown Product'}</div>
+                      <div className="product-name">{review.product?.name || 'Unknown Product'}</div>
                     </td>
                     <td>
-                      <div className="author-name">{review.author_name}</div>
+                      <div className="author-name">{review.reviewer_name}</div>
                     </td>
                     <td>
                       {renderStars(review.rating)}
@@ -303,7 +320,7 @@ export default function Reviews() {
                         {review.status !== 'approved' && (
                           <button
                             className="btn-action btn-approve"
-                            onClick={() => updateMutation.mutate({ id: review.id, patch: { status: 'approved' } })}
+                            onClick={() => updateMutation.mutate({ id: review.id, status: 'approved' })}
                             disabled={updateMutation.isPending}
                           >
                             <Check className="w-4 h-4" />
@@ -313,7 +330,7 @@ export default function Reviews() {
                         {review.status !== 'rejected' && (
                           <button
                             className="btn-action btn-reject"
-                            onClick={() => updateMutation.mutate({ id: review.id, patch: { status: 'rejected' } })}
+                            onClick={() => updateMutation.mutate({ id: review.id, status: 'rejected' })}
                             disabled={updateMutation.isPending}
                           >
                             <X className="w-4 h-4" />
