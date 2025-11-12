@@ -23,6 +23,8 @@ import BundleNew from '@/pages/BundleNew'
 import Reviews from '@/pages/Reviews'
 import ContactsPage from '@/pages/Contacts'
 import ContactDetail from '@/pages/ContactDetail'
+import Messages from '@/pages/Messages'
+import MessageDetail from '@/pages/MessageDetail'
 import Stock from '@/pages/Stock'
 import Finance from '@/pages/Finance'
 import Orders from '@/pages/Orders'
@@ -112,8 +114,8 @@ const AuthenticatedApp = () => {
         <Route path="/reviews/:id" element={<Reviews/>} />
 
         {/* Messages - Canonical Routes */}
-        <Route path="/messages" element={<ContactsPage/>} />
-        <Route path="/messages/:id" element={<ContactDetail/>} />
+        <Route path="/messages" element={<Messages/>} />
+        <Route path="/messages/:id" element={<MessageDetail/>} />
 
         {/* Finance - Canonical Routes */}
         <Route path="/finance" element={<Finance/>} />

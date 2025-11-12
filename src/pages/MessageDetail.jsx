@@ -1,398 +1,393 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { api } from "../components/data/api";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Mail, Phone, Calendar, User, ExternalLink, Paperclip } from "lucide-react";
-import { useToast } from "../components/ui/ToastProvider";
-import { Banner } from "../components/ui/Banner";
+// src/pages/MessageDetail.jsx
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/ToastProvider";
+import { ArrowLeft, Mail, MessageCircle, CheckCircle } from "lucide-react";
 
 export default function MessageDetail() {
+  const { id } = useParams();
   const navigate = useNavigate();
+  const [message, setMessage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updating, setUpdating] = useState(false);
   const { showToast } = useToast();
-  const queryClient = useQueryClient();
-  const urlParams = new URLSearchParams(window.location.search);
-  const messageId = urlParams.get('id');
 
-  const { data: message, isLoading, error } = useQuery({
-    queryKey: ['message', messageId],
-    queryFn: () => api.getMessage(messageId),
-    enabled: !!messageId,
-  });
+  async function load() {
+    if (!id) return;
+    setLoading(true);
+    setError("");
+    try {
+      const r = await fetch(`/.netlify/functions/admin-message?id=${id}`);
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      const j = await r.json();
+      if (j.ok) {
+        setMessage(j.message);
+      } else {
+        setError(j.error || "Failed to load message");
+        showToast('error', j.error || "Failed to load message");
+      }
+    } catch (err) {
+      const errMsg = err.message || "Failed to fetch message";
+      setError(errMsg);
+      showToast('error', errMsg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const updateMutation = useMutation({
-    mutationFn: ({ patch }) => api.updateMessage(messageId, patch),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['message', messageId] });
-      showToast('success', 'Message updated');
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to update message');
-    },
-  });
+  async function updateStatus(newStatus) {
+    if (!id) return;
+    setUpdating(true);
+    try {
+      const r = await fetch("/.netlify/functions/admin-message-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      const j = await r.json();
+      if (j.ok) {
+        showToast('success', `Status updated to ${newStatus}`);
+        await load();
+      } else {
+        showToast('error', j.error || "Failed to update status");
+      }
+    } catch (err) {
+      showToast('error', err.message || "Failed to update status");
+    } finally {
+      setUpdating(false);
+    }
+  }
 
-  if (isLoading) {
+  function handleEmailReply() {
+    if (!message?.email) {
+      showToast('error', 'No email address available');
+      return;
+    }
+    const subject = message.subject ? `Re: ${message.subject}` : 'Re: Your inquiry';
+    window.open(`mailto:${message.email}?subject=${encodeURIComponent(subject)}`, '_blank');
+  }
+
+  function handleWhatsAppReply() {
+    if (!message?.phone) {
+      showToast('error', 'No phone number available');
+      return;
+    }
+    const cleanPhone = message.phone.replace(/\D/g, '');
+    const text = `Hi ${message.name || 'there'}`;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  useEffect(() => { load(); }, [id]);
+
+  const formatDate = (d) => {
+    if (!d) return "-";
+    const date = new Date(d);
+    return date.toLocaleString('en-ZA', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
-        Loading message...
+      <div className="p-6" style={{ color: 'var(--text)' }}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: 'var(--accent)' }}></div>
       </div>
     );
   }
 
-  if (error || !message) {
-    return <Banner type="error">{error?.message || 'Message not found'}</Banner>;
+  if (error && !message) {
+    return (
+      <div className="p-6" style={{ color: 'var(--text)' }}>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+          <div className="text-red-600 dark:text-red-400 font-semibold mb-2">Error</div>
+          <div className="text-sm text-red-500 dark:text-red-300">{error}</div>
+          <button
+            onClick={() => navigate('/messages')}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Back to Messages
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  const handleReply = () => {
-    const subject = message.subject.startsWith('Re:') ? message.subject : `Re: ${message.subject}`;
-    window.open(`mailto:${message.email}?subject=${encodeURIComponent(subject)}`, '_blank');
-  };
+  if (!message) {
+    return (
+      <div className="p-6" style={{ color: 'var(--text)' }}>
+        Message not found
+      </div>
+    );
+  }
 
   return (
-    <>
+    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
       <style>{`
-        .detail-header {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-
-        .btn-back {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          border: none;
-          background: var(--card);
+        .detail-container {
+          background: var(--bg);
           color: var(--text);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
         }
-
-        .btn-back:active {
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .detail-title {
-          font-size: 24px;
-          font-weight: 700;
-          color: var(--text);
-          flex: 1;
-        }
-
-        .btn-reply {
-          padding: 12px 24px;
-          border-radius: 12px;
-          border: none;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
-        }
-
-        .btn-reply:hover {
-          transform: translateY(-2px);
-        }
-
-        .detail-content {
-          max-width: 1000px;
-        }
-
         .detail-card {
           background: var(--card);
-          border-radius: 16px;
-          padding: 32px;
-          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
-          margin-bottom: 24px;
-        }
-
-        .detail-section {
-          margin-bottom: 32px;
-          padding-bottom: 32px;
-          border-bottom: 2px solid var(--border);
-        }
-
-        .detail-section:last-child {
-          border-bottom: none;
-          margin-bottom: 0;
-          padding-bottom: 0;
-        }
-
-        .section-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 16px;
-        }
-
-        .control-group {
-          margin-bottom: 20px;
-        }
-
-        .control-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-muted);
-          margin-bottom: 8px;
-          display: block;
-        }
-
-        .control-select, .control-input {
-          width: 100%;
-          padding: 12px 16px;
-          border-radius: 10px;
-          border: none;
-          background: var(--bg);
-          color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .control-select:focus, .control-input:focus {
-          outline: none;
-        }
-
-        .message-body {
-          background: var(--bg);
+          border: 1px solid var(--border);
           border-radius: 12px;
-          padding: 20px;
+          padding: 24px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .detail-button {
+          background: var(--card);
+          border: 1px solid var(--border);
           color: var(--text);
-          white-space: pre-wrap;
-          line-height: 1.6;
-          font-size: 15px;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
-        }
-
-        .attachments {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          margin-top: 16px;
-        }
-
-        .attachment-chip {
+          border-radius: 8px;
+          padding: 10px 16px;
+          transition: all 0.2s;
+          cursor: pointer;
+          font-weight: 500;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 10px 16px;
-          border-radius: 10px;
-          background: var(--card);
-          color: var(--text);
-          text-decoration: none;
-          font-size: 14px;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-          transition: all 0.2s;
         }
-
-        .attachment-chip:hover {
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        .detail-button:hover:not(:disabled) {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
         }
-
-        .meta-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 16px;
+        .detail-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
-
-        .meta-item {
-          display: flex;
-          align-items: start;
-          gap: 12px;
+        .detail-button-primary {
+          background: linear-gradient(135deg, var(--accent), #0ea5e9);
+          color: white;
+          border: none;
         }
-
-        .meta-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: var(--bg);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--accent);
-          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
-          flex-shrink: 0;
+        .detail-button-primary:hover:not(:disabled) {
+          background: linear-gradient(135deg, #0ea5e9, var(--accent));
         }
-
-        .meta-content {
-          flex: 1;
+        .detail-button-success {
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+          border: none;
         }
-
-        .meta-label {
+        .detail-button-success:hover:not(:disabled) {
+          background: linear-gradient(135deg, #059669, #10b981);
+        }
+        .detail-label {
           font-size: 12px;
+          font-weight: 700;
           color: var(--text-muted);
-          margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 8px;
         }
-
-        .meta-value {
-          font-size: 14px;
+        .detail-value {
           color: var(--text);
+          font-size: 15px;
+        }
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 6px 14px;
+          border-radius: 12px;
+          font-size: 13px;
           font-weight: 600;
         }
-
-        .tip-banner {
-          background: var(--card);
-          border-left: 4px solid var(--accent);
+        .status-new {
+          background: rgba(234, 179, 8, 0.2);
+          color: #ca8a04;
+        }
+        .status-responded {
+          background: rgba(16, 185, 129, 0.2);
+          color: #059669;
+        }
+        .message-text {
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 8px;
           padding: 16px;
-          border-radius: 10px;
+          white-space: pre-wrap;
+          line-height: 1.6;
           font-size: 14px;
-          color: var(--text);
-          margin-top: 24px;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+        .image-gallery {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 12px;
+        }
+        .image-item {
+          width: 100%;
+          height: 200px;
+          object-fit: cover;
+          border-radius: 8px;
+          border: 1px solid var(--border);
         }
       `}</style>
 
-      <div className="detail-header">
-        <button className="btn-back" onClick={() => navigate(createPageUrl('Messages'))}>
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="detail-title">{message.subject}</h1>
-        <button className="btn-reply" onClick={handleReply}>
-          <Mail className="w-5 h-5" />
-          Reply via Email
-        </button>
-      </div>
-
-      <div className="detail-content">
-        <div className="detail-card">
-          <div className="detail-section">
-            <h3 className="section-title">Status & Assignment</h3>
-            
-            <div className="control-group">
-              <label className="control-label">Status</label>
-              <select
-                className="control-select"
-                value={message.status}
-                onChange={(e) => updateMutation.mutate({ patch: { status: e.target.value } })}
-                disabled={updateMutation.isPending}
+      <div className="detail-container">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/messages")}
+              className="detail-button"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+            <h1 className="text-2xl font-bold">Message Details</h1>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {message.status === "new" && (
+              <button
+                onClick={() => updateStatus("responded")}
+                disabled={updating}
+                className="detail-button detail-button-success"
               >
-                <option value="new">New</option>
-                <option value="open">Open</option>
-                <option value="closed">Closed</option>
-              </select>
-            </div>
+                <CheckCircle className="w-4 h-4" />
+                Mark as Responded
+              </button>
+            )}
+            {message.email && (
+              <button
+                onClick={handleEmailReply}
+                className="detail-button detail-button-primary"
+              >
+                <Mail className="w-4 h-4" />
+                Reply via Email
+              </button>
+            )}
+            {message.phone && (
+              <button
+                onClick={handleWhatsAppReply}
+                className="detail-button detail-button-primary"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Reply via WhatsApp
+              </button>
+            )}
+          </div>
+        </div>
 
-            <div className="control-group">
-              <label className="control-label">Assigned To</label>
-              <input
-                type="email"
-                className="control-input"
-                value={message.assignee || ''}
-                onChange={(e) => updateMutation.mutate({ patch: { assignee: e.target.value || null } })}
-                placeholder="email@example.com"
-                disabled={updateMutation.isPending}
-              />
+        {/* Main Details Card */}
+        <div className="detail-card space-y-6">
+          {/* Status and Date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="detail-label">Status</div>
+              <div>
+                <span className={`status-badge status-${message.status}`}>
+                  {message.status === "new" ? "Unanswered" : "Responded"}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div className="detail-label">Received</div>
+              <div className="detail-value">{formatDate(message.created_at)}</div>
             </div>
           </div>
 
-          <div className="detail-section">
-            <h3 className="section-title">Message</h3>
-            <div className="message-body">{message.body}</div>
+          {/* Contact Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <div className="detail-label">Name</div>
+              <div className="detail-value font-semibold">{message.name || "-"}</div>
+            </div>
+            <div>
+              <div className="detail-label">Email</div>
+              <div className="detail-value">
+                {message.email ? (
+                  <a href={`mailto:${message.email}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                    {message.email}
+                  </a>
+                ) : "-"}
+              </div>
+            </div>
+            <div>
+              <div className="detail-label">Phone</div>
+              <div className="detail-value">
+                {message.phone ? (
+                  <a href={`tel:${message.phone}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                    {message.phone}
+                  </a>
+                ) : "-"}
+              </div>
+            </div>
+          </div>
 
-            {message.attachments && message.attachments.length > 0 && (
-              <div className="attachments">
-                {message.attachments.map((att, idx) => (
-                  <a
-                    key={idx}
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="attachment-chip"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                    <span>{att.name}</span>
-                    <ExternalLink className="w-4 h-4" />
+          {/* Subject */}
+          {message.subject && (
+            <div>
+              <div className="detail-label">Subject</div>
+              <div className="detail-value font-semibold text-lg">{message.subject}</div>
+            </div>
+          )}
+
+          {/* Message */}
+          <div>
+            <div className="detail-label">Message</div>
+            <div className="message-text">{message.message || "(No message content)"}</div>
+          </div>
+
+          {/* Images */}
+          {message.images && Array.isArray(message.images) && message.images.length > 0 && (
+            <div>
+              <div className="detail-label">Images ({message.images.length})</div>
+              <div className="image-gallery">
+                {message.images.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                    <img src={url} alt={`Attachment ${i + 1}`} className="image-item" />
                   </a>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Additional Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+            <div>
+              <div className="detail-label">Source</div>
+              <div className="detail-value">{message.source || "website"}</div>
+            </div>
+            {message.product_slug && (
+              <div>
+                <div className="detail-label">Product</div>
+                <div className="detail-value">{message.product_slug}</div>
+              </div>
+            )}
+            {message.order_id && (
+              <div>
+                <div className="detail-label">Order ID</div>
+                <div className="detail-value">{message.order_id}</div>
               </div>
             )}
           </div>
 
-          <div className="detail-section">
-            <h3 className="section-title">Customer Details</h3>
-            
-            <div className="meta-grid">
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <User className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Name</div>
-                  <div className="meta-value">{message.full_name}</div>
-                </div>
-              </div>
-
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <Mail className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Email</div>
-                  <div className="meta-value">{message.email}</div>
-                </div>
-              </div>
-
-              {message.phone && (
-                <div className="meta-item">
-                  <div className="meta-icon">
-                    <Phone className="w-5 h-5" />
-                  </div>
-                  <div className="meta-content">
-                    <div className="meta-label">Phone</div>
-                    <div className="meta-value">{message.phone}</div>
-                  </div>
-                </div>
-              )}
-
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Inquiry Type</div>
-                  <div className="meta-value">{message.inquiry_type}</div>
-                </div>
-              </div>
-
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Received</div>
-                  <div className="meta-value">{new Date(message.created_at).toLocaleString()}</div>
-                </div>
-              </div>
-
-              {message.updated_at && message.updated_at !== message.created_at && (
-                <div className="meta-item">
-                  <div className="meta-icon">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <div className="meta-content">
-                    <div className="meta-label">Last Updated</div>
-                    <div className="meta-value">{new Date(message.updated_at).toLocaleString()}</div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* Status Update Dropdown */}
+          <div className="pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+            <div className="detail-label">Update Status</div>
+            <select
+              value={message.status}
+              onChange={(e) => updateStatus(e.target.value)}
+              disabled={updating}
+              className="detail-button"
+              style={{ width: 'auto', minWidth: '200px' }}
+            >
+              <option value="new">Unanswered</option>
+              <option value="responded">Responded</option>
+            </select>
           </div>
         </div>
-
-        <div className="tip-banner">
-          ℹ️ <strong>Tip:</strong> Direct email integration is coming soon. For now, use "Reply via Email" to respond using your email client.
-        </div>
       </div>
-    </>
+    </div>
   );
 }
