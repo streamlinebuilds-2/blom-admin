@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/ToastProvider";
-import { ArrowLeft, Mail, MessageCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Mail, MessageCircle, CheckCircle, Trash2 } from "lucide-react";
 
 export default function MessageDetail() {
   const { id } = useParams();
@@ -11,6 +11,7 @@ export default function MessageDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { showToast } = useToast();
 
   async function load() {
@@ -64,6 +65,37 @@ export default function MessageDetail() {
     }
   }
 
+  async function handleDelete() {
+    if (!id) return;
+    
+    if (!confirm('Are you sure you want to delete this message? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const r = await fetch("/.netlify/functions/admin-message-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      const j = await r.json();
+      if (j.ok) {
+        showToast('success', 'Message deleted successfully');
+        navigate('/messages');
+      } else {
+        showToast('error', j.error || "Failed to delete message");
+      }
+    } catch (err) {
+      showToast('error', err.message || "Failed to delete message");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function handleEmailReply() {
     if (!message?.email) {
       showToast('error', 'No email address available');
@@ -79,8 +111,9 @@ export default function MessageDetail() {
       return;
     }
     const cleanPhone = message.phone.replace(/\D/g, '');
-    const text = `Hi ${message.name || 'there'}`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
+    const phone = cleanPhone.startsWith('27') ? cleanPhone : `27${cleanPhone}`;
+    const text = `Hi ${message.name || 'there'}, `;
+    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   }
 
   useEffect(() => { load(); }, [id]);
@@ -182,6 +215,14 @@ export default function MessageDetail() {
         .detail-button-success:hover:not(:disabled) {
           background: linear-gradient(135deg, #059669, #10b981);
         }
+        .detail-button-danger {
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          color: white;
+          border: none;
+        }
+        .detail-button-danger:hover:not(:disabled) {
+          background: linear-gradient(135deg, #dc2626, #b91c1c);
+        }
         .detail-label {
           font-size: 12px;
           font-weight: 700;
@@ -275,6 +316,15 @@ export default function MessageDetail() {
                 Reply via WhatsApp
               </button>
             )}
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="detail-button detail-button-danger"
+              title="Delete message"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         </div>
 
