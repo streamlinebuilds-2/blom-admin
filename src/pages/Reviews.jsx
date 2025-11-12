@@ -298,10 +298,10 @@ export default function Reviews() {
                     }}
                   >
                     <td>
-                      <div className="product-name">{review.product?.name || 'Unknown Product'}</div>
+                      <div className="product-name">{review.products?.name || review.product_slug || 'Unknown Product'}</div>
                     </td>
                     <td>
-                      <div className="author-name">{review.reviewer_name}</div>
+                      <div className="author-name">{review.name}</div>
                     </td>
                     <td>
                       {renderStars(review.rating)}
