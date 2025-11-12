@@ -1,411 +1,295 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { api } from "../components/data/api";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, Search, Mail, Package, Truck, RotateCcw, Briefcase, HelpCircle } from "lucide-react";
-import { useToast } from "../components/ui/ToastProvider";
-import { Banner } from "../components/ui/Banner";
+// src/pages/Messages.jsx
+import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/ToastProvider";
+import { RefreshCw, MessageSquare } from "lucide-react";
 
 export default function Messages() {
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [rows, setRows] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
   const { showToast } = useToast();
-  const queryClient = useQueryClient();
+  const searchTimeoutRef = useRef(null);
 
-  const { data: messages = [], isLoading, error } = useQuery({
-    queryKey: ['messages'],
-    queryFn: () => api.listMessages(),
-  });
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("size", "50");
+      if (statusFilter) params.set("status", statusFilter);
+      if (search) params.set("search", search);
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, patch }) => api.updateMessage(id, patch),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
-      showToast('success', 'Message updated');
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to update message');
-    },
-  });
+      const url = `/.netlify/functions/admin-messages?${params}`;
+      const r = await fetch(url);
 
-  const filteredMessages = messages.filter(m => {
-    const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
-    const matchesSearch = 
-      m.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
 
-  const getInquiryIcon = (type) => {
-    switch (type) {
-      case 'order': return <Package className="w-4 h-4" />;
-      case 'shipping': return <Truck className="w-4 h-4" />;
-      case 'returns': return <RotateCcw className="w-4 h-4" />;
-      case 'wholesale': return <Briefcase className="w-4 h-4" />;
-      case 'general': return <Mail className="w-4 h-4" />;
-      default: return <HelpCircle className="w-4 h-4" />;
+      const j = await r.json();
+      if (j.ok) {
+        setRows(j.data || []);
+        setTotal(j.total || 0);
+        if (j.error) {
+          console.warn('Function returned ok but with error:', j.error);
+        }
+      } else {
+        const errMsg = j.error || "Failed to load messages";
+        setError(errMsg);
+        showToast('error', errMsg);
+        console.error('Function error:', j);
+      }
+    } catch (err) {
+      const errMsg = err.message || "Failed to fetch messages";
+      setError(errMsg);
+      showToast('error', errMsg);
+      console.error('Load error:', err);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchInput]);
+
+  useEffect(() => { load(); }, [statusFilter, search, page]);
+
+  const formatDate = (d) => {
+    if (!d) return "-";
+    const date = new Date(d);
+    return date.toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
-  const getRelativeTime = (date) => {
-    const now = new Date();
-    const then = new Date(date);
-    const diffMs = now - then;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return then.toLocaleDateString();
-  };
-
-  const handleStatusChange = (id, newStatus) => {
-    updateMutation.mutate({ id, patch: { status: newStatus } });
-  };
-
-  const statusCounts = {
-    all: messages.length,
-    new: messages.filter(m => m.status === 'new').length,
-    open: messages.filter(m => m.status === 'open').length,
-    closed: messages.filter(m => m.status === 'closed').length
+  const getStatusBadgeClass = (status) => {
+    if (status === "new") return "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400";
+    if (status === "responded") return "bg-green-500/20 text-green-700 dark:text-green-400";
+    return "bg-gray-500/20 text-gray-700 dark:text-gray-400";
   };
 
   return (
-    <>
+    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
       <style>{`
-        .messages-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 32px;
-          flex-wrap: wrap;
-          gap: 16px;
-        }
-
-        .messages-title {
-          font-size: 28px;
-          font-weight: 700;
+        .messages-container {
+          background: var(--bg);
           color: var(--text);
-          display: flex;
-          align-items: center;
-          gap: 12px;
         }
-
-        .filter-chips {
-          display: flex;
-          gap: 12px;
-          margin-bottom: 24px;
-          flex-wrap: wrap;
-        }
-
-        .filter-chip {
-          padding: 10px 20px;
-          border-radius: 10px;
-          border: none;
+        .messages-card {
           background: var(--card);
-          color: var(--text-muted);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
-          transition: all 0.2s;
-          position: relative;
-        }
-
-        .filter-chip.active {
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          color: white;
-          box-shadow: inset 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .chip-count {
-          margin-left: 8px;
-          padding: 2px 8px;
-          border-radius: 6px;
-          background: rgba(255,255,255,0.2);
-          font-size: 12px;
-        }
-
-        .search-box {
-          position: relative;
-          width: 300px;
-          max-width: 100%;
-          margin-bottom: 24px;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 12px 16px 12px 44px;
+          border: 1px solid var(--border);
           border-radius: 12px;
-          border: none;
+          padding: 24px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .messages-input {
           background: var(--card);
+          border: 1px solid var(--border);
           color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          border-radius: 8px;
+          padding: 10px 14px;
         }
-
-        .search-input:focus {
-          outline: none;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
+        .messages-input::placeholder {
           color: var(--text-muted);
         }
-
-        .messages-table {
+        .messages-select {
           background: var(--card);
-          border-radius: 20px;
-          padding: 0;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-          overflow: hidden;
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 10px 14px;
         }
-
-        .table-container {
-          overflow-x: auto;
+        .messages-button {
+          background: var(--card);
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 10px 16px;
+          transition: all 0.2s;
+          cursor: pointer;
         }
-
-        table {
+        .messages-button:hover {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+        .messages-table {
           width: 100%;
           border-collapse: collapse;
         }
-
-        th {
-          text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+        .messages-table thead {
+          background: var(--card);
           border-bottom: 2px solid var(--border);
+        }
+        .messages-table th {
+          padding: 12px;
+          text-align: left;
+          font-weight: 600;
+          color: var(--text);
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .messages-table td {
+          padding: 14px 12px;
+          border-bottom: 1px solid var(--border);
+          color: var(--text);
+        }
+        .messages-table tbody tr {
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .messages-table tbody tr:hover {
           background: var(--card);
         }
-
-        td {
-          padding: 20px 24px;
-          color: var(--text);
-          border-bottom: 1px solid var(--border);
-        }
-
-        tr:last-child td {
-          border-bottom: none;
-        }
-
-        tbody tr {
-          transition: all 0.2s ease;
-          cursor: pointer;
-        }
-
-        tbody tr:hover {
-          background: rgba(110, 193, 255, 0.05);
-        }
-
-        .message-name {
-          font-weight: 600;
-          margin-bottom: 4px;
-        }
-
-        .message-email {
-          font-size: 13px;
-          color: var(--text-muted);
-        }
-
-        .message-subject {
-          font-weight: 600;
-        }
-
-        .inquiry-badge {
+        .messages-badge {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border-radius: 8px;
+          padding: 4px 12px;
+          border-radius: 12px;
           font-size: 12px;
-          font-weight: 600;
-          background: var(--bg);
-          color: var(--text);
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .status-dropdown {
-          padding: 8px 12px;
-          border-radius: 8px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
-        }
-
-        .status-dropdown:focus {
-          outline: none;
-        }
-
-        .status-new {
-          color: #3b82f6;
-        }
-
-        .status-open {
-          color: #f59e0b;
-        }
-
-        .status-closed {
-          color: #10b981;
-        }
-
-        .relative-time {
-          font-size: 13px;
-          color: var(--text-muted);
-        }
-
-        .empty-state {
-          padding: 80px 20px;
-          text-align: center;
-          color: var(--text-muted);
-        }
-
-        .empty-state-title {
-          font-size: 20px;
-          font-weight: 600;
-          color: var(--text);
-          margin-bottom: 8px;
+          font-weight: 500;
         }
       `}</style>
 
-      {error && <Banner type="error">{error.message || 'Failed to load messages'}</Banner>}
+      <div className="messages-container">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: 'var(--text)' }}>
+            <MessageSquare className="w-7 h-7" />
+            Messages
+          </h1>
+          <button
+            onClick={() => load()}
+            className="messages-button flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
 
-      <div className="messages-header">
-        <h1 className="messages-title">
-          <MessageSquare className="w-8 h-8" />
-          Messages
-        </h1>
-      </div>
+        <div className="messages-card mb-6">
+          <div className="flex items-center gap-4 flex-wrap">
+            <input
+              type="text"
+              placeholder="Search by name, email, subject..."
+              className="messages-input flex-1 min-w-[250px]"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+            />
+            <select className="messages-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+              <option value="">All Messages</option>
+              <option value="new">Unanswered</option>
+              <option value="responded">Responded</option>
+            </select>
+          </div>
+        </div>
 
-      <div className="filter-chips">
-        <button
-          className={`filter-chip ${statusFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('all')}
-        >
-          All
-          <span className="chip-count">{statusCounts.all}</span>
-        </button>
-        <button
-          className={`filter-chip ${statusFilter === 'new' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('new')}
-        >
-          New
-          <span className="chip-count">{statusCounts.new}</span>
-        </button>
-        <button
-          className={`filter-chip ${statusFilter === 'open' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('open')}
-        >
-          Open
-          <span className="chip-count">{statusCounts.open}</span>
-        </button>
-        <button
-          className={`filter-chip ${statusFilter === 'closed' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('closed')}
-        >
-          Closed
-          <span className="chip-count">{statusCounts.closed}</span>
-        </button>
-      </div>
+        {loading && (
+          <div className="messages-card text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+            <div style={{ color: 'var(--text-muted)' }}>Loading messages...</div>
+          </div>
+        )}
 
-      <div className="search-box">
-        <Search className="search-icon w-5 h-5" />
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search messages..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+        {error && !loading && (
+          <div className="messages-card p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="text-red-600 dark:text-red-400 font-semibold mb-2">Error loading messages</div>
+            <div className="text-sm text-red-500 dark:text-red-300">{error}</div>
+            <button onClick={() => load()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+              Retry
+            </button>
+          </div>
+        )}
 
-      <div className="messages-table">
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Subject</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Received</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
+        {!loading && !error && (
+          <div className="messages-card overflow-x-auto">
+            <table className="messages-table">
+              <thead>
                 <tr>
-                  <td colSpan="5" className="empty-state">Loading messages...</td>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
                 </tr>
-              ) : filteredMessages.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="empty-state">
-                    <div className="empty-state-title">No messages found</div>
-                    <div>{searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'No messages yet'}</div>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                <tr key={r.id} onClick={() => navigate(`/messages/${r.id}`)}>
+                  <td className="font-medium">{r.name || "-"}</td>
+                  <td>
+                    <div className="text-sm opacity-70" style={{ color: 'var(--text-muted)' }}>{r.email || "-"}</div>
+                  </td>
+                  <td className="font-medium">{r.subject || "(No subject)"}</td>
+                  <td>
+                    <span className={`messages-badge ${getStatusBadgeClass(r.status)}`}>
+                      {r.status === "new" ? "Unanswered" : "Responded"}
+                    </span>
+                  </td>
+                  <td className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{formatDate(r.created_at)}</td>
+                  <td>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/messages/${r.id}`); }}
+                      className="messages-button text-xs px-3 py-1.5"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                filteredMessages.map(message => (
-                  <tr 
-                    key={message.id}
-                    onClick={(e) => {
-                      if (e.target.tagName !== 'SELECT') {
-                        window.location.href = createPageUrl(`MessageDetail?id=${message.id}`);
-                      }
-                    }}
-                  >
-                    <td>
-                      <div className="message-name">{message.full_name}</div>
-                      <div className="message-email">{message.email}</div>
-                    </td>
-                    <td>
-                      <div className="message-subject">{message.subject}</div>
-                    </td>
-                    <td>
-                      <div className="inquiry-badge">
-                        {getInquiryIcon(message.inquiry_type)}
-                        <span>{message.inquiry_type}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <select
-                        className={`status-dropdown status-${message.status}`}
-                        value={message.status}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleStatusChange(message.id, e.target.value);
-                        }}
-                        disabled={updateMutation.isPending}
-                      >
-                        <option value="new">New</option>
-                        <option value="open">Open</option>
-                        <option value="closed">Closed</option>
-                      </select>
-                    </td>
-                    <td>
-                      <div className="relative-time">{getRelativeTime(message.created_at)}</div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+            {rows.length === 0 && (
+              <div className="text-center py-12 opacity-50" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-lg font-semibold mb-2">No messages found</div>
+                <div className="text-sm">Contact messages will appear here</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {total > 50 && (
+          <div className="flex items-center gap-4 justify-center mt-6">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="messages-button disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm" style={{ color: 'var(--text)' }}>
+              Page {page} of {Math.ceil(total / 50)}
+            </span>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= Math.ceil(total / 50)}
+              className="messages-button disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }
