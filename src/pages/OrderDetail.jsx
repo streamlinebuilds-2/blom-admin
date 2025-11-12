@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Package, CreditCard, MapPin, FileText, CheckCircle } from "lucide-react";
-import { moneyZAR, dateTime } from "../components/formatUtils";
+import { ArrowLeft, Package, MapPin, FileText, CheckCircle } from "lucide-react";
+import { moneyZAR } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 
@@ -12,8 +11,8 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const urlParams = new URLSearchParams(window.location.search);
-  const orderId = urlParams.get('id');
+  const { id } = useParams();
+  const orderId = id;
 
   const [notes, setNotes] = useState("");
 
@@ -31,12 +30,6 @@ export default function OrderDetail() {
 
   const order = orderData?.order;
   const orderItems = orderData?.items || [];
-
-  const { data: payments = [] } = useQuery({
-    queryKey: ['order-payments', orderId],
-    queryFn: () => base44.entities.Payment.filter({ order_id: orderId }),
-    enabled: !!orderId,
-  });
 
   const updateFulfillmentStatusMutation = useMutation({
     mutationFn: async (newStatus) => {
@@ -557,41 +550,6 @@ export default function OrderDetail() {
               <span style={{ color: 'var(--accent)' }}>{moneyZAR(order.total)}</span>
             </div>
           </div>
-        </div>
-
-        <div className="order-card">
-          <h2 className="card-title">
-            <CreditCard className="w-5 h-5" />
-            Payments
-          </h2>
-          {payments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-              <p>No payments recorded</p>
-            </div>
-          ) : (
-            <>
-              {payments.map(payment => (
-                <div key={payment.id} className="payment-row">
-                  <div className="payment-info">
-                    <div className="payment-provider">{payment.provider}</div>
-                    <div className="payment-meta">
-                      {dateTime(payment.created_date)}
-                      <span
-                        className="status-badge"
-                        style={{
-                          background: payment.status === 'succeeded' ? '#10b98120' : '#f59e0b20',
-                          color: payment.status === 'succeeded' ? '#10b981' : '#f59e0b'
-                        }}
-                      >
-                        {payment.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="payment-amount">{moneyZAR(payment.amount)}</div>
-                </div>
-              ))}
-            </>
-          )}
         </div>
 
         <div className="order-card">

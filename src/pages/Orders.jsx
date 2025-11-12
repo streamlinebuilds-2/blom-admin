@@ -338,7 +338,7 @@ export default function Orders() {
                   <td className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{formatDate(r.placed_at || r.created_at)}</td>
                   <td>
                     <button
-                      onClick={() => navigate(`/orders/${r.id}`)}
+                      onClick={() => window.location.href = `/orders/${r.id}`}
                       className="orders-button text-xs px-3 py-1.5"
                     >
                       {getActionButtonText(r)}
