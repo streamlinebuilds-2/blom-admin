@@ -17,37 +17,25 @@ export default function OrderDetail() {
 
   const [notes, setNotes] = useState("");
 
-  const { data: order, isLoading, error } = useQuery({
+  const { data: orderData, isLoading, error } = useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
-      const orders = await base44.entities.Order.filter({ id: orderId });
-      return orders[0];
+      const response = await fetch(`/.netlify/functions/admin-order?id=${orderId}`);
+      if (!response.ok) throw new Error('Failed to load order');
+      const json = await response.json();
+      if (!json.ok) throw new Error(json.error || 'Failed to load order');
+      return json;
     },
     enabled: !!orderId,
   });
 
-  const { data: orderItems = [] } = useQuery({
-    queryKey: ['order-items', orderId],
-    queryFn: () => base44.entities.OrderItem.filter({ order_id: orderId }),
-    enabled: !!orderId,
-  });
+  const order = orderData?.order;
+  const orderItems = orderData?.items || [];
 
   const { data: payments = [] } = useQuery({
     queryKey: ['order-payments', orderId],
     queryFn: () => base44.entities.Payment.filter({ order_id: orderId }),
     enabled: !!orderId,
-  });
-
-  const updateStatusMutation = useMutation({
-    mutationFn: (status) => base44.entities.Order.update(orderId, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      showToast('success', 'Order status updated');
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to update status');
-    },
   });
 
   const updateFulfillmentStatusMutation = useMutation({
@@ -87,38 +75,6 @@ export default function OrderDetail() {
     },
   });
 
-  const markPaidMutation = useMutation({
-    mutationFn: async () => {
-      await base44.entities.Payment.create({
-        order_id: orderId,
-        provider: 'manual',
-        amount: order.total,
-        status: 'succeeded'
-      });
-      await base44.entities.Order.update(orderId, { status: 'paid' });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['order-payments', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      showToast('success', 'Payment recorded and order marked as paid');
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to mark as paid');
-    },
-  });
-
-  const updateNotesMutation = useMutation({
-    mutationFn: (notes) => base44.entities.Order.update(orderId, { notes }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
-      showToast('success', 'Notes saved');
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to save notes');
-    },
-  });
-
   React.useEffect(() => {
     if (order) {
       setNotes(order.notes || "");
@@ -140,8 +96,6 @@ export default function OrderDetail() {
   if (!order) {
     return <Banner type="error">Order not found</Banner>;
   }
-
-  const hasSucceededPayment = payments.some(p => p.status === 'succeeded');
 
   const getStatusColor = (status) => {
     const colors = {
@@ -232,18 +186,6 @@ export default function OrderDetail() {
           font-weight: 700;
           color: var(--text);
           flex: 1;
-        }
-
-        .status-select {
-          padding: 10px 16px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
         }
 
         .order-grid {
@@ -468,19 +410,6 @@ export default function OrderDetail() {
           outline: none;
         }
 
-        .btn-save-notes {
-          margin-top: 12px;
-          padding: 10px 20px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-        }
-
         .workflow-section {
           display: flex;
           flex-direction: column;
@@ -563,20 +492,6 @@ export default function OrderDetail() {
         <h1 className="order-title">
           Order {order.order_number || `#${order.id.slice(0, 8)}`}
         </h1>
-        <select
-          className="status-select"
-          value={order.status}
-          onChange={(e) => updateStatusMutation.mutate(e.target.value)}
-          disabled={updateStatusMutation.isPending}
-        >
-          <option value="unpaid">Unpaid</option>
-          <option value="paid">Paid</option>
-          <option value="packed">Packed</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="refunded">Refunded</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
       </div>
 
       <div className="order-grid">
@@ -652,17 +567,6 @@ export default function OrderDetail() {
           {payments.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
               <p>No payments recorded</p>
-              {!hasSucceededPayment && (
-                <button
-                  className="btn-action"
-                  onClick={() => markPaidMutation.mutate()}
-                  disabled={markPaidMutation.isPending}
-                  style={{ margin: '20px auto 0' }}
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  Mark as Paid
-                </button>
-              )}
             </div>
           ) : (
             <>
@@ -686,17 +590,6 @@ export default function OrderDetail() {
                   <div className="payment-amount">{moneyZAR(payment.amount)}</div>
                 </div>
               ))}
-              {!hasSucceededPayment && (
-                <button
-                  className="btn-action"
-                  onClick={() => markPaidMutation.mutate()}
-                  disabled={markPaidMutation.isPending}
-                  style={{ marginTop: '16px' }}
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  Mark as Paid
-                </button>
-              )}
             </>
           )}
         </div>
@@ -779,14 +672,11 @@ export default function OrderDetail() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add internal notes about this order..."
+            disabled
           />
-          <button
-            className="btn-save-notes"
-            onClick={() => updateNotesMutation.mutate(notes)}
-            disabled={updateNotesMutation.isPending}
-          >
-            {updateNotesMutation.isPending ? 'Saving...' : 'Save Notes'}
-          </button>
+          <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+            Note: Notes functionality requires Netlify function implementation
+          </div>
         </div>
       </div>
     </>
