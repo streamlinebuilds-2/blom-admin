@@ -19,9 +19,9 @@ export default function MessageDetail() {
     setLoading(true);
     setError("");
     try {
-      const r = await fetch(\`/.netlify/functions/admin-message?id=\${id}\`);
+      const r = await fetch(`/.netlify/functions/admin-message?id=${id}`);
       if (!r.ok) {
-        throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
       }
       const j = await r.json();
       if (j.ok) {
@@ -49,11 +49,11 @@ export default function MessageDetail() {
         body: JSON.stringify({ id, status: newStatus })
       });
       if (!r.ok) {
-        throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
       }
       const j = await r.json();
       if (j.ok) {
-        showToast('success', \`Status updated to \${newStatus}\`);
+        showToast('success', `Status updated to ${newStatus}`);
         await load();
       } else {
         showToast('error', j.error || "Failed to update status");
@@ -80,7 +80,7 @@ export default function MessageDetail() {
         body: JSON.stringify({ id })
       });
       if (!r.ok) {
-        throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
       }
       const j = await r.json();
       if (j.ok) {
@@ -101,8 +101,8 @@ export default function MessageDetail() {
       showToast('error', 'No email address available');
       return;
     }
-    const subject = message.subject ? \`Re: \${message.subject}\` : 'Re: Your inquiry';
-    window.open(\`mailto:\${message.email}?subject=\${encodeURIComponent(subject)}\`, '_blank');
+    const subject = message.subject ? `Re: ${message.subject}` : 'Re: Your inquiry';
+    window.open(`mailto:${message.email}?subject=${encodeURIComponent(subject)}`, '_blank');
   }
 
   function handleWhatsAppReply() {
@@ -111,9 +111,9 @@ export default function MessageDetail() {
       return;
     }
     const cleanPhone = message.phone.replace(/\D/g, '');
-    const phone = cleanPhone.startsWith('27') ? cleanPhone : \`27\${cleanPhone}\`;
-    const text = \`Hi \${message.name || 'there'}, \`;
-    window.location.href = \`https://wa.me/\${phone}?text=\${encodeURIComponent(text)}\`;
+    const phone = cleanPhone.startsWith('27') ? cleanPhone : `27${cleanPhone}`;
+    const text = `Hi ${message.name || 'there'}, `;
+    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   }
 
   useEffect(() => { load(); }, [id]);
@@ -165,7 +165,7 @@ export default function MessageDetail() {
 
   return (
     <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
-      <style>{\`
+      <style>{`
         .detail-container {
           background: var(--bg);
           color: var(--text);
@@ -272,7 +272,7 @@ export default function MessageDetail() {
           border-radius: 8px;
           border: 1px solid var(--border);
         }
-      \`}</style>
+      `}</style>
 
       <div className="detail-container">
         {/* Header */}
@@ -335,7 +335,7 @@ export default function MessageDetail() {
             <div>
               <div className="detail-label">Status</div>
               <div>
-                <span className={\`status-badge status-\${message.status}\`}>
+                <span className={`status-badge status-${message.status}`}>
                   {message.status === "new" ? "Unanswered" : "Responded"}
                 </span>
               </div>
@@ -356,7 +356,7 @@ export default function MessageDetail() {
               <div className="detail-label">Email</div>
               <div className="detail-value">
                 {message.email ? (
-                  <a href={\`mailto:\${message.email}\`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                  <a href={`mailto:${message.email}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
                     {message.email}
                   </a>
                 ) : "-"}
@@ -366,7 +366,7 @@ export default function MessageDetail() {
               <div className="detail-label">Phone</div>
               <div className="detail-value">
                 {message.phone ? (
-                  <a href={\`tel:\${message.phone}\`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                  <a href={`tel:${message.phone}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
                     {message.phone}
                   </a>
                 ) : "-"}
@@ -395,7 +395,7 @@ export default function MessageDetail() {
               <div className="image-gallery">
                 {message.images.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                    <img src={url} alt={\`Attachment \${i + 1}\`} className="image-item" />
+                    <img src={url} alt={`Attachment ${i + 1}`} className="image-item" />
                   </a>
                 ))}
               </div>
