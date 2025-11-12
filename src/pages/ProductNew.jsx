@@ -1030,5 +1030,6 @@ export default function ProductNew() {
         </div>
       </div>
     </div>
+    </>
   );
 }
