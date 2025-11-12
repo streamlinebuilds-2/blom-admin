@@ -9,7 +9,7 @@ export const handler: Handler = async (e) => {
     const status = qp.status || "";
     const limit = Number(qp.limit || 50);
     const from = Number(qp.from || 0);
-    let q = s.from("product_reviews").select("*, products(name, slug)").order("created_at", { ascending: false }).range(from, from+limit-1);
+    let q = s.from("product_reviews").select("*").order("created_at", { ascending: false }).range(from, from+limit-1);
     if (status) q = q.eq("status", status);
     const { data, error } = await q;
     if (error) return { statusCode: 500, body: error.message };
