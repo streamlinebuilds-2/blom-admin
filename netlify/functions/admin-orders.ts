@@ -24,17 +24,18 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total,created_at,placed_at,paid_at,fulfillment_type,shipping_method,customer_name,customer_email,customer_phone", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    // CRITICAL: Only show paid orders with fulfillment_type
-    query = query.not('fulfillment_type', 'is', null);
     // Filter for paid orders: payment_status = 'succeeded' OR status = 'paid'
     query = query.or('payment_status.eq.succeeded,status.in.(paid,packed,collected,out_for_delivery,delivered)');
 
+    // NOTE: Removed strict fulfillment_type requirement to show all orders
+    // Previously: query = query.not('fulfillment_type', 'is', null);
+
     if (status) query = query.eq("status", status);
-    if (fulfillment) query = query.eq("fulfillment_type", fulfillment);
+    if (fulfillment) query = query.eq("fulfillment_method", fulfillment);
     if (search) {
       query = query.or([
         `m_payment_id.ilike.%${search}%`,
