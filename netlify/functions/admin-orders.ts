@@ -28,10 +28,11 @@ export const handler: Handler = async (e) => {
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    // CRITICAL: Only show paid orders with fulfillment_type
-    query = query.not('fulfillment_type', 'is', null);
     // Filter for paid orders: payment_status = 'succeeded' OR status = 'paid'
     query = query.or('payment_status.eq.succeeded,status.in.(paid,packed,collected,out_for_delivery,delivered)');
+
+    // NOTE: Removed strict fulfillment_type requirement to show all orders
+    // Previously: query = query.not('fulfillment_type', 'is', null);
 
     if (status) query = query.eq("status", status);
     if (fulfillment) query = query.eq("fulfillment_type", fulfillment);
