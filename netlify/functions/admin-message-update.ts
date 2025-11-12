@@ -23,18 +23,11 @@ export const handler: Handler = async (e) => {
     };
   }
 
-  // Check for missing env vars
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return {
-      statusCode: 500,
-      headers: { ...CORS, "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: false, error: "Missing SUPABASE environment variables" })
-    };
-  }
-
   try {
     const payload = JSON.parse(e.body || "{}");
     const { id, status } = payload;
+
+    console.log("Update request:", { id, status });
 
     if (!id) {
       return {
@@ -52,23 +45,34 @@ export const handler: Handler = async (e) => {
       };
     }
 
-    const { error } = await s
+    const { data, error } = await s
       .from("contact_messages")
       .update({ status })
-      .eq("id", id);
+      .eq("id", id)
+      .select();
 
-    if (error) throw error;
+    console.log("Update result:", { data, error });
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return {
+        statusCode: 500,
+        headers: { ...CORS, "Content-Type": "application/json" },
+        body: JSON.stringify({ ok: false, error: error.message, details: error })
+      };
+    }
 
     return {
       statusCode: 200,
       headers: { ...CORS, "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: true })
+      body: JSON.stringify({ ok: true, data })
     };
   } catch (err: any) {
+    console.error("Unexpected error:", err);
     return {
       statusCode: 500,
       headers: { ...CORS, "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: false, error: err.message || String(err) })
+      body: JSON.stringify({ ok: false, error: err.message || String(err), stack: err.stack })
     };
   }
 };
