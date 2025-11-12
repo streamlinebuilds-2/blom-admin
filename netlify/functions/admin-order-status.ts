@@ -86,23 +86,41 @@ export const handler: Handler = async (e) => {
     // Fire n8n webhook for status notifications (best-effort)
     let webhookOk = true;
     let webhookError = null;
-    
-    // Determine which webhook to call based on status
-    const webhookUrl = process.env.N8N_ORDER_STATUS_WEBHOOK;
-    const shouldNotify = (status === "collected" || status === "out_for_delivery") && webhookUrl;
-    
-    if (shouldNotify && data) {
+
+    // Determine which webhook to call based on status and fulfillment type
+    const webhookUrls: Record<string, string> = {
+      'packed_collection': 'https://dockerfile-1n82.onrender.com/webhook/order-ready-for-collection',
+      'out_for_delivery': 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery',
+      'collected': 'https://dockerfile-1n82.onrender.com/webhook/order-collected',
+      'delivered': 'https://dockerfile-1n82.onrender.com/webhook/order-delivered'
+    };
+
+    let webhookUrl: string | null = null;
+
+    // Determine which webhook to call
+    if (status === 'packed' && fulfillmentType === 'collection') {
+      webhookUrl = webhookUrls['packed_collection'];
+    } else if (status === 'out_for_delivery') {
+      webhookUrl = webhookUrls['out_for_delivery'];
+    } else if (status === 'collected') {
+      webhookUrl = webhookUrls['collected'];
+    } else if (status === 'delivered') {
+      webhookUrl = webhookUrls['delivered'];
+    }
+
+    if (webhookUrl && data) {
       try {
         const res = await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            m_payment_id: data.m_payment_id,
-            status: status === "collected" ? "ready_for_collection" : "shipped", // Map to n8n expected statuses
-            buyer_name: data.buyer_name,
-            buyer_email: data.buyer_email,
-            buyer_phone: data.contact_phone || data.buyer_phone,
-            site_url: process.env.SITE_URL || "https://blom-cosmetics.co.za",
+            order_id: data.id,
+            order_number: data.order_number || data.m_payment_id,
+            customer_name: data.buyer_name || data.customer_name,
+            customer_email: data.buyer_email || data.customer_email,
+            customer_phone: data.contact_phone || data.customer_phone,
+            status: status,
+            fulfillment_type: data.fulfillment_type,
             tracking_number: tracking_number || data.tracking_number,
             shipping_provider: shipping_provider || data.shipping_provider
           })
@@ -118,13 +136,14 @@ export const handler: Handler = async (e) => {
     }
 
     return {
-      statusCode: webhookOk || !shouldNotify ? 200 : 207, // 207 = Multi-Status (updated but notify failed)
+      statusCode: webhookOk || !webhookUrl ? 200 : 207, // 207 = Multi-Status (updated but notify failed)
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ 
-        ok: true, 
+      body: JSON.stringify({
+        ok: true,
         data,
-        notifyOk: webhookOk,
-        notifyError: webhookError || null
+        webhookCalled: !!webhookUrl,
+        webhookOk: webhookOk,
+        webhookError: webhookError || null
       })
     };
   } catch (err:any) {

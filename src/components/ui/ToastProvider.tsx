@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from "react";
-import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
 
-type ToastType = "success" | "error" | "info";
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface Toast {
   id: string;
@@ -39,6 +39,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             {toast.type === "success" && <CheckCircle className="w-5 h-5" />}
             {toast.type === "error" && <AlertCircle className="w-5 h-5" />}
             {toast.type === "info" && <Info className="w-5 h-5" />}
+            {toast.type === "warning" && <AlertTriangle className="w-5 h-5" />}
             <span className="toast-message">{toast.message}</span>
             <button onClick={() => removeToast(toast.id)} className="toast-close">
               <X className="w-4 h-4" />
@@ -96,6 +97,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         .toast-info {
           border-left: 4px solid var(--accent);
           color: var(--accent);
+        }
+
+        .toast-warning {
+          border-left: 4px solid #f59e0b;
+          color: #f59e0b;
         }
 
         .toast-message {

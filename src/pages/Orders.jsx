@@ -93,7 +93,14 @@ export default function Orders() {
     });
     const j = await r.json();
     if (j.ok) {
-      showToast('success', "Order status updated");
+      // Check if webhook was called and show appropriate message
+      if (j.webhookCalled && j.webhookOk) {
+        showToast('success', "Status updated & notification sent");
+      } else if (j.webhookCalled && !j.webhookOk) {
+        showToast('warning', `Status updated but notification failed: ${j.webhookError || 'Unknown error'}`);
+      } else {
+        showToast('success', "Order status updated");
+      }
       load();
     } else {
       showToast('error', j.error || "Failed to update status");

@@ -24,9 +24,14 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,total,created_at,placed_at,fulfillment_type,shipping_method", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total,created_at,placed_at,paid_at,fulfillment_type,shipping_method,customer_name,customer_email,customer_phone", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
+
+    // CRITICAL: Only show paid orders with fulfillment_type
+    query = query.not('fulfillment_type', 'is', null);
+    // Filter for paid orders: payment_status = 'succeeded' OR status = 'paid'
+    query = query.or('payment_status.eq.succeeded,status.in.(paid,packed,collected,out_for_delivery,delivered)');
 
     if (status) query = query.eq("status", status);
     if (fulfillment) query = query.eq("fulfillment_type", fulfillment);
@@ -58,7 +63,11 @@ export const handler: Handler = async (e) => {
     const data = rows.map(r => ({
       ...r,
       item_count: byOrder[r.id] || 0,
-      short_code: "BL-" + (r.m_payment_id || "").replace(/[^A-Za-z0-9]/g,"").slice(-8).toUpperCase()
+      short_code: "BL-" + (r.m_payment_id || "").replace(/[^A-Za-z0-9]/g,"").slice(-8).toUpperCase(),
+      // Normalize field names (use buyer_* or fallback to customer_*)
+      buyer_name: r.buyer_name || r.customer_name,
+      buyer_email: r.buyer_email || r.customer_email,
+      contact_phone: r.contact_phone || r.customer_phone
     }));
 
     return {

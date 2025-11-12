@@ -69,10 +69,18 @@ export default function OrderDetail() {
 
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['order', orderId] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      showToast('success', 'Order status updated successfully');
+
+      // Show appropriate message based on webhook status
+      if (result.webhookCalled && result.webhookOk) {
+        showToast('success', 'Status updated & notification sent');
+      } else if (result.webhookCalled && !result.webhookOk) {
+        showToast('warning', `Status updated but notification failed: ${result.webhookError || 'Unknown error'}`);
+      } else {
+        showToast('success', 'Order status updated successfully');
+      }
     },
     onError: (error) => {
       showToast('error', error.message || 'Failed to update order status');
