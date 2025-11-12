@@ -82,8 +82,8 @@ export default function Messages() {
   };
 
   const getStatusBadgeClass = (status) => {
-    if (status === "new") return "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400";
-    if (status === "responded") return "bg-green-500/20 text-green-700 dark:text-green-400";
+    if (status === "new") return "bg-red-500/20 text-red-700 dark:text-red-400";
+    if (status === "handled") return "bg-green-500/20 text-green-700 dark:text-green-400";
     return "bg-gray-500/20 text-gray-700 dark:text-gray-400";
   };
 
@@ -198,7 +198,7 @@ export default function Messages() {
             <select className="messages-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
               <option value="">All Messages</option>
               <option value="new">Unanswered</option>
-              <option value="responded">Responded</option>
+              <option value="handled">Answered</option>
             </select>
           </div>
         </div>
@@ -243,7 +243,7 @@ export default function Messages() {
                   <td className="font-medium">{r.subject || "(No subject)"}</td>
                   <td>
                     <span className={`messages-badge ${getStatusBadgeClass(r.status)}`}>
-                      {r.status === "new" ? "Unanswered" : "Responded"}
+                      {r.status === "new" ? "Unanswered" : "Answered"}
                     </span>
                   </td>
                   <td className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{formatDate(r.created_at)}</td>

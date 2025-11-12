@@ -37,11 +37,11 @@ export const handler: Handler = async (e) => {
       };
     }
 
-    if (!status || !["new", "responded"].includes(status)) {
+    if (!status || !["new", "handled"].includes(status)) {
       return {
         statusCode: 400,
         headers: { ...CORS, "Content-Type": "application/json" },
-        body: JSON.stringify({ ok: false, error: "Invalid status. Must be 'new' or 'responded'" })
+        body: JSON.stringify({ ok: false, error: "Invalid status. Must be 'new' or 'handled'" })
       };
     }
 

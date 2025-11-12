@@ -244,10 +244,10 @@ export default function MessageDetail() {
           font-weight: 600;
         }
         .status-new {
-          background: rgba(234, 179, 8, 0.2);
-          color: #ca8a04;
+          background: rgba(239, 68, 68, 0.2);
+          color: #dc2626;
         }
-        .status-responded {
+        .status-handled {
           background: rgba(16, 185, 129, 0.2);
           color: #059669;
         }
@@ -290,12 +290,12 @@ export default function MessageDetail() {
           <div className="flex items-center gap-3 flex-wrap">
             {message.status === "new" && (
               <button
-                onClick={() => updateStatus("responded")}
+                onClick={() => updateStatus("handled")}
                 disabled={updating}
                 className="detail-button detail-button-success"
               >
                 <CheckCircle className="w-4 h-4" />
-                Mark as Responded
+                Mark as Answered
               </button>
             )}
             {message.email && (
@@ -336,7 +336,7 @@ export default function MessageDetail() {
               <div className="detail-label">Status</div>
               <div>
                 <span className={`status-badge status-${message.status}`}>
-                  {message.status === "new" ? "Unanswered" : "Responded"}
+                  {message.status === "new" ? "Unanswered" : "Answered"}
                 </span>
               </div>
             </div>
@@ -433,7 +433,7 @@ export default function MessageDetail() {
               style={{ width: 'auto', minWidth: '200px' }}
             >
               <option value="new">Unanswered</option>
-              <option value="responded">Responded</option>
+              <option value="handled">Answered</option>
             </select>
           </div>
         </div>
