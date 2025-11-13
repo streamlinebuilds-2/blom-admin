@@ -62,6 +62,23 @@ export default function ProductNew() {
   const [previewTab, setPreviewTab] = useState("card");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+
+  const uploadToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+      { method: 'POST', body: formData }
+    );
+
+    const data = await response.json();
+    return data.secure_url;
+  };
+
   useEffect(() => {
     setForm((previous) => {
       if (!previous.name || previous.slug) return previous;
@@ -578,6 +595,10 @@ export default function ProductNew() {
         .gap-4 { gap: 1rem; }
         .gap-6 { gap: 1.5rem; }
         .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .flex { display: flex; }
+        .flex-1 { flex: 1 1 0%; }
+        .hidden { display: none; }
+        .cursor-pointer { cursor: pointer; }
         @media (min-width: 768px) {
           .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -819,29 +840,130 @@ export default function ProductNew() {
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="thumbnail_url">
                   Thumbnail URL
                 </label>
-                <input
-                  id="thumbnail_url"
-                  type="url"
-                  className="product-form-input"
-                  value={form.thumbnail_url}
-                  onChange={(event) => update("thumbnail_url", event.target.value)}
-                  placeholder="https://..."
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="thumbnail_url"
+                    type="url"
+                    className="product-form-input flex-1"
+                    value={form.thumbnail_url}
+                    onChange={(event) => update("thumbnail_url", event.target.value)}
+                    placeholder="https://..."
+                  />
+                  <label className="product-btn-secondary cursor-pointer">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          showToast('info', 'Uploading...');
+                          const url = await uploadToCloudinary(file);
+                          update("thumbnail_url", url);
+                          showToast('success', 'Image uploaded');
+                        } catch (err) {
+                          showToast('error', 'Upload failed');
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
                   Hover URL
                 </label>
-                <input
-                  id="hover_url"
-                  type="url"
-                  className="product-form-input"
-                  value={form.hover_url}
-                  onChange={(event) => update("hover_url", event.target.value)}
-                  placeholder="https://..."
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="hover_url"
+                    type="url"
+                    className="product-form-input flex-1"
+                    value={form.hover_url}
+                    onChange={(event) => update("hover_url", event.target.value)}
+                    placeholder="https://..."
+                  />
+                  <label className="product-btn-secondary cursor-pointer">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          showToast('info', 'Uploading...');
+                          const url = await uploadToCloudinary(file);
+                          update("hover_url", url);
+                          showToast('success', 'Image uploaded');
+                        } catch (err) {
+                          showToast('error', 'Upload failed');
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
-              {renderArrayField("gallery_urls", "Gallery URLs", "https://...", "Add image", "images")}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-[var(--text)]">Gallery URLs</label>
+                  {errors.images ? (
+                    <span className="text-xs font-medium text-red-500">{errors.images}</span>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  {ensureList(form.gallery_urls).map((item, index) => (
+                    <div key={`gallery_urls-${index}`} className="flex gap-2">
+                      <input
+                        type="text"
+                        className="product-form-input flex-1"
+                        value={item}
+                        placeholder="https://..."
+                        onChange={(event) => updateArr("gallery_urls", index, event.target.value)}
+                      />
+                      <label className="product-btn-secondary cursor-pointer">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              showToast('info', 'Uploading...');
+                              const url = await uploadToCloudinary(file);
+                              updateArr("gallery_urls", index, url);
+                              showToast('success', 'Image uploaded');
+                            } catch (err) {
+                              showToast('error', 'Upload failed');
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeRow("gallery_urls", index)}
+                        className="product-btn-secondary"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addRow("gallery_urls")}
+                  className="product-btn-add"
+                >
+                  + Add image
+                </button>
+                {errors.images ? (
+                  <p className="text-xs text-red-500">{errors.images}</p>
+                ) : null}
+              </div>
             </div>
           </section>
 
