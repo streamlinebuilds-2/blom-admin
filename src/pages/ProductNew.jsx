@@ -439,13 +439,23 @@ export default function ProductNew() {
     );
   };
 
-  const inputClass = (hasError) => `input${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
-  const textareaClass = (hasError) => `textarea${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
+  const inputClass = (hasError) => `product-form-input${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
+  const textareaClass = (hasError) => `product-form-textarea${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
 
   return (
     <>
       <style>{`
         /* Product Form Styling - Matching BundleEditor */
+        .topbar {
+          padding: 24px 32px;
+          border-bottom: 2px solid var(--border);
+          background: var(--card);
+          margin-bottom: 24px;
+        }
+        .content-area {
+          padding: 0 32px 32px;
+          overflow-y: auto;
+        }
         .product-form-input, .product-form-textarea, .product-form-select {
           width: 100%;
           padding: 14px 18px;
@@ -465,12 +475,15 @@ export default function ProductNew() {
         .product-form-textarea {
           min-height: 100px;
           resize: vertical;
+          position: relative;
+          z-index: 1;
         }
         .product-form-section {
           background: var(--card);
           border-radius: 20px;
           padding: 32px;
           box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+          margin-bottom: 24px;
         }
         .product-section-title {
           font-size: 18px;
@@ -553,6 +566,23 @@ export default function ProductNew() {
         }
         .product-required {
           color: #ef4444;
+        }
+        /* Utility Classes */
+        .space-y-1 > * + * { margin-top: 0.25rem; }
+        .space-y-2 > * + * { margin-top: 0.5rem; }
+        .space-y-4 > * + * { margin-top: 1rem; }
+        .space-y-6 > * + * { margin-top: 1.5rem; }
+        .grid { display: grid; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+        .gap-6 { gap: 1.5rem; }
+        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        @media (min-width: 768px) {
+          .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1280px) {
+          .xl\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
       `}</style>
       <div className="flex h-full flex-col">
