@@ -33,7 +33,12 @@ export default function Reviews() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status })
       });
-      if (!response.ok) throw new Error('Failed to update');
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to update review');
+      }
+
       return response.json();
     },
     onSuccess: () => {
@@ -41,6 +46,7 @@ export default function Reviews() {
       showToast('success', 'Review updated');
     },
     onError: (error) => {
+      console.error('Update error:', error);
       showToast('error', error.message || 'Failed to update review');
     },
   });
