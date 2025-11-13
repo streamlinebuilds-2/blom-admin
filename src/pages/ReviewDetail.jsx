@@ -288,9 +288,9 @@ export default function ReviewDetail() {
 
       <div className="review-card">
         <div className="review-header">
-          <div className="product-name">{review.product?.name || 'Unknown Product'}</div>
+          <div className="product-name">{review.product?.name || review.product_name || 'Unknown Product'}</div>
           <div className="review-author">
-            {review.author_name}
+            {review.author_name || review.name || review.reviewer_name}
             <span className={`status-badge status-${review.status}`}>{review.status}</span>
           </div>
           <div className="review-rating">
@@ -311,11 +311,11 @@ export default function ReviewDetail() {
           <div className="review-title">{review.title}</div>
         )}
 
-        <div className="review-body">{review.body}</div>
+        <div className="review-body">{review.body || review.comment}</div>
 
         <div className="review-image">
-          {review.image_url ? (
-            <img src={review.image_url} alt="Review" />
+          {(review.image_url || (review.images && review.images[0])) ? (
+            <img src={review.image_url || review.images[0]} alt="Review" />
           ) : (
             <div className="no-image">
               <ImageIcon className="w-12 h-12" />
