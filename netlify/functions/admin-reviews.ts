@@ -1,9 +1,15 @@
-// netlify/functions/admin-reviews.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+
 export const handler: Handler = async (e) => {
+  if (e.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS };
+
   try {
     const qp = e.queryStringParameters || {};
     const status = qp.status || "";
@@ -12,10 +18,10 @@ export const handler: Handler = async (e) => {
     let q = s.from("product_reviews").select("*").order("created_at", { ascending: false }).range(from, from+limit-1);
     if (status) q = q.eq("status", status);
     const { data, error } = await q;
-    if (error) return { statusCode: 500, body: error.message };
-    return { statusCode: 200, body: JSON.stringify({ data }) };
+    if (error) return { statusCode: 500, headers: CORS, body: error.message };
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ data }) };
   } catch (err:any) {
-    return { statusCode: 500, body: err.message || "admin-reviews failed" };
+    return { statusCode: 500, headers: CORS, body: err.message || "admin-reviews failed" };
   }
 };
 
