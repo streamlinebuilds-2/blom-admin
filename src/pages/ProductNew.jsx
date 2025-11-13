@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ProductCard } from "../../ProductCard";
+import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -203,14 +203,14 @@ export default function ProductNew() {
       id: "new-product-preview",
       name: form.name || "New Product",
       slug: form.slug || "new-product",
-      price: Number.isFinite(priceNumber) ? priceNumber : 0,
-      compareAtPrice: compareAtNumber ?? undefined,
-      shortDescription: form.short_description || "",
+      price_cents: Number.isFinite(priceNumber) ? Math.round(priceNumber * 100) : 0,
+      compare_at_price_cents: compareAtNumber ? Math.round(compareAtNumber * 100) : undefined,
+      short_desc: form.short_description || "",
       images: previewImages,
-      inStock: form.status !== "archived" && inStock,
+      stock_qty: form.status !== "archived" && inStock ? inventoryQuantityNumber : 0,
       badges,
     }),
-    [badges, form.name, form.short_description, form.slug, form.status, inStock, previewImages, priceNumber, compareAtNumber]
+    [badges, form.name, form.short_description, form.slug, form.status, inStock, inventoryQuantityNumber, previewImages, priceNumber, compareAtNumber]
   );
 
   const pageModel = useMemo(
@@ -1024,17 +1024,29 @@ export default function ProductNew() {
             <div className="max-h-[75vh] overflow-auto p-4">
               {previewTab === "card" ? (
                 <div className="mx-auto max-w-sm">
-                  <ProductCard {...cardModel} />
+                  {cardModel ? (
+                    <ProductCard product={cardModel} />
+                  ) : (
+                    <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                  )}
                 </div>
               ) : null}
               {previewTab === "page-desktop" ? (
                 <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
-                  <ProductPageTemplate product={pageModel} />
+                  {pageModel ? (
+                    <ProductPageTemplate product={pageModel} />
+                  ) : (
+                    <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                  )}
                 </div>
               ) : null}
               {previewTab === "page-mobile" ? (
                 <div className="mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
-                  <ProductPageTemplate product={pageModel} />
+                  {pageModel ? (
+                    <ProductPageTemplate product={pageModel} />
+                  ) : (
+                    <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                  )}
                 </div>
               ) : null}
             </div>

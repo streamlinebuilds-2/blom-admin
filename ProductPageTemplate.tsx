@@ -352,8 +352,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                     </button>
                     <ShareButton
                       url={window.location.href}
-                      title={productData.name}
-                      description={productData.shortDescription}
+                      title={product.name}
+                      description={product.shortDescription}
                       className="flex-1"
                     />
                   </div>
