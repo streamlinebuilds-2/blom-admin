@@ -14,10 +14,17 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+const generateSKU = () => {
+  const prefix = "SKU";
+  const timestamp = Date.now().toString().slice(-6);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `${prefix}-${timestamp}-${random}`;
+};
+
 const initialFormState = {
   name: "",
   slug: "",
-  sku: "",
+  sku: generateSKU(),
   category: "",
   price: "",
   compare_at_price: "",
@@ -30,7 +37,7 @@ const initialFormState = {
   thumbnail_url: "",
   hover_url: "",
   gallery_urls: [""],
-  variants: [""],
+  variants: [{ label: "", image: "" }],
   features: [""],
   how_to_use: [""],
   inci_ingredients: [""],
@@ -111,7 +118,11 @@ export default function ProductNew() {
   const addRow = (field) => {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
-      next.push("");
+      if (field === "variants") {
+        next.push({ label: "", image: "" });
+      } else {
+        next.push("");
+      }
       return { ...previous, [field]: next };
     });
   };
@@ -120,6 +131,9 @@ export default function ProductNew() {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
       next.splice(index, 1);
+      if (field === "variants") {
+        return { ...previous, [field]: next.length ? next : [{ label: "", image: "" }] };
+      }
       return { ...previous, [field]: next.length ? next : [""] };
     });
   };
@@ -165,10 +179,20 @@ export default function ProductNew() {
     [form.related]
   );
 
-  const variants = useMemo(
-    () => ensureList(form.variants).map((item) => item.trim()).filter(Boolean),
-    [form.variants]
-  );
+  const variants = useMemo(() => {
+    const list = ensureList(form.variants);
+    return list
+      .map((item) => {
+        if (typeof item === "string") {
+          return item.trim() ? { label: item.trim(), image: "" } : null;
+        }
+        return (item?.label?.trim() || item?.image?.trim()) ? {
+          label: item.label?.trim() || "",
+          image: item.image?.trim() || ""
+        } : null;
+      })
+      .filter(Boolean);
+  }, [form.variants]);
 
   const features = useMemo(
     () => ensureList(form.features).map((item) => item.trim()).filter(Boolean),
@@ -289,8 +313,21 @@ export default function ProductNew() {
   const validate = () => {
     const nextErrors = {};
     if (!form.name.trim()) nextErrors.name = "Name is required";
-    if (!form.slug.trim()) nextErrors.slug = "Slug is required";
-    if (!form.sku.trim()) nextErrors.sku = "SKU is required";
+
+    // Auto-fill slug if empty
+    if (!form.slug.trim()) {
+      if (form.name.trim()) {
+        update("slug", slugify(form.name));
+      } else {
+        nextErrors.slug = "Slug is required";
+      }
+    }
+
+    // Auto-fill SKU if empty
+    if (!form.sku.trim()) {
+      update("sku", generateSKU());
+    }
+
     if (!form.category.trim()) nextErrors.category = "Category is required";
 
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
@@ -652,14 +689,23 @@ export default function ProductNew() {
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="sku">
                   SKU <span className="text-red-500">*</span>
                 </label>
-                <input
-                  id="sku"
-                  type="text"
-                  className="product-form-input"
-                  value={form.sku}
-                  onChange={(event) => update("sku", event.target.value)}
-                  placeholder="SKU-001"
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="sku"
+                    type="text"
+                    className="product-form-input flex-1"
+                    value={form.sku}
+                    onChange={(event) => update("sku", event.target.value)}
+                    placeholder="Auto-generated"
+                  />
+                  <button
+                    type="button"
+                    className="product-btn-secondary"
+                    onClick={() => update("sku", generateSKU())}
+                  >
+                    Generate
+                  </button>
+                </div>
                 {errors.sku ? <p className="text-xs text-red-500">{errors.sku}</p> : null}
               </div>
               <div className="space-y-1">
@@ -973,7 +1019,55 @@ export default function ProductNew() {
               <p className="text-sm text-[var(--text-muted)]">List variants, key features and how to use steps.</p>
             </header>
             <div className="space-y-6">
-              {renderArrayField("variants", "Variants", "Shade or size", "Add variant")}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-[var(--text)]">Variants</label>
+                <div className="space-y-2">
+                  {ensureList(form.variants).map((variant, index) => (
+                    <div key={`variant-${index}`} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Variant name (e.g. 100ml)"
+                        className="product-form-input flex-1"
+                        value={variant?.label || variant}
+                        onChange={(e) => {
+                          const current = form.variants[index];
+                          const updated = typeof current === "string"
+                            ? { label: e.target.value, image: "" }
+                            : { ...current, label: e.target.value };
+                          updateArr("variants", index, updated);
+                        }}
+                      />
+                      <input
+                        type="url"
+                        placeholder="Image URL (optional)"
+                        className="product-form-input flex-1"
+                        value={variant?.image || ""}
+                        onChange={(e) => {
+                          const current = form.variants[index];
+                          const updated = typeof current === "string"
+                            ? { label: current, image: e.target.value }
+                            : { ...current, image: e.target.value };
+                          updateArr("variants", index, updated);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeRow("variants", index)}
+                        className="product-btn-secondary"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addRow("variants")}
+                  className="product-btn-add"
+                >
+                  + Add variant
+                </button>
+              </div>
               {renderArrayField("features", "Features", "Key selling point", "Add feature")}
               {renderArrayField("how_to_use", "How to Use", "Usage instruction", "Add step")}
             </div>
@@ -1154,12 +1248,45 @@ export default function ProductNew() {
                 </div>
               ) : null}
               {previewTab === "page-desktop" ? (
-                <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
-                  {pageModel ? (
-                    <ProductPageTemplate product={pageModel} />
-                  ) : (
-                    <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
-                  )}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const previewWindow = window.open('', '_blank');
+                      if (previewWindow) {
+                        previewWindow.document.write(`
+                          <!DOCTYPE html>
+                          <html>
+                          <head>
+                            <title>${pageModel.name || 'Product Preview'}</title>
+                            <meta charset="utf-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1">
+                            <style>
+                              body { margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif; }
+                              * { box-sizing: border-box; }
+                            </style>
+                          </head>
+                          <body>
+                            <div id="root"></div>
+                          </body>
+                          </html>
+                        `);
+                        previewWindow.document.close();
+                      }
+                    }}
+                    className="absolute top-2 right-2 z-10 product-btn-secondary"
+                  >
+                    Fullscreen
+                  </button>
+                  <div className="preview-container overflow-x-auto max-w-full">
+                    <div className="min-w-[1200px] mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
+                      {pageModel ? (
+                        <ProductPageTemplate product={pageModel} />
+                      ) : (
+                        <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : null}
               {previewTab === "page-mobile" ? (
