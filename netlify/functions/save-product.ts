@@ -15,11 +15,16 @@ export const handler: Handler = async (event) => {
     // Parse body defensively
     let body: any;
     try {
-      body = typeof event.body === 'string' 
-        ? (event.body ? JSON.parse(event.body) : {}) 
+      body = typeof event.body === 'string'
+        ? (event.body ? JSON.parse(event.body) : {})
         : (event.body || {});
     } catch (e) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid JSON: ' + (e instanceof Error ? e.message : String(e)) }) };
+    }
+
+    // Unwrap payload if wrapped
+    if (body.payload) {
+      body = body.payload;
     }
 
     // Diagnostic dryRun
@@ -41,7 +46,7 @@ export const handler: Handler = async (event) => {
     const name = String(body.name || '').trim();
     const slug = String(body.slug || '').trim();
     const price = Number(body.price);
-    const stock = Number(body.stock ?? 0);
+    const stock = Number(body.stock ?? body.inventory_quantity ?? 0);
 
     if (!name || !slug) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing required fields (name, slug)' }) };
@@ -65,28 +70,34 @@ export const handler: Handler = async (event) => {
     // Map to table schema using clean column names
     const row: any = {
       id: body.id ?? undefined,
+
+      // Core fields
       name,
       slug,
       sku: body.sku ?? null,
       category: body.category ?? null,
       status: body.status ?? 'draft',
+
+      // Pricing (use clean columns)
       price: price,
-      price_cents: Math.round(price * 100),
       compare_at_price: compareAt,
-      compare_at_price_cents: compareAt == null ? null : Math.round(compareAt * 100),
 
-      // Stock - use 'stock' column
+      // Stock (use 'stock' as primary, sync others for compatibility)
       stock: stock,
+      stock_on_hand: stock,
+      stock_qty: stock,
+      stock_quantity: stock,
+      stock_available: stock,
 
-      // Descriptions - use modern names
+      // Descriptions (use modern names)
       short_description: body.short_description ?? null,
       overview: body.overview ?? null,
 
-      // Images - use modern names
+      // Images (use modern names)
       thumbnail_url: body.thumbnail_url ?? null,
       gallery_urls: Array.isArray(body.gallery_urls) ? body.gallery_urls : [],
 
-      // Arrays
+      // Product details arrays
       features: Array.isArray(body.features) ? body.features : [],
       how_to_use: Array.isArray(body.how_to_use) ? body.how_to_use : [],
       inci_ingredients: Array.isArray(body.inci_ingredients) ? body.inci_ingredients : [],
@@ -105,6 +116,7 @@ export const handler: Handler = async (event) => {
       is_active: body.is_active ?? true,
       is_featured: body.is_featured ?? false,
 
+      // Timestamps
       updated_at: new Date().toISOString(),
     };
 
