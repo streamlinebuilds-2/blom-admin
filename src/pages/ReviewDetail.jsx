@@ -16,12 +16,25 @@ export default function ReviewDetail() {
 
   const { data: review, isLoading, error } = useQuery({
     queryKey: ['review', reviewId],
-    queryFn: () => api.getReview(reviewId),
+    queryFn: async () => {
+      const response = await fetch(`/.netlify/functions/admin-review?id=${reviewId}`);
+      if (!response.ok) throw new Error('Failed to load review');
+      const json = await response.json();
+      return json.review;
+    },
     enabled: !!reviewId,
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ patch }) => api.updateReview(reviewId, patch),
+    mutationFn: async ({ patch }) => {
+      const response = await fetch('/.netlify/functions/admin-review-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reviewId, status: patch.status })
+      });
+      if (!response.ok) throw new Error('Failed to update review');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       queryClient.invalidateQueries({ queryKey: ['review', reviewId] });
@@ -275,7 +288,7 @@ export default function ReviewDetail() {
 
       <div className="review-card">
         <div className="review-header">
-          <div className="product-name">{review.product_name || 'Unknown Product'}</div>
+          <div className="product-name">{review.product?.name || 'Unknown Product'}</div>
           <div className="review-author">
             {review.author_name}
             <span className={`status-badge status-${review.status}`}>{review.status}</span>
