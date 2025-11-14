@@ -83,11 +83,12 @@ export const handler: Handler = async (event) => {
       compare_at_price: compareAt,
 
       // Stock (use 'stock' as primary, sync others for compatibility)
+      // DON'T set stock_available - it's computed from stock_on_hand - stock_reserved
       stock: stock,
       stock_on_hand: stock,
       stock_qty: stock,
       stock_quantity: stock,
-      stock_available: stock,
+      stock_reserved: 0,
 
       // Descriptions (use modern names)
       short_description: body.short_description ?? null,
