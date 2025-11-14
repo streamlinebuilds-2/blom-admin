@@ -3,12 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { ImageUploader } from "@/components/ImageUploader";
 import { ProductPreview } from "@/components/ProductPreview";
-import { WebhookStatus } from "@/components/WebhookStatus";
 import { publishPR } from "@/lib/publish";
 import { supabase } from "@/components/supabaseClient";
 import { rowToForm, formToPayload, emptyProduct, saveProduct } from "@/lib/products";
-
-const FLOW_A_URL = 'https://dockerfile-1n82.onrender.com/webhook/products-intake';
 
 function DeleteProductButton({ form, onDeleted }) {
   const [busy, setBusy] = useState(false);
@@ -51,20 +48,12 @@ function DeleteProductButton({ form, onDeleted }) {
 
   return (
     <button
-      style={{
-        padding: '8px 12px',
-        background: '#dc2626',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '6px',
-        opacity: !canDelete || busy ? 0.5 : 1,
-        cursor: !canDelete || busy ? 'not-allowed' : 'pointer'
-      }}
+      className="product-btn-delete"
       disabled={!canDelete || busy}
       onClick={onDelete}
       title={!canDelete ? 'Save once first to get an id/slug' : 'Delete product'}
     >
-      {busy ? 'Deleting…' : 'Delete'}
+      {busy ? 'Deleting…' : 'Delete Product'}
     </button>
   );
 }
@@ -76,9 +65,6 @@ export default function ProductEdit() {
   const [form, setForm] = useState(emptyProduct());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [saveResult, setSaveResult] = useState(null);
-  const [fireFlow, setFireFlow] = useState(true);
-  const [lastWebhookStatus, setLastWebhookStatus] = useState('');
 
   useEffect(() => {
     if (isNew || !id) return;
@@ -116,14 +102,13 @@ export default function ProductEdit() {
 
     setLoading(true);
     setError("");
-    setSaveResult(null);
 
     try {
       // Convert form to payload
       const payload = formToPayload(form);
       console.log('[SAVE→fn]', payload);
 
-      // 1) Save via service-role Netlify function
+      // Save via service-role Netlify function
       const saved = await saveProduct(payload);
       console.log('[SAVE OK]', saved.product?.id || saved.product?.slug || 'unknown');
 
@@ -138,66 +123,6 @@ export default function ProductEdit() {
 
       if (!saved.product) {
         throw new Error('Save failed: no product in response');
-      }
-
-      // 2) DIRECT webhook call (no Netlify proxy) - fire and log, non-blocking
-      if (fireFlow) {
-        const productId = saved.product?.id ?? form.id ?? null;
-        const payload = {
-          action: 'create_or_update_product',
-          product: {
-            id: productId,
-            name: form.name,
-            slug: form.slug,
-            image_url: form.image_url,
-            gallery: form.gallery || [],
-            price: Number(form.price ?? 0),
-            compare_at_price: form.compare_at_price ? Number(form.compare_at_price) : null,
-            stock: Number(form.stock ?? 0),
-            status: form.status || 'active',
-            short_description: form.short_description || '',
-            long_description: form.long_description || '',
-            category: form.category || '',
-          },
-        };
-
-        fetch(FLOW_A_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-          .then(async (r2) => {
-            const text = await r2.text(); // n8n may return text
-            const status = `Flow A → ${r2.status} ${r2.ok ? 'OK' : 'ERR'} — ${text.slice(0, 200)}`;
-            setLastWebhookStatus(status);
-            console.log('[WEBHOOK→n8n]', FLOW_A_URL);
-            console.log('[WEBHOOK RESP]', r2.status, text.slice(0, 200));
-
-            // Try to parse response for PR/preview data
-            if (r2.ok) {
-              try {
-                const j = JSON.parse(text);
-                const response = j?.data || j;
-                if (response) {
-                  setSaveResult({
-                    prUrl: response.prUrl || response.pr || null,
-                    previewUrl: response.previewUrl || response.preview || null,
-                    prNumber: response.prNumber || response.pr_num || null,
-                    branch: response.branch || response.ref || null,
-                  });
-                }
-              } catch {
-                // Non-JSON response, continue
-              }
-            }
-          })
-          .catch((webhookErr) => {
-            const status = `Flow A → ERROR — ${webhookErr?.message || String(webhookErr)}`;
-            setLastWebhookStatus(status);
-            console.warn("Webhook call failed (non-critical):", webhookErr);
-          });
-      } else {
-        setLastWebhookStatus(''); // Clear status if Flow A is disabled
       }
 
       // Update form with saved product ID if new
@@ -272,365 +197,326 @@ export default function ProductEdit() {
   }
 
   return (
-    <div className="p-6" style={{ color: 'var(--text)' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">{isNew ? "New Product" : `Edit: ${form.name || 'Product'}`}</h1>
-        <button
-          onClick={() => nav('/products')}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid var(--card)',
-            background: 'var(--card)',
-            color: 'var(--text)',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          Back
-        </button>
-      </div>
-
-      {error && (
-        <div style={{
-          marginBottom: '16px',
-          background: 'var(--card)',
-          border: '1px solid #dc2626',
-          borderRadius: '6px',
-          padding: '16px',
-          color: '#dc2626',
-          fontSize: '14px'
-        }}>
-          {error}
+    <>
+      <style>{`
+        /* Product Form Styling - Matching ProductNew */
+        .topbar {
+          padding: 24px 32px;
+          border-bottom: 2px solid var(--border);
+          background: var(--card);
+          margin-bottom: 24px;
+        }
+        .content-area {
+          padding: 0 32px 32px;
+          overflow-y: auto;
+        }
+        .product-form-input, .product-form-textarea, .product-form-select {
+          width: 100%;
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 15px;
+          font-family: inherit;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          transition: box-shadow .2s;
+        }
+        .product-form-input:focus, .product-form-textarea:focus, .product-form-select:focus {
+          outline: none;
+          box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+        }
+        .product-form-textarea {
+          min-height: 100px;
+          resize: vertical;
+          position: relative;
+          z-index: 1;
+        }
+        .product-form-section {
+          background: var(--card);
+          border-radius: 20px;
+          padding: 32px;
+          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+          margin-bottom: 24px;
+        }
+        .product-btn-primary {
+          padding: 12px 28px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          transition: transform 0.2s;
+        }
+        .product-btn-primary:disabled {
+          opacity: .6;
+          cursor: not-allowed;
+        }
+        .product-btn-primary:not(:disabled):hover {
+          transform: translateY(-2px);
+        }
+        .product-btn-secondary {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+        .product-btn-secondary:hover {
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+        .product-btn-delete {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: #dc2626;
+          color: white;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+        .product-btn-delete:disabled {
+          opacity: .5;
+          cursor: not-allowed;
+        }
+        .product-btn-delete:hover:not(:disabled) {
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+        .space-y-1 > * + * { margin-top: 0.25rem; }
+        .space-y-4 > * + * { margin-top: 1rem; }
+        .grid { display: grid; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+        .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      `}</style>
+      <div className="flex h-full flex-col">
+        <div className="topbar">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-bold text-lg">{isNew ? "New Product" : `Edit Product`}</div>
+              <div className="text-sm text-[var(--text-muted)]">
+                {isNew ? "Create a new product" : `Editing: ${form.name || 'Product'}`}
+              </div>
+            </div>
+            <button
+              onClick={() => nav('/products')}
+              className="product-btn-secondary"
+            >
+              Back to Products
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Two Column Layout: Form (Left) + Preview (Right) */}
-      <div className="flex gap-6">
-        {/* Left Column: Form (2/3 width) */}
-        <div className="w-2/3">
+        <div className="content-area">
+          {error && (
+            <div style={{
+              marginBottom: '24px',
+              background: 'var(--card)',
+              border: '2px solid #dc2626',
+              borderRadius: '12px',
+              padding: '16px',
+              color: '#dc2626',
+              fontSize: '14px'
+            }}>
+              {error}
+            </div>
+          )}
+
           <form onSubmit={(e) => {
             e.preventDefault();
             onSave();
           }} className="space-y-4">
-            {/* Image Upload */}
-            <div>
-              <label className="text-sm">Product Image</label>
-              <ImageUploader
-                onAdd={(img) => {
-                  setForm(prev => ({
-                    ...prev,
-                    image_url: img.hero,
-                    gallery: [...(prev.gallery || []), img.original]
-                  }));
-                }}
-                slug={form.slug || 'new'}
-              />
-            </div>
+            {/* Basic Info Section */}
+            <section className="product-form-section">
+              <header className="mb-4">
+                <h2 className="text-lg font-semibold text-[var(--text)]">Basic Information</h2>
+                <p className="text-sm text-[var(--text-muted)]">Product name, slug, and identification.</p>
+              </header>
+              <div className="grid gap-4 grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="name">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    required
+                    value={form.name}
+                    onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="product-form-input"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="slug">
+                    Slug <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="slug"
+                    type="text"
+                    required
+                    value={form.slug}
+                    onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
+                    className="product-form-input"
+                    style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+            </section>
 
-            {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm">Name *
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="input"
-                  style={{
-                    width: '100%',
-                    background: 'var(--card)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--card)',
-                    borderRadius: '6px',
-                    padding: '8px 12px'
-                  }}
-                />
-              </label>
-              <label className="text-sm">Slug *
-                <input
-                  type="text"
-                  required
-                  value={form.slug}
-                  onChange={(e) => setForm(prev => ({ ...prev, slug: e.target.value }))}
-                  className="input"
-                  style={{
-                    width: '100%',
-                    background: 'var(--card)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--card)',
-                    borderRadius: '6px',
-                    padding: '8px 12px',
-                    fontFamily: 'monospace',
-                    fontSize: '12px'
-                  }}
-                />
-              </label>
-              <label className="text-sm">Price *
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={form.price}
-                  onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
-                  className="input"
-                  style={{
-                    width: '100%',
-                    background: 'var(--card)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--card)',
-                    borderRadius: '6px',
-                    padding: '8px 12px'
-                  }}
-                />
-              </label>
-              <label className="text-sm">Compare At Price
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.compare_at_price ?? ''}
-                  onChange={(e) => setForm(prev => ({
-                    ...prev,
-                    compare_at_price: e.target.value ? Number(e.target.value) : null
-                  }))}
-                  className="input"
-                  style={{
-                    width: '100%',
-                    background: 'var(--card)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--card)',
-                    borderRadius: '6px',
-                    padding: '8px 12px'
-                  }}
-                />
-              </label>
-              <label className="text-sm">Stock *
-                <input
-                  type="number"
-                  required
-                  value={form.stock}
-                  onChange={(e) => setForm(prev => ({ ...prev, stock: Number(e.target.value) || 0 }))}
-                  className="input"
-                  style={{
-                    width: '100%',
-                    background: 'var(--card)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--card)',
-                    borderRadius: '6px',
-                    padding: '8px 12px'
-                  }}
-                />
-              </label>
-              <label className="text-sm">Status
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value }))}
-                  className="select"
-                  style={{
-                    width: '100%',
-                    background: 'var(--card)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--card)',
-                    borderRadius: '6px',
-                    padding: '8px 12px'
-                  }}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </label>
-            </div>
+            {/* Pricing & Stock Section */}
+            <section className="product-form-section">
+              <header className="mb-4">
+                <h2 className="text-lg font-semibold text-[var(--text)]">Pricing &amp; Stock</h2>
+                <p className="text-sm text-[var(--text-muted)]">Control pricing and inventory.</p>
+              </header>
+              <div className="grid gap-4 grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="price">
+                    Price <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={form.price}
+                    onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
+                    className="product-form-input"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="compare_at_price">
+                    Compare at Price
+                  </label>
+                  <input
+                    id="compare_at_price"
+                    type="number"
+                    step="0.01"
+                    value={form.compare_at_price ?? ''}
+                    onChange={(e) => setForm(prev => ({
+                      ...prev,
+                      compare_at_price: e.target.value ? Number(e.target.value) : null
+                    }))}
+                    className="product-form-input"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="stock">
+                    Stock <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="stock"
+                    type="number"
+                    required
+                    value={form.stock}
+                    onChange={(e) => setForm(prev => ({ ...prev, stock: Number(e.target.value) || 0 }))}
+                    className="product-form-input"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
+                    Status
+                  </label>
+                  <select
+                    id="status"
+                    value={form.status}
+                    onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value }))}
+                    className="product-form-select"
+                  >
+                    <option value="active">Active</option>
+                    <option value="published">Published</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </div>
+              </div>
+            </section>
 
-            {/* Descriptions */}
-            <label className="text-sm">Short Description
-              <textarea
-                rows={3}
-                value={form.short_description}
-                onChange={(e) => setForm(prev => ({ ...prev, short_description: e.target.value }))}
-                style={{
-                  width: '100%',
-                  background: 'var(--card)',
-                  color: 'var(--text)',
-                  border: '1px solid var(--card)',
-                  borderRadius: '6px',
-                  padding: '8px 12px'
-                }}
-              />
-            </label>
+            {/* Descriptions Section */}
+            <section className="product-form-section">
+              <header className="mb-4">
+                <h2 className="text-lg font-semibold text-[var(--text)]">Descriptions</h2>
+                <p className="text-sm text-[var(--text-muted)]">Short and detailed product descriptions.</p>
+              </header>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="short_description">
+                    Short Description
+                  </label>
+                  <textarea
+                    id="short_description"
+                    rows={3}
+                    value={form.short_description}
+                    onChange={(e) => setForm(prev => ({ ...prev, short_description: e.target.value }))}
+                    className="product-form-textarea"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="long_description">
+                    Long Description
+                  </label>
+                  <textarea
+                    id="long_description"
+                    rows={8}
+                    value={form.long_description}
+                    onChange={(e) => setForm(prev => ({ ...prev, long_description: e.target.value }))}
+                    className="product-form-textarea"
+                  />
+                </div>
+              </div>
+            </section>
 
-            <label className="text-sm">Long Description
-              <textarea
-                rows={8}
-                value={form.long_description}
-                onChange={(e) => setForm(prev => ({ ...prev, long_description: e.target.value }))}
-                style={{
-                  width: '100%',
-                  background: 'var(--card)',
-                  color: 'var(--text)',
-                  border: '1px solid var(--card)',
-                  borderRadius: '6px',
-                  padding: '8px 12px'
-                }}
-              />
-            </label>
-
-            {/* Webhook Toggle */}
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={fireFlow}
-                  onChange={(e) => setFireFlow(e.target.checked)}
-                  className="rounded"
+            {/* Images Section */}
+            <section className="product-form-section">
+              <header className="mb-4">
+                <h2 className="text-lg font-semibold text-[var(--text)]">Images</h2>
+                <p className="text-sm text-[var(--text-muted)]">Product images and gallery.</p>
+              </header>
+              <div>
+                <ImageUploader
+                  onAdd={(img) => {
+                    setForm(prev => ({
+                      ...prev,
+                      image_url: img.hero,
+                      gallery: [...(prev.gallery || []), img.original]
+                    }));
+                  }}
+                  slug={form.slug || 'new'}
                 />
-                <span>Fire Flow A (PR/Preview) after save</span>
-              </label>
-              <WebhookStatus status={lastWebhookStatus} />
-            </div>
+              </div>
+            </section>
 
             {/* Action Buttons */}
-            <div className="flex gap-2">
+            <div className="flex items-center justify-end gap-3">
               <button
-                type="submit"
+                type="button"
+                className="product-btn-secondary"
+                onClick={() => nav('/products')}
                 disabled={loading}
-                className="btn-primary"
-                style={{
-                  padding: '8px 12px',
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.6 : 1
-                }}
               >
-                {loading ? "Saving..." : "Save"}
+                Cancel
               </button>
               {!isNew && <DeleteProductButton form={form} onDeleted={() => nav('/products')} />}
               <button
-                type="button"
-                onClick={() => nav('/products')}
-                style={{
-                  padding: '8px 12px',
-                  border: '1px solid var(--card)',
-                  background: 'var(--card)',
-                  color: 'var(--text)',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
+                type="submit"
+                disabled={loading}
+                className="product-btn-primary"
               >
-                Cancel
+                {loading ? "Saving..." : isNew ? "Create Product" : "Save Changes"}
               </button>
             </div>
           </form>
         </div>
-
-        {/* Right Column: Preview (1/3 width) */}
-        <div className="w-1/3">
-          <div className="sticky top-6">
-            <ProductPreview product={form} />
-          </div>
-        </div>
       </div>
-
-      {/* Save Result: Show PR/Preview buttons */}
-      {saveResult && (
-        <div style={{
-          marginTop: '24px',
-          background: 'var(--card)',
-          border: '1px solid var(--card)',
-          borderRadius: '6px',
-          padding: '16px'
-        }}>
-          <p style={{ fontWeight: 600 }}>✓ Product saved successfully!</p>
-          <div className="flex gap-2 flex-wrap" style={{ marginTop: '12px' }}>
-            {saveResult.prUrl && (
-              <a
-                href={saveResult.prUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  padding: '8px 12px',
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  textDecoration: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px'
-                }}
-              >
-                Open PR →
-              </a>
-            )}
-            {saveResult.previewUrl && (
-              <a
-                href={saveResult.previewUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  padding: '8px 12px',
-                  background: '#9333ea',
-                  color: '#fff',
-                  textDecoration: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px'
-                }}
-              >
-                Open Preview →
-              </a>
-            )}
-            {saveResult.prNumber && (
-              <button
-                style={{
-                  padding: '8px 12px',
-                  background: '#16a34a',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  cursor: 'pointer'
-                }}
-                onClick={async ()=>{
-                  try {
-                    const out = await publishPR(Number(saveResult.prNumber));
-                    alert("Published! Netlify deploy will start now.");
-                  } catch (e) {
-                    alert(e.message||'Publish failed');
-                  }
-                }}
-              >
-                Publish
-              </button>
-            )}
-            {saveResult.branch && (
-              <span style={{
-                padding: '8px 12px',
-                background: 'var(--bg)',
-                color: 'var(--text-muted)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: 'monospace'
-              }}>
-                {saveResult.branch}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => setSaveResult(null)}
-            style={{
-              marginTop: '12px',
-              fontSize: '14px',
-              color: 'var(--text-muted)',
-              textDecoration: 'underline',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            Continue editing
-          </button>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

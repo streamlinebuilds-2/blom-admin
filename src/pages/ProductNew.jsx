@@ -4,8 +4,6 @@ import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 
-const PRODUCTS_WORKFLOW_URL = import.meta.env.VITE_PRODUCTS_WEBHOOK || "";
-
 const slugify = (value) =>
   value
     .toString()
@@ -49,7 +47,7 @@ const initialFormState = {
   meta_description: "",
   is_active: true,
   is_featured: false,
-  status: "draft",
+  status: "published",
   badges: [""],
   related: [""],
 };
@@ -333,27 +331,6 @@ export default function ProductNew() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const triggerWorkflows = (createdProductId, payload) => {
-    if (!PRODUCTS_WORKFLOW_URL) return;
-    try {
-      fetch(PRODUCTS_WORKFLOW_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_product",
-          product: {
-            id: createdProductId ?? null,
-            ...payload,
-          },
-        }),
-      }).catch((workflowError) => {
-        console.warn("[ProductNew] Workflow trigger failed", workflowError);
-      });
-    } catch (workflowError) {
-      console.warn("[ProductNew] Workflow trigger error", workflowError);
-    }
-  };
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setServerError("");
@@ -451,10 +428,9 @@ export default function ProductNew() {
       showToast("success", "Product created successfully");
 
       const createdId = data?.id || data?.product?.id || null;
-      triggerWorkflows(createdId, payload);
 
       if (createdId) {
-        navigate(`/products/edit?id=${createdId}`);
+        navigate(`/products/${createdId}`);
       } else {
         navigate("/products");
       }
