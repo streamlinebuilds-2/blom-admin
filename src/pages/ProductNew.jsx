@@ -313,21 +313,8 @@ export default function ProductNew() {
   const validate = () => {
     const nextErrors = {};
     if (!form.name.trim()) nextErrors.name = "Name is required";
-
-    // Auto-fill slug if empty
-    if (!form.slug.trim()) {
-      if (form.name.trim()) {
-        update("slug", slugify(form.name));
-      } else {
-        nextErrors.slug = "Slug is required";
-      }
-    }
-
-    // Auto-fill SKU if empty
-    if (!form.sku.trim()) {
-      update("sku", generateSKU());
-    }
-
+    if (!form.slug.trim()) nextErrors.slug = "Slug is required";
+    if (!form.sku.trim()) nextErrors.sku = "SKU is required";
     if (!form.category.trim()) nextErrors.category = "Category is required";
 
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
@@ -371,15 +358,46 @@ export default function ProductNew() {
     event.preventDefault();
     setServerError("");
 
-    if (!validate()) {
+    // Auto-fill slug and SKU before validation
+    let workingForm = { ...form };
+    if (!workingForm.slug.trim() && workingForm.name.trim()) {
+      workingForm.slug = slugify(workingForm.name);
+      update("slug", workingForm.slug);
+    }
+    if (!workingForm.sku.trim()) {
+      workingForm.sku = generateSKU();
+      update("sku", workingForm.sku);
+    }
+
+    // Validate with the working form
+    const nextErrors = {};
+    if (!workingForm.name.trim()) nextErrors.name = "Name is required";
+    if (!workingForm.slug.trim()) nextErrors.slug = "Slug is required";
+    if (!workingForm.sku.trim()) nextErrors.sku = "SKU is required";
+    if (!workingForm.category.trim()) nextErrors.category = "Category is required";
+
+    if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
+      nextErrors.price = "Price must be greater than 0";
+    }
+
+    if (!Number.isFinite(inventoryQuantityNumber) || inventoryQuantityNumber < 0) {
+      nextErrors.inventory_quantity = "Inventory must be zero or greater";
+    }
+
+    if (images.length === 0) {
+      nextErrors.images = "Add at least one product image";
+    }
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
       showToast("error", "Please fix the highlighted fields");
       return;
     }
 
     const payload = {
-      name: form.name.trim(),
-      slug: form.slug.trim(),
-      sku: form.sku.trim(),
+      name: workingForm.name.trim(),
+      slug: workingForm.slug.trim(),
+      sku: workingForm.sku.trim(),
       category: form.category.trim(),
       status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
