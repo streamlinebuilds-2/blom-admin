@@ -40,6 +40,12 @@ interface Review {
   helpful: number;
 }
 
+interface Variant {
+  name: string;
+  image?: string;
+  price?: number;
+}
+
 interface ProductData {
   name: string;
   slug: string;
@@ -61,7 +67,7 @@ interface ProductData {
     shelfLife: string;
     claims: string[];
   };
-  variants: string[];
+  variants: (string | Variant)[];
   related: string[];
   rating: number;
   reviewCount: number;
@@ -78,12 +84,23 @@ interface ProductPageTemplateProps {
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ product, isPreview = false }) => {
+  // Normalize variants to consistent format
+  const normalizedVariants: Variant[] = product.variants.map(v => {
+    if (typeof v === 'string') {
+      return { name: v };
+    }
+    return v;
+  });
+
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedVariant, setSelectedVariant] = useState(product.variants[0] || '');
+  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(normalizedVariants[0] || null);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'overview' | 'features' | 'how-to-use' | 'ingredients' | 'details'>('overview');
   const [expandedAccordion, setExpandedAccordion] = useState<string | null>('overview');
   const [isWishlisted, setIsWishlisted] = useState(false);
+
+  // Current display image: use variant image if selected and available, otherwise use gallery
+  const currentMainImage = selectedVariant?.image || product.images[selectedImage] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop';
 
   // Set page title and meta description
   useEffect(() => {
@@ -96,15 +113,15 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
 
   const handleAddToCart = () => {
     const priceValue = parseFloat(product.price.replace('R', ''));
-    
+
     cartStore.addItem({
       id: `item_${Date.now()}`,
       productId: product.slug,
-      variantId: selectedVariant,
+      variantId: selectedVariant?.name || '',
       name: product.name,
       price: priceValue,
       image: product.images[0] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop',
-      variant: selectedVariant ? { title: selectedVariant } : undefined
+      variant: selectedVariant ? { title: selectedVariant.name } : undefined
     }, quantity);
 
     showNotification(`Added ${quantity} ${product.name} to cart!`);
@@ -195,7 +212,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 {/* Main Image */}
                 <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 shadow-md">
                   <img
-                    src={product.images[selectedImage] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'}
+                    src={currentMainImage}
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
@@ -287,21 +304,29 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 </div>
 
                 {/* Variants */}
-                {product.variants.length > 1 && (
+                {normalizedVariants.length > 1 && (
                   <div className="mb-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Scent</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Options</h3>
                     <div className="flex flex-wrap gap-3">
-                      {product.variants.map((variant) => (
+                      {normalizedVariants.map((variant, index) => (
                         <button
-                          key={variant}
+                          key={index}
                           onClick={() => setSelectedVariant(variant)}
-                          className={`px-6 py-3 rounded-full font-medium text-sm transition-all duration-200 ${
-                            selectedVariant === variant
+                          className={`px-6 py-3 rounded-full font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
+                            selectedVariant?.name === variant.name
                               ? 'bg-pink-400 text-white border-2 border-pink-400 shadow-md'
                               : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-gray-400'
                           }`}
                         >
-                          {variant}
+                          {variant.image && (
+                            <img
+                              src={variant.image}
+                              alt={variant.name}
+                              className="w-6 h-6 rounded-full object-cover"
+                            />
+                          )}
+                          {variant.name}
+                          {variant.price && ` (+R${variant.price})`}
                         </button>
                       ))}
                     </div>

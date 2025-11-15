@@ -53,7 +53,7 @@ const initialFormState = {
   size: "",
   shelf_life: "",
   claims: [""],
-  status: "published",
+  status: "active",
   badges: [""],
   related: [],
 };
@@ -382,7 +382,7 @@ export default function ProductNew() {
       slug: slug,
       sku: sku,
       category: form.category.trim(),
-      status: form.status,
+      status: form.status || 'active',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
       inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
@@ -780,7 +780,7 @@ export default function ProductNew() {
                   onChange={(event) => update("status", event.target.value)}
                 >
                   <option value="draft">Draft</option>
-                  <option value="published">Published</option>
+                  <option value="active">Active</option>
                   <option value="archived">Archived</option>
                 </select>
               </div>

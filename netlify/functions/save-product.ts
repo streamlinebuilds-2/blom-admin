@@ -67,6 +67,10 @@ export const handler: Handler = async (event) => {
 
     const compareAt = body.compare_at_price == null ? null : Number(body.compare_at_price);
 
+    // Validate status - only allow 'draft', 'active', or 'archived'
+    const validStatuses = ['draft', 'active', 'archived'];
+    const status = validStatuses.includes(body.status) ? body.status : 'active';
+
     // Map to table schema using clean column names
     const row: any = {
       id: body.id ?? undefined,
@@ -76,7 +80,7 @@ export const handler: Handler = async (event) => {
       slug,
       sku: body.sku ?? null,
       category: body.category ?? null,
-      status: body.status ?? 'draft',
+      status: status,
 
       // Pricing (use clean columns)
       price: price,
