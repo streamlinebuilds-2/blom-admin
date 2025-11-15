@@ -74,6 +74,7 @@ export default function ProductNew() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
+  const [fullscreenPreview, setFullscreenPreview] = useState(false);
 
   const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -681,6 +682,29 @@ export default function ProductNew() {
         @media (min-width: 1280px) {
           .xl\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
+
+        /* Fullscreen Preview Styles */
+        .preview-fullscreen {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: white;
+          z-index: 9999;
+          overflow-y: auto;
+          padding: 0;
+        }
+
+        .preview-fullscreen .desktop-preview {
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+
+        .preview-fullscreen .mobile-preview {
+          max-width: 375px;
+          margin: 0 auto;
+        }
       `}</style>
       <div className="flex h-full flex-col">
         <div className="topbar">
@@ -1169,26 +1193,35 @@ export default function ProductNew() {
         </form>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-[var(--card)] bg-[var(--card)] shadow-sm">
-            <div className="flex gap-2 border-b border-[var(--card)] p-3 text-sm font-semibold text-[var(--text-muted)]">
-              {[
-                { id: "card", label: "Product Card" },
-                { id: "page-desktop", label: "Product Page – Desktop" },
-                { id: "page-mobile", label: "Product Page – Mobile" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setPreviewTab(tab.id)}
-                  className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                    previewTab === tab.id ? "bg-[var(--accent)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--card)]"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          <div className={fullscreenPreview ? "preview-fullscreen" : "rounded-2xl border border-[var(--card)] bg-[var(--card)] shadow-sm"}>
+            <div className="flex gap-2 justify-between border-b border-[var(--card)] p-3 text-sm font-semibold text-[var(--text-muted)]">
+              <div className="flex gap-2">
+                {[
+                  { id: "card", label: "Product Card" },
+                  { id: "page-desktop", label: "Product Page – Desktop" },
+                  { id: "page-mobile", label: "Product Page – Mobile" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setPreviewTab(tab.id)}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                      previewTab === tab.id ? "bg-[var(--accent)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--card)]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setFullscreenPreview(!fullscreenPreview)}
+                className="product-btn-secondary text-xs"
+              >
+                {fullscreenPreview ? '✕ Exit Fullscreen' : '⛶ Fullscreen'}
+              </button>
             </div>
-            <div className="max-h-[75vh] overflow-auto p-4">
+            <div className={fullscreenPreview ? "overflow-auto p-4" : "max-h-[75vh] overflow-auto p-4"}>
               {previewTab === "card" ? (
                 <div className="mx-auto max-w-sm">
                   {cardModel ? (
@@ -1199,51 +1232,20 @@ export default function ProductNew() {
                 </div>
               ) : null}
               {previewTab === "page-desktop" ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const previewWindow = window.open('', '_blank');
-                      if (previewWindow) {
-                        previewWindow.document.write(`
-                          <!DOCTYPE html>
-                          <html>
-                          <head>
-                            <title>${pageModel.name || 'Product Preview'}</title>
-                            <meta charset="utf-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1">
-                            <style>
-                              body { margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif; }
-                              * { box-sizing: border-box; }
-                            </style>
-                          </head>
-                          <body>
-                            <div id="root"></div>
-                          </body>
-                          </html>
-                        `);
-                        previewWindow.document.close();
-                      }
-                    }}
-                    className="absolute top-2 right-2 z-10 product-btn-secondary"
-                  >
-                    Fullscreen
-                  </button>
-                  <div className="preview-container overflow-x-auto max-w-full">
-                    <div className="min-w-[1200px] mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
-                      {pageModel ? (
-                        <ProductPageTemplate product={pageModel} />
-                      ) : (
-                        <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
-                      )}
-                    </div>
+                <div className={fullscreenPreview ? "desktop-preview" : "preview-container overflow-x-auto max-w-full"}>
+                  <div className={fullscreenPreview ? "mx-auto max-w-[1200px]" : "min-w-[1200px] mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
+                    {pageModel ? (
+                      <ProductPageTemplate product={pageModel} isPreview={true} />
+                    ) : (
+                      <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                    )}
                   </div>
                 </div>
               ) : null}
               {previewTab === "page-mobile" ? (
-                <div className="mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm">
+                <div className={fullscreenPreview ? "mobile-preview mx-auto" : "mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
                   {pageModel ? (
-                    <ProductPageTemplate product={pageModel} />
+                    <ProductPageTemplate product={pageModel} isPreview={true} />
                   ) : (
                     <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
                   )}
