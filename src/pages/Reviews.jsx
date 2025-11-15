@@ -236,6 +236,70 @@ export default function Reviews() {
           color: var(--text);
           margin-bottom: 8px;
         }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+          .reviews-title {
+            font-size: 24px;
+          }
+
+          .filter-tab {
+            min-height: 44px;
+            padding: 12px 16px;
+            flex: 1;
+            justify-content: center;
+          }
+
+          /* Hide less important columns on mobile */
+          th:nth-child(2),
+          td:nth-child(2),
+          th:nth-child(4),
+          td:nth-child(4) {
+            display: none;
+          }
+
+          th,
+          td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
+
+          .review-snippet {
+            max-width: 150px;
+          }
+
+          .btn-action {
+            min-height: 44px;
+            min-width: 44px;
+            padding: 10px 14px;
+            font-size: 12px;
+          }
+
+          .action-buttons {
+            flex-direction: column;
+            gap: 6px;
+          }
+
+          .table-container {
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .filter-tabs {
+            flex-direction: column;
+          }
+
+          .filter-tab {
+            width: 100%;
+          }
+
+          /* Hide review snippet on very small screens */
+          th:nth-child(3),
+          td:nth-child(3) {
+            display: none;
+          }
+        }
       `}</style>
 
       {error && <Banner type="error">{error.message || 'Failed to load reviews'}</Banner>}

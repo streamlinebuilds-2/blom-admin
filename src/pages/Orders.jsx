@@ -223,6 +223,60 @@ export default function Orders() {
           font-size: 12px;
           font-weight: 500;
         }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+          .flex.items-center.gap-4.flex-wrap {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .orders-input {
+            width: 100%;
+            min-width: 100%;
+          }
+
+          .orders-select {
+            width: 100%;
+          }
+
+          .orders-button {
+            min-height: 44px;
+            min-width: 44px;
+          }
+
+          /* Hide less important columns on mobile */
+          .orders-table th:nth-child(3),
+          .orders-table td:nth-child(3),
+          .orders-table th:nth-child(5),
+          .orders-table td:nth-child(5),
+          .orders-table th:nth-child(7),
+          .orders-table td:nth-child(7) {
+            display: none;
+          }
+
+          .orders-table th,
+          .orders-table td {
+            padding: 10px 8px;
+            font-size: 13px;
+          }
+
+          .orders-card {
+            padding: 16px;
+          }
+
+          h1 {
+            font-size: 20px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          /* Hide even more columns on very small screens */
+          .orders-table th:nth-child(4),
+          .orders-table td:nth-child(4) {
+            display: none;
+          }
+        }
       `}</style>
 
       <div className="orders-container">

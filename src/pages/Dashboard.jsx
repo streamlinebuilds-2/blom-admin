@@ -347,6 +347,67 @@ export default function Dashboard() {
           background: #3b82f620;
           color: #3b82f6;
         }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+          }
+
+          .stat-card {
+            padding: 20px;
+          }
+
+          .stat-value {
+            font-size: 28px;
+          }
+
+          .section-title {
+            font-size: 18px;
+            margin-bottom: 16px;
+          }
+
+          .quick-links-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+
+          .quick-link {
+            padding: 16px;
+          }
+
+          .recent-table {
+            padding: 16px;
+            margin-top: 24px;
+            overflow-x: auto;
+          }
+
+          /* Hide less important columns on mobile */
+          table th:nth-child(2),
+          table td:nth-child(2),
+          table th:nth-child(4),
+          table td:nth-child(4) {
+            display: none;
+          }
+
+          th,
+          td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
+        }
+
+        @media (min-width: 640px) and (max-width: 1024px) {
+          .dashboard-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .quick-links-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
       `}</style>
 
       <div className="dashboard-grid">

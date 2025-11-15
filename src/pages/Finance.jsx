@@ -10,6 +10,24 @@ export default function Finance(){
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0,10));
   const { showToast } = useToast();
 
+  // Mobile responsive styles
+  const mobileStyles = `
+    @media (max-width: 768px) {
+      .grid-cols-3 {
+        grid-template-columns: 1fr !important;
+      }
+      .grid-cols-2 {
+        grid-template-columns: 1fr !important;
+      }
+      h1 {
+        font-size: 20px !important;
+      }
+      .text-2xl {
+        font-size: 1.5rem !important;
+      }
+    }
+  `;
+
   async function loadMetrics(){
     const r = await fetch(`/.netlify/functions/admin-finance-daily?date=${occurredOn}`);
     const j = await r.json();
@@ -33,8 +51,10 @@ export default function Finance(){
   }
 
   return (
-    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
-      <h1 className="text-xl font-semibold">Finance</h1>
+    <>
+      <style>{mobileStyles}</style>
+      <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
+        <h1 className="text-xl font-semibold">Finance</h1>
 
       {/* Daily Metrics */}
       <div style={{
@@ -163,5 +183,6 @@ export default function Finance(){
         </div>
       </div>
     </div>
+    </>
   );
 }
