@@ -206,6 +206,7 @@ export default function Orders() {
           font-size: 13px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          white-space: nowrap;
         }
         .orders-table td {
           padding: 14px 12px;
@@ -223,11 +224,38 @@ export default function Orders() {
           font-size: 12px;
           font-weight: 500;
         }
+        @media (max-width: 768px) {
+          .orders-card {
+            padding: 16px;
+          }
+          .orders-table {
+            min-width: 800px;
+          }
+          .orders-table th {
+            padding: 10px 8px;
+            font-size: 11px;
+          }
+          .orders-table td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
+          .orders-input {
+            min-width: auto !important;
+            width: 100%;
+          }
+          .flex-wrap {
+            gap: 8px !important;
+          }
+          .orders-select {
+            flex: 1;
+            min-width: 120px;
+          }
+        }
       `}</style>
 
       <div className="orders-container">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Orders</h1>
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)', fontSize: '22px' }}>Orders</h1>
           <button
             onClick={() => load()}
             className="orders-button flex items-center gap-2"

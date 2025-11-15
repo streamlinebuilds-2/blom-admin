@@ -76,35 +76,62 @@ export default function Reviews() {
     <>
       <style>{`
         .reviews-header {
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+        }
+
+        @media (min-width: 768px) {
+          .reviews-header {
+            margin-bottom: 32px;
+          }
         }
 
         .reviews-title {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--text);
           margin-bottom: 8px;
         }
 
+        @media (min-width: 768px) {
+          .reviews-title {
+            font-size: 28px;
+          }
+        }
+
         .filter-tabs {
           display: flex;
-          gap: 12px;
-          margin-bottom: 24px;
+          gap: 8px;
+          margin-bottom: 16px;
           flex-wrap: wrap;
         }
 
+        @media (min-width: 768px) {
+          .filter-tabs {
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+        }
+
         .filter-tab {
-          padding: 10px 20px;
+          padding: 8px 16px;
           border-radius: 10px;
           border: none;
           background: var(--card);
           color: var(--text-muted);
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
           box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
           transition: all 0.2s;
           position: relative;
+          min-height: 44px;
+        }
+
+        @media (min-width: 768px) {
+          .filter-tab {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
         }
 
         .filter-tab.active {
@@ -131,23 +158,33 @@ export default function Reviews() {
 
         .table-container {
           overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 700px;
         }
 
         th {
           text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
+          padding: 16px 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           border-bottom: 2px solid var(--border);
           background: var(--card);
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 20px 24px;
+            font-size: 12px;
+          }
         }
 
         td {

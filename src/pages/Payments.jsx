@@ -74,16 +74,29 @@ export default function Payments() {
     <>
       <style>{`
         .payments-header {
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+        }
+
+        @media (min-width: 768px) {
+          .payments-header {
+            margin-bottom: 32px;
+          }
         }
 
         .header-title {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--text);
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+        }
+
+        @media (min-width: 768px) {
+          .header-title {
+            font-size: 28px;
+            gap: 12px;
+          }
         }
 
         .payments-table {
@@ -94,27 +107,49 @@ export default function Payments() {
           overflow: hidden;
         }
 
+        .table-scroll-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 700px;
         }
 
         th {
           text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
+          padding: 16px 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           border-bottom: 2px solid var(--border);
           background: var(--card);
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 20px 24px;
+            font-size: 12px;
+          }
         }
 
         td {
-          padding: 20px 24px;
+          padding: 16px 12px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
+          font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+          td {
+            padding: 20px 24px;
+            font-size: 14px;
+          }
         }
 
         tr:last-child td {
@@ -330,18 +365,19 @@ export default function Payments() {
       </div>
 
       <div className="payments-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Payment #</th>
-              <th>Order #</th>
-              <th>Provider</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
+        <div className="table-scroll-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Payment #</th>
+                <th>Order #</th>
+                <th>Provider</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
@@ -384,7 +420,8 @@ export default function Payments() {
               })
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {selectedPayment && (

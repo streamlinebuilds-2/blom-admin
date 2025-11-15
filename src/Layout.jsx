@@ -352,7 +352,7 @@ export default function Layout({ children, currentPageName }) {
           border: none;
           color: var(--text);
           cursor: pointer;
-          display: flex;
+          display: none;
           align-items: center;
           justify-content: center;
           box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
@@ -361,6 +361,24 @@ export default function Layout({ children, currentPageName }) {
 
         .menu-button:active {
           box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+        }
+
+        .menu-button.mobile-menu {
+          display: none;
+        }
+
+        .menu-button.desktop-menu {
+          display: flex;
+        }
+
+        @media (max-width: 768px) {
+          .menu-button.mobile-menu {
+            display: flex;
+          }
+
+          .menu-button.desktop-menu {
+            display: none;
+          }
         }
 
         .breadcrumb {
@@ -492,12 +510,12 @@ export default function Layout({ children, currentPageName }) {
           <header className="topbar">
             <div className="topbar-left">
               {/* Mobile menu button - VISIBLE on mobile, HIDDEN on desktop */}
-              <button className="menu-button md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
+              <button className="menu-button mobile-menu" onClick={() => setMobileOpen(!mobileOpen)}>
                 {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
 
               {/* Desktop collapse button - HIDDEN on mobile, VISIBLE on desktop */}
-              <button className="menu-button hidden md:flex" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+              <button className="menu-button desktop-menu" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
                 {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <X className="w-5 h-5" />}
               </button>
 

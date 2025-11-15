@@ -50,20 +50,35 @@ export default function Contacts() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        @media (min-width: 768px) {
+          .contacts-header {
+            margin-bottom: 32px;
+          }
         }
 
         .header-title {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--text);
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+        }
+
+        @media (min-width: 768px) {
+          .header-title {
+            font-size: 28px;
+            gap: 12px;
+          }
         }
 
         .btn-add {
-          padding: 12px 20px;
+          padding: 10px 16px;
           border-radius: 10px;
           border: none;
           background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -75,6 +90,13 @@ export default function Contacts() {
           display: flex;
           align-items: center;
           gap: 8px;
+          min-height: 44px;
+        }
+
+        @media (min-width: 768px) {
+          .btn-add {
+            padding: 12px 20px;
+          }
         }
 
         .btn-add:hover {
@@ -89,15 +111,47 @@ export default function Contacts() {
           overflow: hidden;
         }
 
+        .table-scroll-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 500px;
         }
 
         th {
           text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
+          padding: 16px 12px;
+          font-size: 11px;
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 20px 24px;
+            font-size: 12px;
+          }
+        }
+
+        td {
+          padding: 16px 12px;
+          font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+          td {
+            padding: 20px 24px;
+            font-size: 14px;
+          }
+        }
+
+        .th-mobile {
+          text-align: left;
+          padding: 16px 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;

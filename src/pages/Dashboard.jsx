@@ -113,18 +113,39 @@ export default function Dashboard() {
       <style>{`
         .dashboard-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 24px;
-          margin-bottom: 32px;
+          grid-template-columns: 1fr;
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
+        @media (min-width: 640px) {
+          .dashboard-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .dashboard-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+          }
         }
 
         .stat-card {
           background: var(--card);
           border-radius: 20px;
-          padding: 24px;
+          padding: 20px;
           box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
           position: relative;
           overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+          .stat-card {
+            padding: 24px;
+          }
         }
 
         .stat-card::before {
@@ -168,15 +189,28 @@ export default function Dashboard() {
         }
 
         .stat-value {
-          font-size: 32px;
+          font-size: 24px;
           font-weight: 700;
           color: var(--text);
+          word-break: break-word;
+        }
+
+        @media (min-width: 768px) {
+          .stat-value {
+            font-size: 32px;
+          }
         }
 
         .stat-subtitle {
-          font-size: 14px;
+          font-size: 13px;
           color: var(--text-muted);
           margin-top: 8px;
+        }
+
+        @media (min-width: 768px) {
+          .stat-subtitle {
+            font-size: 14px;
+          }
         }
 
         .stat-trend {
@@ -197,28 +231,57 @@ export default function Dashboard() {
         }
 
         .section-title {
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 700;
           color: var(--text);
-          margin-bottom: 20px;
+          margin-bottom: 16px;
+        }
+
+        @media (min-width: 768px) {
+          .section-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+          }
         }
 
         .quick-links-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 20px;
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .quick-links-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .quick-links-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+          }
         }
 
         .quick-link {
           background: var(--card);
           border-radius: 16px;
-          padding: 20px;
+          padding: 16px;
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
           text-decoration: none;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           transition: all 0.3s ease;
+          min-height: 48px;
+        }
+
+        @media (min-width: 768px) {
+          .quick-link {
+            padding: 20px;
+            gap: 16px;
+          }
         }
 
         .quick-link:hover {
@@ -270,22 +333,58 @@ export default function Dashboard() {
         .recent-table {
           background: var(--card);
           border-radius: 20px;
-          padding: 24px;
+          padding: 16px;
           box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-          margin-top: 32px;
+          margin-top: 24px;
+          overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+          .recent-table {
+            padding: 24px;
+            margin-top: 32px;
+          }
         }
 
         .table-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        @media (min-width: 768px) {
+          .table-header {
+            margin-bottom: 20px;
+          }
         }
 
         .table-title {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 700;
           color: var(--text);
+        }
+
+        @media (min-width: 768px) {
+          .table-title {
+            font-size: 18px;
+          }
+        }
+
+        .table-scroll-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          margin: 0 -16px;
+          padding: 0 16px;
+        }
+
+        @media (min-width: 768px) {
+          .table-scroll-wrapper {
+            margin: 0;
+            padding: 0;
+          }
         }
 
         .view-all-link {
@@ -301,23 +400,40 @@ export default function Dashboard() {
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 500px;
         }
 
         th {
           text-align: left;
-          padding: 12px;
-          font-size: 12px;
+          padding: 10px 8px;
+          font-size: 11px;
           font-weight: 600;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           border-bottom: 1px solid var(--border);
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 12px;
+            font-size: 12px;
+          }
         }
 
         td {
-          padding: 16px 12px;
+          padding: 12px 8px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
+          font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+          td {
+            padding: 16px 12px;
+            font-size: 14px;
+          }
         }
 
         tr:last-child td {
@@ -457,31 +573,33 @@ export default function Dashboard() {
             View All <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Status</th>
-              <th>Price</th>
-              <th>Stock</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.slice(0, 5).map(product => (
-              <tr key={product.id}>
-                <td>{product.name}</td>
-                <td>
-                  <span className={`status-badge status-${product.status}`}>
-                    {product.status}
-                  </span>
-                </td>
-                <td>R{((product.price_cents || product.price || 0) / 100).toFixed(2)}</td>
-                <td>{product.stock_qty || product.stock || 0}</td>
+
+        <div className="table-scroll-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Status</th>
+                <th>Price</th>
+                <th>Stock</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {products.slice(0, 5).map(product => (
+                <tr key={product.id}>
+                  <td>{product.name}</td>
+                  <td>
+                    <span className={`status-badge status-${product.status}`}>
+                      {product.status}
+                    </span>
+                  </td>
+                  <td>R{((product.price_cents || product.price || 0) / 100).toFixed(2)}</td>
+                  <td>{product.stock_qty || product.stock || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

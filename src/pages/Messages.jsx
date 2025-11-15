@@ -148,6 +148,7 @@ export default function Messages() {
           font-size: 13px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          white-space: nowrap;
         }
         .messages-table td {
           padding: 14px 12px;
@@ -169,12 +170,32 @@ export default function Messages() {
           font-size: 12px;
           font-weight: 500;
         }
+        @media (max-width: 768px) {
+          .messages-card {
+            padding: 16px;
+          }
+          .messages-table {
+            min-width: 600px;
+          }
+          .messages-table th {
+            padding: 10px 8px;
+            font-size: 11px;
+          }
+          .messages-table td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
+          .messages-input {
+            min-width: auto !important;
+            width: 100%;
+          }
+        }
       `}</style>
 
       <div className="messages-container">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: 'var(--text)' }}>
-            <MessageSquare className="w-7 h-7" />
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: 'var(--text)', fontSize: '22px' }}>
+            <MessageSquare className="w-6 h-6" />
             Messages
           </h1>
           <button
