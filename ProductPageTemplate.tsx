@@ -74,9 +74,10 @@ interface ProductData {
 
 interface ProductPageTemplateProps {
   product: ProductData;
+  isPreview?: boolean;
 }
 
-export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ product }) => {
+export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ product, isPreview = false }) => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState(product.variants[0] || '');
   const [quantity, setQuantity] = useState(1);
@@ -625,16 +626,18 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
           }}
         />
 
-        {/* Sticky Cart */}
-        <StickyCart
-          productName={product.name}
-          productImage={product.images[0] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop'}
-          productPrice={parseFloat(product.price.replace('R', ''))}
-          quantity={quantity}
-          onQuantityChange={setQuantity}
-          onAddToCart={handleAddToCart}
-          isVisible={true}
-        />
+        {/* Sticky Cart - Hidden in preview mode */}
+        {!isPreview && (
+          <StickyCart
+            productName={product.name}
+            productImage={product.images[0] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop'}
+            productPrice={parseFloat(product.price.replace('R', ''))}
+            quantity={quantity}
+            onQuantityChange={setQuantity}
+            onAddToCart={handleAddToCart}
+            isVisible={true}
+          />
+        )}
       </main>
 
       <Footer />
