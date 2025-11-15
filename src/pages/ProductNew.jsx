@@ -3,6 +3,17 @@ import { useNavigate } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
+import { supabase } from "../components/supabaseClient";
+
+const CATEGORIES = [
+  'Bundle Deals',
+  'Acrylic System',
+  'Prep & Finish',
+  'Gel System',
+  'Tools & Essentials',
+  'Furniture',
+  'Coming Soon'
+];
 
 const slugify = (value) =>
   value
@@ -12,30 +23,29 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-const generateSKU = () => {
-  const prefix = "SKU";
+const generateSKU = (category) => {
+  const prefix = category?.substring(0, 3).toUpperCase() || 'PRD';
   const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `${prefix}-${timestamp}-${random}`;
+  return `${prefix}-${timestamp}`;
+};
+
+const generateBarcode = () => {
+  return `BC${Date.now()}${Math.floor(Math.random() * 1000)}`;
 };
 
 const initialFormState = {
   name: "",
-  slug: "",
-  sku: generateSKU(),
   category: "",
   price: "",
   compare_at_price: "",
   inventory_quantity: "0",
   track_inventory: true,
   weight: "",
-  barcode: "",
   short_description: "",
   overview: "",
   thumbnail_url: "",
   hover_url: "",
-  gallery_urls: [""],
-  variants: [{ label: "", image: "" }],
+  variants: [{ name: "", image: "" }],
   features: [""],
   how_to_use: [""],
   inci_ingredients: [""],
@@ -43,13 +53,9 @@ const initialFormState = {
   size: "",
   shelf_life: "",
   claims: [""],
-  meta_title: "",
-  meta_description: "",
-  is_active: true,
-  is_featured: false,
   status: "published",
   badges: [""],
-  related: [""],
+  related: [],
 };
 
 const ensureList = (value) => {
@@ -66,6 +72,8 @@ export default function ProductNew() {
   const [serverError, setServerError] = useState("");
   const [previewTab, setPreviewTab] = useState("card");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [allProducts, setAllProducts] = useState([]);
 
   const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -85,13 +93,16 @@ export default function ProductNew() {
   };
 
   useEffect(() => {
-    setForm((previous) => {
-      if (!previous.name || previous.slug) return previous;
-      const nextSlug = slugify(previous.name);
-      if (previous.slug === nextSlug) return previous;
-      return { ...previous, slug: nextSlug };
-    });
-  }, [form.name]);
+    async function loadProducts() {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      setAllProducts(data || []);
+    }
+    loadProducts();
+  }, []);
 
   const update = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -117,7 +128,9 @@ export default function ProductNew() {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
       if (field === "variants") {
-        next.push({ label: "", image: "" });
+        next.push({ name: "", image: "" });
+      } else if (field === "related") {
+        next.push("");
       } else {
         next.push("");
       }
@@ -130,7 +143,9 @@ export default function ProductNew() {
       const next = getArrayFromPrevious(previous, field);
       next.splice(index, 1);
       if (field === "variants") {
-        return { ...previous, [field]: next.length ? next : [{ label: "", image: "" }] };
+        return { ...previous, [field]: next.length ? next : [{ name: "", image: "" }] };
+      } else if (field === "related") {
+        return { ...previous, [field]: next.length ? next : [] };
       }
       return { ...previous, [field]: next.length ? next : [""] };
     });
@@ -157,11 +172,6 @@ export default function ProductNew() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [form.weight]);
 
-  const galleryUrls = useMemo(
-    () => ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean),
-    [form.gallery_urls]
-  );
-
   const badges = useMemo(
     () => ensureList(form.badges).map((item) => item.trim()).filter(Boolean),
     [form.badges]
@@ -173,7 +183,7 @@ export default function ProductNew() {
   );
 
   const related = useMemo(
-    () => ensureList(form.related).map((item) => item.trim()).filter(Boolean),
+    () => Array.isArray(form.related) ? form.related.filter(Boolean) : [],
     [form.related]
   );
 
@@ -182,10 +192,10 @@ export default function ProductNew() {
     return list
       .map((item) => {
         if (typeof item === "string") {
-          return item.trim() ? { label: item.trim(), image: "" } : null;
+          return item.trim() ? { name: item.trim(), image: "" } : null;
         }
-        return (item?.label?.trim() || item?.image?.trim()) ? {
-          label: item.label?.trim() || "",
+        return (item?.name?.trim() || item?.image?.trim()) ? {
+          name: item.name?.trim() || "",
           image: item.image?.trim() || ""
         } : null;
       })
@@ -217,9 +227,9 @@ export default function ProductNew() {
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
     const hover = form.hover_url?.trim();
-    const list = [primary, hover, ...galleryUrls].filter(Boolean);
+    const list = [primary, hover].filter(Boolean);
     return list;
-  }, [form.thumbnail_url, form.hover_url, galleryUrls]);
+  }, [form.thumbnail_url, form.hover_url]);
 
   const previewImages = useMemo(
     () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
@@ -280,8 +290,10 @@ export default function ProductNew() {
       reviewCount: 124,
       reviews: [],
       seo: {
-        title: form.meta_title?.trim() || form.name || "",
-        description: form.meta_description?.trim() || form.short_description || "",
+        title: form.name || "",
+        description: form.short_description
+          ? `${form.short_description.substring(0, 150)}...`
+          : `Buy ${form.name} online at BLOM Cosmetics`,
       },
     }),
     [
@@ -289,13 +301,10 @@ export default function ProductNew() {
       compareAtNumber,
       features,
       form.category,
-      form.meta_description,
-      form.meta_title,
       form.name,
       form.overview,
       form.short_description,
       form.size,
-      form.slug,
       form.shelf_life,
       howToUse,
       inciIngredients,
@@ -311,8 +320,6 @@ export default function ProductNew() {
   const validate = () => {
     const nextErrors = {};
     if (!form.name.trim()) nextErrors.name = "Name is required";
-    if (!form.slug.trim()) nextErrors.slug = "Slug is required";
-    if (!form.sku.trim()) nextErrors.sku = "SKU is required";
     if (!form.category.trim()) nextErrors.category = "Category is required";
 
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
@@ -335,46 +342,24 @@ export default function ProductNew() {
     event.preventDefault();
     setServerError("");
 
-    // Auto-fill slug and SKU before validation
-    let workingForm = { ...form };
-    if (!workingForm.slug.trim() && workingForm.name.trim()) {
-      workingForm.slug = slugify(workingForm.name);
-      update("slug", workingForm.slug);
-    }
-    if (!workingForm.sku.trim()) {
-      workingForm.sku = generateSKU();
-      update("sku", workingForm.sku);
-    }
-
-    // Validate with the working form
-    const nextErrors = {};
-    if (!workingForm.name.trim()) nextErrors.name = "Name is required";
-    if (!workingForm.slug.trim()) nextErrors.slug = "Slug is required";
-    if (!workingForm.sku.trim()) nextErrors.sku = "SKU is required";
-    if (!workingForm.category.trim()) nextErrors.category = "Category is required";
-
-    if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
-      nextErrors.price = "Price must be greater than 0";
-    }
-
-    if (!Number.isFinite(inventoryQuantityNumber) || inventoryQuantityNumber < 0) {
-      nextErrors.inventory_quantity = "Inventory must be zero or greater";
-    }
-
-    if (images.length === 0) {
-      nextErrors.images = "Add at least one product image";
-    }
-
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
+    if (!validate()) {
       showToast("error", "Please fix the highlighted fields");
       return;
     }
 
+    // Auto-generate fields
+    const slug = slugify(form.name);
+    const sku = generateSKU(form.category);
+    const barcode = generateBarcode();
+    const meta_title = form.name;
+    const meta_description = form.short_description
+      ? `${form.short_description.substring(0, 150)}...`
+      : `Buy ${form.name} online at BLOM Cosmetics`;
+
     const payload = {
-      name: workingForm.name.trim(),
-      slug: workingForm.slug.trim(),
-      sku: workingForm.sku.trim(),
+      name: form.name.trim(),
+      slug: slug,
+      sku: sku,
       category: form.category.trim(),
       status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
@@ -382,13 +367,13 @@ export default function ProductNew() {
       inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
       track_inventory: Boolean(form.track_inventory),
       weight: weightNumber,
-      barcode: form.barcode?.trim() || null,
+      barcode: barcode,
       short_description: form.short_description,
       overview: form.overview,
       description: form.overview,
       thumbnail_url: form.thumbnail_url?.trim() || "",
       hover_url: form.hover_url?.trim() || "",
-      gallery_urls: galleryUrls,
+      gallery_urls: [],
       variants,
       features,
       how_to_use: howToUse,
@@ -397,10 +382,10 @@ export default function ProductNew() {
       size: form.size,
       shelf_life: form.shelf_life,
       claims,
-      meta_title: form.meta_title,
-      meta_description: form.meta_description,
-      is_active: Boolean(form.is_active),
-      is_featured: Boolean(form.is_featured),
+      meta_title: meta_title,
+      meta_description: meta_description,
+      is_active: true,
+      is_featured: false,
       badges,
       related,
       stock_label: stockLabel,
@@ -648,7 +633,7 @@ export default function ProductNew() {
           <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Basic Information</h2>
-              <p className="text-sm text-[var(--text-muted)]">Name, slug and classification for the product.</p>
+              <p className="text-sm text-[var(--text-muted)]">Name and classification for the product.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
@@ -666,54 +651,38 @@ export default function ProductNew() {
                 {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="slug">
-                  Slug <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="slug"
-                  type="text"
-                  className="product-form-input"
-                  value={form.slug}
-                  onChange={(event) => update("slug", event.target.value)}
-                  placeholder="base-44-nail-strengthener"
-                />
-                {errors.slug ? <p className="text-xs text-red-500">{errors.slug}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="sku">
-                  SKU <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="sku"
-                    type="text"
-                    className="product-form-input flex-1"
-                    value={form.sku}
-                    onChange={(event) => update("sku", event.target.value)}
-                    placeholder="Auto-generated"
-                  />
-                  <button
-                    type="button"
-                    className="product-btn-secondary"
-                    onClick={() => update("sku", generateSKU())}
-                  >
-                    Generate
-                  </button>
-                </div>
-                {errors.sku ? <p className="text-xs text-red-500">{errors.sku}</p> : null}
-              </div>
-              <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="category">
                   Category <span className="text-red-500">*</span>
                 </label>
-                <input
+                <select
                   id="category"
-                  type="text"
-                  className="product-form-input"
+                  className="product-form-select"
                   value={form.category}
-                  onChange={(event) => update("category", event.target.value)}
-                  placeholder="Treatments"
-                />
+                  onChange={(event) => {
+                    if (event.target.value === '__custom__') {
+                      setShowCustomCategory(true);
+                      update('category', '');
+                    } else {
+                      setShowCustomCategory(false);
+                      update('category', event.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Select category...</option>
+                  {CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  <option value="__custom__">+ Add New Category</option>
+                </select>
+                {showCustomCategory && (
+                  <input
+                    type="text"
+                    placeholder="Enter new category name"
+                    value={form.category}
+                    onChange={(event) => update('category', event.target.value)}
+                    className="product-form-input mt-2"
+                  />
+                )}
                 {errors.category ? <p className="text-xs text-red-500">{errors.category}</p> : null}
               </div>
               <div className="space-y-1">
@@ -819,19 +788,6 @@ export default function ProductNew() {
                   placeholder="250"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="barcode">
-                  Barcode
-                </label>
-                <input
-                  id="barcode"
-                  type="text"
-                  className="product-form-input"
-                  value={form.barcode}
-                  onChange={(event) => update("barcode", event.target.value)}
-                  placeholder="6001234567890"
-                />
-              </div>
             </div>
           </section>
 
@@ -873,12 +829,12 @@ export default function ProductNew() {
           <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Images</h2>
-              <p className="text-sm text-[var(--text-muted)]">Primary, hover and gallery imagery.</p>
+              <p className="text-sm text-[var(--text-muted)]">Main product image and optional hover image.</p>
             </header>
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="thumbnail_url">
-                  Thumbnail URL
+                  Main Product Image URL <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -887,7 +843,7 @@ export default function ProductNew() {
                     className="product-form-input flex-1"
                     value={form.thumbnail_url}
                     onChange={(event) => update("thumbnail_url", event.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://example.com/image.jpg"
                   />
                   <label className="product-btn-secondary cursor-pointer">
                     Upload
@@ -910,10 +866,12 @@ export default function ProductNew() {
                     />
                   </label>
                 </div>
+                <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
+                {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
-                  Hover URL
+                  Hover Image URL (optional)
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -922,7 +880,7 @@ export default function ProductNew() {
                     className="product-form-input flex-1"
                     value={form.hover_url}
                     onChange={(event) => update("hover_url", event.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://example.com/hover.jpg"
                   />
                   <label className="product-btn-secondary cursor-pointer">
                     Upload
@@ -945,64 +903,7 @@ export default function ProductNew() {
                     />
                   </label>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-[var(--text)]">Gallery URLs</label>
-                  {errors.images ? (
-                    <span className="text-xs font-medium text-red-500">{errors.images}</span>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  {ensureList(form.gallery_urls).map((item, index) => (
-                    <div key={`gallery_urls-${index}`} className="flex gap-2">
-                      <input
-                        type="text"
-                        className="product-form-input flex-1"
-                        value={item}
-                        placeholder="https://..."
-                        onChange={(event) => updateArr("gallery_urls", index, event.target.value)}
-                      />
-                      <label className="product-btn-secondary cursor-pointer">
-                        Upload
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            try {
-                              showToast('info', 'Uploading...');
-                              const url = await uploadToCloudinary(file);
-                              updateArr("gallery_urls", index, url);
-                              showToast('success', 'Image uploaded');
-                            } catch (err) {
-                              showToast('error', 'Upload failed');
-                            }
-                          }}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => removeRow("gallery_urls", index)}
-                        className="product-btn-secondary"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addRow("gallery_urls")}
-                  className="product-btn-add"
-                >
-                  + Add image
-                </button>
-                {errors.images ? (
-                  <p className="text-xs text-red-500">{errors.images}</p>
-                ) : null}
+                <small className="text-xs text-[var(--text-muted)]">Shows when customer hovers over product</small>
               </div>
             </div>
           </section>
@@ -1015,31 +916,32 @@ export default function ProductNew() {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-[var(--text)]">Variants</label>
+                <small className="text-xs text-[var(--text-muted)] block mb-2">e.g., different sizes or colors</small>
                 <div className="space-y-2">
                   {ensureList(form.variants).map((variant, index) => (
                     <div key={`variant-${index}`} className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="Variant name (e.g. 100ml)"
+                        placeholder="Variant name (e.g. 250ml)"
                         className="product-form-input flex-1"
-                        value={variant?.label || variant}
+                        value={variant?.name || variant}
                         onChange={(e) => {
                           const current = form.variants[index];
                           const updated = typeof current === "string"
-                            ? { label: e.target.value, image: "" }
-                            : { ...current, label: e.target.value };
+                            ? { name: e.target.value, image: "" }
+                            : { ...current, name: e.target.value };
                           updateArr("variants", index, updated);
                         }}
                       />
                       <input
                         type="url"
-                        placeholder="Image URL (optional)"
+                        placeholder="Image URL for this variant"
                         className="product-form-input flex-1"
                         value={variant?.image || ""}
                         onChange={(e) => {
                           const current = form.variants[index];
                           const updated = typeof current === "string"
-                            ? { label: current, image: e.target.value }
+                            ? { name: current, image: e.target.value }
                             : { ...current, image: e.target.value };
                           updateArr("variants", index, updated);
                         }}
@@ -1118,74 +1020,59 @@ export default function ProductNew() {
 
           <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">SEO</h2>
-              <p className="text-sm text-[var(--text-muted)]">Meta information for search engines.</p>
-            </header>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_title">
-                  Meta Title
-                </label>
-                <input
-                  id="meta_title"
-                  type="text"
-                  className="product-form-input"
-                  value={form.meta_title}
-                  onChange={(event) => update("meta_title", event.target.value)}
-                  placeholder="Base 44 | Nail Strengthener"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_description">
-                  Meta Description
-                </label>
-                <textarea
-                  id="meta_description"
-                  className={textareaClass(false)}
-                  rows={3}
-                  value={form.meta_description}
-                  onChange={(event) => update("meta_description", event.target.value)}
-                  placeholder="Boost your nails with Base 44's restorative strengthener."
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Display Settings</h2>
-              <p className="text-sm text-[var(--text-muted)]">Control visibility across storefront experiences.</p>
-            </header>
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-3 text-sm font-medium text-[var(--text)]" htmlFor="is_active">
-                <input
-                  id="is_active"
-                  type="checkbox"
-                  checked={form.is_active}
-                  onChange={(event) => update("is_active", event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--card)]"
-                />
-                Active
-              </label>
-              <label className="flex items-center gap-3 text-sm font-medium text-[var(--text)]" htmlFor="is_featured">
-                <input
-                  id="is_featured"
-                  type="checkbox"
-                  checked={form.is_featured}
-                  onChange={(event) => update("is_featured", event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--card)]"
-                />
-                Featured product
-              </label>
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Related Products</h2>
-              <p className="text-sm text-[var(--text-muted)]">Surface complementary products by ID or slug.</p>
+              <p className="text-sm text-[var(--text-muted)]">Select products to recommend (up to 3).</p>
             </header>
-            {renderArrayField("related", "Related Product IDs or Slugs", "product-slug", "Add related product")}
+            <div className="space-y-2">
+              {form.related.map((productId, index) => (
+                <div key={index} className="flex gap-2">
+                  <select
+                    value={productId}
+                    onChange={(e) => {
+                      const updated = [...form.related];
+                      updated[index] = e.target.value;
+                      setForm(prev => ({ ...prev, related: updated }));
+                    }}
+                    className="product-form-select flex-1"
+                  >
+                    <option value="">Select product...</option>
+                    {allProducts
+                      .filter(p => !form.related.includes(p.id) || p.id === productId)
+                      .map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))
+                    }
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(prev => ({
+                        ...prev,
+                        related: prev.related.filter((_, i) => i !== index)
+                      }));
+                    }}
+                    className="product-btn-secondary"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+
+              {form.related.length < 3 && (
+                <button
+                  type="button"
+                  onClick={() => setForm(prev => ({
+                    ...prev,
+                    related: [...prev.related, '']
+                  }))}
+                  className="product-btn-add"
+                >
+                  + Add Related Product
+                </button>
+              )}
+            </div>
           </section>
 
           {serverError ? (
