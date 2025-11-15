@@ -87,6 +87,26 @@ export default function ProductEdit() {
     return data.secure_url;
   };
 
+  const handleVariantImageUpload = async (index, file) => {
+    if (!file) return;
+
+    try {
+      showToast('info', 'Uploading variant image...');
+      const url = await uploadToCloudinary(file);
+
+      const current = form.variants[index];
+      const updated = typeof current === "string"
+        ? { label: current, image: url }
+        : { ...current, image: url };
+
+      updateArr("variants", index, updated);
+      showToast('success', 'Variant image uploaded');
+    } catch (error) {
+      showToast('error', 'Image upload failed');
+      console.error('Variant image upload error:', error);
+    }
+  };
+
   // Load product from database
   useEffect(() => {
     console.log('ProductEdit mounted, ID:', id);
@@ -682,6 +702,46 @@ export default function ProductEdit() {
         .product-required {
           color: #ef4444;
         }
+        /* Variant Styles */
+        .variant-row {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+          padding: 1rem;
+          background: var(--bg);
+          border-radius: 12px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+        .variant-image-upload {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+          flex-shrink: 0;
+        }
+        .upload-btn {
+          padding: 8px 14px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow: 2px 2px 4px var(--shadow-dark);
+          transition: transform 0.2s;
+        }
+        .upload-btn:hover {
+          transform: translateY(-1px);
+        }
+        .variant-thumbnail {
+          width: 50px;
+          height: 50px;
+          object-fit: cover;
+          border-radius: 8px;
+          border: 2px solid var(--border);
+          box-shadow: 2px 2px 4px var(--shadow-dark);
+        }
         /* Utility Classes */
         .space-y-1 > * + * { margin-top: 0.25rem; }
         .space-y-2 > * + * { margin-top: 0.5rem; }
@@ -1082,13 +1142,15 @@ export default function ProductEdit() {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-[var(--text)]">Variants</label>
-                <div className="space-y-2">
+                <small className="text-xs text-[var(--text-muted)] block mb-2">e.g., different sizes or colors with unique images</small>
+                <div className="space-y-3">
                   {ensureList(form.variants).map((variant, index) => (
-                    <div key={`variant-${index}`} className="flex gap-2">
+                    <div key={`variant-${index}`} className="variant-row">
                       <input
                         type="text"
-                        placeholder="Variant name (e.g. 100ml)"
-                        className="product-form-input flex-1"
+                        placeholder="Variant name (e.g. 250ml, Pink)"
+                        className="product-form-input"
+                        style={{ flex: 2 }}
                         value={variant?.label || variant}
                         onChange={(e) => {
                           const current = form.variants[index];
@@ -1098,19 +1160,28 @@ export default function ProductEdit() {
                           updateArr("variants", index, updated);
                         }}
                       />
-                      <input
-                        type="url"
-                        placeholder="Image URL (optional)"
-                        className="product-form-input flex-1"
-                        value={variant?.image || ""}
-                        onChange={(e) => {
-                          const current = form.variants[index];
-                          const updated = typeof current === "string"
-                            ? { label: current, image: e.target.value }
-                            : { ...current, image: e.target.value };
-                          updateArr("variants", index, updated);
-                        }}
-                      />
+                      <div className="variant-image-upload">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id={`edit-variant-${index}`}
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleVariantImageUpload(index, file);
+                          }}
+                        />
+                        <label htmlFor={`edit-variant-${index}`} className="upload-btn">
+                          {variant?.image ? '📷 Change' : '📷 Upload'}
+                        </label>
+                        {variant?.image && (
+                          <img
+                            src={variant.image}
+                            alt={variant?.label || 'Variant'}
+                            className="variant-thumbnail"
+                          />
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeRow("variants", index)}
