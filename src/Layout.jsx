@@ -34,7 +34,8 @@ import {
   Moon,
   Bell, // Added
   Search, // Added
-  User // Added
+  User, // Added
+  Menu // Added for mobile hamburger menu
 } from "lucide-react";
 
 // Initialize DataAPI with Supabase adapter, fallback to mock
@@ -94,7 +95,7 @@ const navigationGroups = [
   }
 ];
 
-function NavGroup({ group, currentPath, isCollapsed }) {
+function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
   const [isOpen, setIsOpen] = useState(true);
   const hasActive = group.items.some(item => currentPath.includes(item.url.toLowerCase()));
 
@@ -118,6 +119,7 @@ function NavGroup({ group, currentPath, isCollapsed }) {
               key={item.url}
               to={item.url === "Orders" ? "/orders" : item.url === "finance" ? "/finance" : createPageUrl(item.url)}
               className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
+              onClick={onNavClick}
             >
               <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
               {!isCollapsed && <span>{item.name}</span>}
@@ -201,7 +203,7 @@ export default function Layout({ children, currentPageName }) {
           top: 0;
           bottom: 0;
           z-index: 100;
-          transition: width 0.3s ease;
+          transition: width 0.3s ease, transform 0.3s ease;
         }
 
         .sidebar-header {
@@ -341,8 +343,10 @@ export default function Layout({ children, currentPageName }) {
         }
 
         .menu-button {
-          width: 40px;
-          height: 40px;
+          min-width: 44px;
+          min-height: 44px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
           background: var(--bg);
           border: none;
@@ -352,6 +356,7 @@ export default function Layout({ children, currentPageName }) {
           align-items: center;
           justify-content: center;
           box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          flex-shrink: 0;
         }
 
         .menu-button:active {
@@ -362,6 +367,9 @@ export default function Layout({ children, currentPageName }) {
           font-size: 24px;
           font-weight: 700;
           color: var(--text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .topbar-actions {
@@ -371,8 +379,10 @@ export default function Layout({ children, currentPageName }) {
         }
 
         .theme-toggle {
-          width: 40px;
-          height: 40px;
+          min-width: 44px;
+          min-height: 44px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
           background: var(--bg);
           border: none;
@@ -382,6 +392,7 @@ export default function Layout({ children, currentPageName }) {
           align-items: center;
           justify-content: center;
           box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          flex-shrink: 0;
         }
 
         .theme-toggle:active {
@@ -397,19 +408,41 @@ export default function Layout({ children, currentPageName }) {
         @media (max-width: 768px) {
           .sidebar {
             transform: translateX(${mobileOpen ? '0' : '-100%'});
-            width: 240px;
+            width: 280px;
+            z-index: 150;
+            box-shadow: ${mobileOpen ? '8px 0 24px rgba(0, 0, 0, 0.3)' : 'none'};
           }
-          
+
           .main-content {
             margin-left: 0;
           }
 
           .topbar {
-            padding: 0 16px;
+            padding: 0 12px;
+            height: 64px;
+          }
+
+          .topbar-left {
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+          }
+
+          .breadcrumb {
+            font-size: 18px;
           }
 
           .content-area {
             padding: 16px;
+          }
+
+          .nav-item {
+            min-height: 48px;
+            padding: 12px 16px;
+          }
+
+          .nav-group-header {
+            min-height: 44px;
           }
         }
 
@@ -422,8 +455,9 @@ export default function Layout({ children, currentPageName }) {
             display: ${mobileOpen ? 'block' : 'none'};
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 90;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 140;
+            backdrop-filter: blur(2px);
           }
         }
       `}</style>
@@ -446,6 +480,7 @@ export default function Layout({ children, currentPageName }) {
                 group={group}
                 currentPath={location.pathname}
                 isCollapsed={sidebarCollapsed}
+                onNavClick={() => setMobileOpen(false)}
               />
             ))}
           </div>
@@ -456,9 +491,16 @@ export default function Layout({ children, currentPageName }) {
         <div className="main-content">
           <header className="topbar">
             <div className="topbar-left">
+              {/* Mobile menu button - VISIBLE on mobile, HIDDEN on desktop */}
+              <button className="menu-button md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
+                {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+
+              {/* Desktop collapse button - HIDDEN on mobile, VISIBLE on desktop */}
               <button className="menu-button hidden md:flex" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
                 {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <X className="w-5 h-5" />}
               </button>
+
               <h1 className="breadcrumb">
                 {currentPageName || (location.pathname === '/' ? 'Dashboard' : location.pathname.split('/').pop() || 'Dashboard')}
                 {(currentPageName === 'Dashboard' || location.pathname === '/') && (
@@ -468,7 +510,7 @@ export default function Layout({ children, currentPageName }) {
                 )}
               </h1>
             </div>
-            
+
             <div className="topbar-actions">
               <button className="theme-toggle" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
