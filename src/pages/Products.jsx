@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, Search } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
+import { supabase } from "@/components/supabaseClient";
 
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,25 +22,31 @@ export default function Products() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      // For mock adapter, we'll just remove from array
-      const all = await api.listProducts();
-      // This is a workaround - in real impl we'd have deleteProduct method
-      throw new Error('Delete not implemented yet');
+      // Archive product instead of deleting (preserves order history)
+      const { error } = await supabase
+        .from('products')
+        .update({
+          is_active: false,
+          status: 'archived'
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      showToast('success', 'Product deleted successfully');
+      showToast('success', 'Product archived successfully');
     },
     onError: (error) => {
-      showToast('error', error.message || 'Failed to delete product');
+      showToast('error', error.message || 'Failed to archive product');
     },
   });
 
-  // The handleDelete function is removed because the Trash2 button was removed from the JSX as per the outline.
-  // const handleDelete = (id, name) => {
-  //   if (!confirm(`Delete "${name}"?`)) return;
-  //   deleteMutation.mutate(id);
-  // };
+  const handleDelete = (id, name) => {
+    if (!confirm(`Archive "${name}"? It will be hidden from the website and admin.`)) return;
+    deleteMutation.mutate(id);
+  };
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -204,6 +211,11 @@ export default function Products() {
           color: #10b981;
         }
 
+        .status-published {
+          background: #10b98120;
+          color: #10b981;
+        }
+
         .status-draft {
           background: #f59e0b20;
           color: #f59e0b;
@@ -354,6 +366,7 @@ export default function Products() {
           >
             <option value="all">All Status</option>
             <option value="draft">Draft</option>
+            <option value="published">Published</option>
             <option value="active">Active</option>
             <option value="archived">Archived</option>
           </select>
@@ -424,13 +437,13 @@ export default function Products() {
                             <Edit2 className="w-4 h-4" />
                           </button>
                         </Link>
-                        {/* The Trash2 button and its handleDelete call are intentionally removed as per the outline. */}
-                        {/* <button
+                        <button
                           className="btn-icon btn-icon-danger"
                           onClick={() => handleDelete(product.id, product.name)}
+                          disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button> */}
+                        </button>
                       </div>
                     </td>
                   </tr>
