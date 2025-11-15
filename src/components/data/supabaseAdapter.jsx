@@ -34,6 +34,7 @@ export function createSupabaseAdapter() {
         const { data, error } = await supabase
           .from('products')
           .select('*')
+          .eq('is_active', true)  // Only fetch active products
           .order('updated_at', { ascending: false });
         return ensureArray(data, error);
       } catch (err) {
