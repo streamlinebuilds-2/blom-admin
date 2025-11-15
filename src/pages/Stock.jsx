@@ -163,38 +163,69 @@ export default function Stock() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        @media (min-width: 768px) {
+          .stock-header {
+            margin-bottom: 32px;
+          }
         }
 
         .header-title {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--text);
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+        }
+
+        @media (min-width: 768px) {
+          .header-title {
+            font-size: 28px;
+            gap: 12px;
+          }
         }
 
         .tabs {
           display: flex;
-          gap: 8px;
-          margin-bottom: 24px;
+          gap: 6px;
+          margin-bottom: 16px;
           background: var(--card);
           padding: 6px;
           border-radius: 12px;
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          flex-wrap: wrap;
+        }
+
+        @media (min-width: 768px) {
+          .tabs {
+            gap: 8px;
+            margin-bottom: 24px;
+          }
         }
 
         .tab {
-          padding: 10px 20px;
+          padding: 8px 14px;
           border-radius: 8px;
           border: none;
           background: transparent;
           color: var(--text-muted);
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
+          min-height: 44px;
+        }
+
+        @media (min-width: 768px) {
+          .tab {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
         }
 
         .tab:hover {
@@ -215,27 +246,49 @@ export default function Stock() {
           overflow: hidden;
         }
 
+        .table-scroll-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 600px;
         }
 
         th {
           text-align: left;
-          padding: 16px 24px;
-          font-size: 12px;
+          padding: 12px 16px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           background: var(--card);
           border-bottom: 2px solid var(--border);
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 16px 24px;
+            font-size: 12px;
+          }
         }
 
         td {
-          padding: 16px 24px;
+          padding: 12px 16px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
+          font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+          td {
+            padding: 16px 24px;
+            font-size: 14px;
+          }
         }
 
         tr:last-child td {
@@ -330,23 +383,51 @@ export default function Stock() {
         .modal-content {
           background: var(--card);
           border-radius: 16px;
-          padding: 32px;
+          padding: 24px;
           max-width: 500px;
-          width: 90%;
+          width: 95%;
           box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+
+        @media (min-width: 768px) {
+          .modal-content {
+            padding: 32px;
+            width: 90%;
+          }
         }
 
         .modal-title {
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 700;
           color: var(--text);
           margin-bottom: 8px;
+        }
+
+        @media (min-width: 768px) {
+          .modal-title {
+            font-size: 20px;
+          }
         }
 
         .modal-subtitle {
           font-size: 14px;
           color: var(--text-muted);
           margin-bottom: 24px;
+        }
+
+        .restock-form-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .restock-form-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+          }
         }
 
         .form-group {
@@ -477,17 +558,18 @@ export default function Stock() {
 
       {activeTab === 'overview' && (
         <div className="stock-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Status</th>
-                <th>On Hand</th>
-                <th>Available</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <div className="table-scroll-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Status</th>
+                  <th>On Hand</th>
+                  <th>Available</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
               {loading ? (
                 <tr>
                   <td colSpan="5" className="empty-state">Loading inventory...</td>
@@ -522,23 +604,25 @@ export default function Stock() {
                   </tr>
                 ))
               )}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {activeTab === 'movements' && (
         <div className="stock-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Delta</th>
-                <th>Reason</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
+          <div className="table-scroll-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Delta</th>
+                  <th>Reason</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
               {loading ? (
                 <tr>
                   <td colSpan="4" className="empty-state">Loading movements...</td>
@@ -566,15 +650,16 @@ export default function Stock() {
                   </tr>
                 ))
               )}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {activeTab === 'restock' && (
-        <div className="stock-table" style={{ padding: '24px' }}>
+        <div className="stock-table" style={{ padding: '16px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px' }}>Create Restock Order</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+          <div className="restock-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '24px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Supplier</label>
               <input className="form-input" value={supplier} onChange={e=>setSupplier(e.target.value)} placeholder="Supplier name" />

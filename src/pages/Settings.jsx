@@ -39,38 +39,67 @@ export default function Settings() {
     <>
       <style>{`
         .settings-header {
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+        }
+
+        @media (min-width: 768px) {
+          .settings-header {
+            margin-bottom: 32px;
+          }
         }
 
         .header-title {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--text);
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+        }
+
+        @media (min-width: 768px) {
+          .header-title {
+            font-size: 28px;
+            gap: 12px;
+          }
         }
 
         .tabs {
           display: flex;
-          gap: 8px;
-          margin-bottom: 24px;
+          gap: 6px;
+          margin-bottom: 16px;
           background: var(--card);
           padding: 6px;
           border-radius: 12px;
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          flex-wrap: wrap;
+        }
+
+        @media (min-width: 768px) {
+          .tabs {
+            gap: 8px;
+            margin-bottom: 24px;
+          }
         }
 
         .tab {
-          padding: 10px 20px;
+          padding: 8px 14px;
           border-radius: 8px;
           border: none;
           background: transparent;
           color: var(--text-muted);
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
+          min-height: 44px;
+        }
+
+        @media (min-width: 768px) {
+          .tab {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
         }
 
         .tab.active {
@@ -94,25 +123,47 @@ export default function Settings() {
           overflow: hidden;
         }
 
+        .table-scroll-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 500px;
         }
 
         th {
           text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
+          padding: 16px 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
           border-bottom: 2px solid var(--border);
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 20px 24px;
+            font-size: 12px;
+          }
         }
 
         td {
-          padding: 20px 24px;
+          padding: 16px 12px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
+          font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+          td {
+            padding: 20px 24px;
+            font-size: 14px;
+          }
         }
 
         tr:last-child td {

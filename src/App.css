@@ -1,0 +1,375 @@
+/* Mobile-first responsive base styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Base reset for better mobile experience */
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Containers - responsive padding */
+.page-container,
+.content-area {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .page-container,
+  .content-area {
+    padding: 2rem;
+  }
+}
+
+/* Tables - horizontal scroll on mobile */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+}
+
+@media (min-width: 768px) {
+  .table-wrapper {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  table {
+    min-width: 600px; /* Allow horizontal scroll */
+  }
+
+  th, td {
+    padding: 12px 8px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Cards - full width on mobile */
+.card,
+.order-card,
+.product-card,
+.stat-card {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* Buttons - larger tap targets */
+button, .btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 768px) {
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-group button,
+  .btn-group .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Table action buttons should stack on mobile */
+  .table-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .table-actions button {
+    width: 100%;
+  }
+}
+
+/* Form inputs - prevent iOS zoom */
+input, select, textarea {
+  font-size: 16px !important; /* Prevent iOS zoom */
+}
+
+@media (min-width: 768px) {
+  input, select, textarea {
+    font-size: 14px !important;
+  }
+}
+
+/* Headers - responsive sizing */
+h1 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+h3 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+@media (min-width: 768px) {
+  h1 { font-size: 32px; }
+  h2 { font-size: 24px; }
+  h3 { font-size: 20px; }
+}
+
+/* Hide/show elements based on screen size */
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: block !important;
+  }
+}
+
+/* Responsive grid utilities */
+.responsive-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Stats grid specific */
+.stats-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Quick links grid */
+.quick-links-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .quick-links-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .quick-links-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Fullscreen preview styles */
+.preview-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  z-index: 9999;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+.preview-fullscreen .close-fullscreen {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  padding: 0.75rem 1.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  min-height: 44px;
+}
+
+.preview-fullscreen .mobile-preview {
+  max-width: 375px;
+  margin: 0 auto;
+  border: 2px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.preview-fullscreen .desktop-preview {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .preview-fullscreen {
+    padding: 1rem;
+  }
+
+  .preview-fullscreen .close-fullscreen {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 14px;
+  }
+}
+
+/* Hide sticky cart in previews */
+.preview-container .sticky-cart-bar,
+.preview-fullscreen .sticky-cart-bar {
+  display: none !important;
+}
+
+/* Responsive form layouts */
+@media (max-width: 768px) {
+  .form-row,
+  .grid.md\\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .product-form-section {
+    padding: 1rem !important;
+    margin-bottom: 1rem;
+  }
+
+  .topbar {
+    padding: 1rem !important;
+  }
+}
+
+/* Drawer responsive */
+@media (max-width: 768px) {
+  .drawer {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .drawer-content {
+    padding: 1rem;
+  }
+}
+
+/* Spin animation for loading */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Touch-friendly spacing */
+@media (max-width: 768px) {
+  .space-y-2 > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .space-y-4 > * + * {
+    margin-top: 1.25rem;
+  }
+}
+
+/* Responsive utility classes */
+.flex-col-mobile {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .flex-col-mobile {
+    flex-direction: column;
+  }
+
+  .flex-col-mobile > * {
+    width: 100%;
+  }
+}
+
+/* Better touch targets for links */
+@media (max-width: 768px) {
+  .nav-item,
+  .quick-link {
+    min-height: 48px;
+  }
+
+  a, button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Prevent text overflow on mobile */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsive images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mobile-friendly scrollbar */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+  }
+}

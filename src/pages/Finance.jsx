@@ -33,81 +33,171 @@ export default function Finance(){
   }
 
   return (
-    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
-      <h1 className="text-xl font-semibold">Finance</h1>
+    <>
+      <style>{`
+        .finance-container {
+          padding: 1rem;
+          color: var(--text);
+        }
 
-      {/* Daily Metrics */}
-      <div style={{
-        border: '1px solid var(--card)',
-        borderRadius: '8px',
-        padding: '16px',
-        background: 'var(--card)'
-      }}>
-        <div className="flex items-center gap-4 mb-4">
-          <h2 className="font-semibold">Daily Metrics</h2>
-          <input
-            type="date"
-            style={{
-              border: '1px solid var(--card)',
-              background: 'var(--bg)',
-              color: 'var(--text)',
-              padding: '8px 12px',
-              borderRadius: '6px'
-            }}
-            value={occurredOn}
-            onChange={e=>setOccurredOn(e.target.value)}
-          />
-        </div>
-        {metrics && (
-          <div className="grid grid-cols-3 gap-4">
-            <div style={{
-              padding: '16px',
-              background: '#d1fae5',
-              borderRadius: '6px'
-            }}>
-              <div className="text-sm" style={{ color: '#065f46' }}>Revenue</div>
-              <div className="text-2xl font-bold" style={{ color: '#16a34a' }}>R{metrics.revenue?.toFixed(2) || "0.00"}</div>
-            </div>
-            <div style={{
-              padding: '16px',
-              background: '#fee2e2',
-              borderRadius: '6px'
-            }}>
-              <div className="text-sm" style={{ color: '#991b1b' }}>Expenses</div>
-              <div className="text-2xl font-bold" style={{ color: '#dc2626' }}>R{metrics.expenses?.toFixed(2) || "0.00"}</div>
-            </div>
-            <div style={{
-              padding: '16px',
-              background: '#dbeafe',
-              borderRadius: '6px'
-            }}>
-              <div className="text-sm" style={{ color: '#1e40af' }}>Profit</div>
-              <div className="text-2xl font-bold" style={{ color: '#2563eb' }}>R{metrics.profit?.toFixed(2) || "0.00"}</div>
-            </div>
+        @media (min-width: 768px) {
+          .finance-container {
+            padding: 1.5rem;
+          }
+        }
+
+        .finance-title {
+          font-size: 20px;
+          font-weight: 600;
+          margin-bottom: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+          .finance-title {
+            font-size: 24px;
+          }
+        }
+
+        .finance-card {
+          border: 1px solid var(--card);
+          border-radius: 12px;
+          padding: 16px;
+          background: var(--card);
+          margin-bottom: 1.5rem;
+        }
+
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .metrics-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+          }
+        }
+
+        .metric-card {
+          padding: 16px;
+          border-radius: 8px;
+        }
+
+        .metric-value {
+          font-size: 20px;
+          font-weight: 700;
+          word-break: break-word;
+        }
+
+        @media (min-width: 768px) {
+          .metric-value {
+            font-size: 24px;
+          }
+        }
+
+        .cost-form-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .cost-form-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+        }
+
+        .cost-form-grid .full-width {
+          grid-column: 1 / -1;
+        }
+
+        .finance-input {
+          width: 100%;
+          border: 1px solid var(--card);
+          background: var(--bg);
+          color: var(--text);
+          padding: 10px 12px;
+          border-radius: 6px;
+          font-size: 16px;
+          min-height: 44px;
+        }
+
+        .finance-btn {
+          padding: 10px 16px;
+          border-radius: 6px;
+          border: none;
+          background: var(--accent);
+          color: white;
+          font-weight: 600;
+          cursor: pointer;
+          min-height: 44px;
+          width: 100%;
+        }
+
+        @media (min-width: 640px) {
+          .finance-btn {
+            width: auto;
+          }
+        }
+
+        .date-header {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+
+        @media (min-width: 640px) {
+          .date-header {
+            flex-direction: row;
+            align-items: center;
+          }
+        }
+      `}</style>
+
+      <div className="finance-container">
+        <h1 className="finance-title">Finance</h1>
+
+        {/* Daily Metrics */}
+        <div className="finance-card">
+          <div className="date-header">
+            <h2 className="font-semibold">Daily Metrics</h2>
+            <input
+              type="date"
+              className="finance-input"
+              style={{ maxWidth: '200px' }}
+              value={occurredOn}
+              onChange={e=>setOccurredOn(e.target.value)}
+            />
           </div>
-        )}
-      </div>
+          {metrics && (
+            <div className="metrics-grid">
+              <div className="metric-card" style={{ background: '#d1fae5' }}>
+                <div className="text-sm" style={{ color: '#065f46' }}>Revenue</div>
+                <div className="metric-value" style={{ color: '#16a34a' }}>R{metrics.revenue?.toFixed(2) || "0.00"}</div>
+              </div>
+              <div className="metric-card" style={{ background: '#fee2e2' }}>
+                <div className="text-sm" style={{ color: '#991b1b' }}>Expenses</div>
+                <div className="metric-value" style={{ color: '#dc2626' }}>R{metrics.expenses?.toFixed(2) || "0.00"}</div>
+              </div>
+              <div className="metric-card" style={{ background: '#dbeafe' }}>
+                <div className="text-sm" style={{ color: '#1e40af' }}>Profit</div>
+                <div className="metric-value" style={{ color: '#2563eb' }}>R{metrics.profit?.toFixed(2) || "0.00"}</div>
+              </div>
+            </div>
+          )}
+        </div>
 
       {/* Operating Cost Form */}
-      <div style={{
-        border: '1px solid var(--card)',
-        borderRadius: '8px',
-        padding: '16px',
-        background: 'var(--card)'
-      }} className="space-y-4">
-        <h2 className="font-semibold">Add Operating Cost</h2>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="finance-card">
+        <h2 className="font-semibold mb-4">Add Operating Cost</h2>
+        <div className="cost-form-grid">
           <div>
             <label className="block text-sm mb-1">Category</label>
             <input
-              style={{
-                width: '100%',
-                border: '1px solid var(--card)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                padding: '8px 12px',
-                borderRadius: '6px'
-              }}
+              className="finance-input"
               value={category}
               onChange={e=>setCategory(e.target.value)}
               placeholder="e.g. Marketing, Rent, Utilities"
@@ -118,50 +208,30 @@ export default function Finance(){
             <input
               type="number"
               step="0.01"
-              style={{
-                width: '100%',
-                border: '1px solid var(--card)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                padding: '8px 12px',
-                borderRadius: '6px'
-              }}
+              className="finance-input"
               value={amount}
               onChange={e=>setAmount(e.target.value)}
             />
           </div>
-          <div className="col-span-2">
+          <div className="full-width">
             <label className="block text-sm mb-1">Description</label>
             <input
-              style={{
-                width: '100%',
-                border: '1px solid var(--card)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                padding: '8px 12px',
-                borderRadius: '6px'
-              }}
+              className="finance-input"
               value={description}
               onChange={e=>setDescription(e.target.value)}
             />
           </div>
         </div>
-        <div>
+        <div style={{ marginTop: '16px' }}>
           <button
-            style={{
-              padding: '8px 16px',
-              background: 'var(--accent)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
+            className="finance-btn"
             onClick={submitCost}
           >
             Add Cost
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

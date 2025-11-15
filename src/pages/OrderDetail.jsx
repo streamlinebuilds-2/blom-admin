@@ -156,8 +156,16 @@ export default function OrderDetail() {
         .order-detail-header {
           display: flex;
           align-items: center;
-          gap: 16px;
-          margin-bottom: 32px;
+          gap: 12px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+        }
+
+        @media (min-width: 768px) {
+          .order-detail-header {
+            gap: 16px;
+            margin-bottom: 32px;
+          }
         }
 
         .btn-back {
@@ -172,56 +180,115 @@ export default function OrderDetail() {
           align-items: center;
           justify-content: center;
           box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          flex-shrink: 0;
         }
 
         .order-title {
-          font-size: 28px;
+          font-size: 20px;
           font-weight: 700;
           color: var(--text);
           flex: 1;
+          word-break: break-word;
+        }
+
+        @media (min-width: 768px) {
+          .order-title {
+            font-size: 28px;
+          }
         }
 
         .order-grid {
           display: grid;
-          gap: 24px;
+          gap: 16px;
+        }
+
+        @media (min-width: 768px) {
+          .order-grid {
+            gap: 24px;
+          }
         }
 
         .order-card {
           background: var(--card);
           border-radius: 16px;
-          padding: 24px;
+          padding: 16px;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
         }
 
+        @media (min-width: 768px) {
+          .order-card {
+            padding: 24px;
+          }
+        }
+
         .card-title {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 700;
           color: var(--text);
-          margin-bottom: 20px;
+          margin-bottom: 16px;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
+        }
+
+        @media (min-width: 768px) {
+          .card-title {
+            font-size: 18px;
+            margin-bottom: 20px;
+            gap: 10px;
+          }
+        }
+
+        .table-scroll-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          margin: 0 -16px;
+          padding: 0 16px;
+        }
+
+        @media (min-width: 768px) {
+          .table-scroll-wrapper {
+            margin: 0;
+            padding: 0;
+          }
         }
 
         .items-table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 400px;
         }
 
         .items-table th {
           text-align: left;
-          padding: 12px;
-          font-size: 12px;
+          padding: 10px 8px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
           border-bottom: 2px solid var(--border);
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          .items-table th {
+            padding: 12px;
+            font-size: 12px;
+          }
         }
 
         .items-table td {
-          padding: 16px 12px;
+          padding: 12px 8px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
+          font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+          .items-table td {
+            padding: 16px 12px;
+            font-size: 14px;
+          }
         }
 
         .items-table tr:last-child td {
@@ -314,7 +381,17 @@ export default function OrderDetail() {
           display: flex;
           justify-content: space-between;
           position: relative;
-          margin: 30px 0;
+          margin: 20px 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          padding: 10px 0;
+        }
+
+        @media (min-width: 768px) {
+          .timeline {
+            margin: 30px 0;
+            overflow-x: visible;
+          }
         }
 
         .timeline-step {
@@ -323,20 +400,30 @@ export default function OrderDetail() {
           align-items: center;
           flex: 1;
           position: relative;
+          min-width: 80px;
         }
 
         .timeline-dot {
-          width: 40px;
-          height: 40px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           background: var(--card);
           border: 3px solid var(--border);
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
           z-index: 2;
           box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .timeline-dot {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 10px;
+          }
         }
 
         .timeline-dot.completed {
@@ -346,9 +433,17 @@ export default function OrderDetail() {
         }
 
         .timeline-label {
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 600;
           color: var(--text-muted);
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          .timeline-label {
+            font-size: 13px;
+          }
         }
 
         .timeline-label.completed {
@@ -357,12 +452,18 @@ export default function OrderDetail() {
 
         .timeline-line {
           position: absolute;
-          top: 20px;
+          top: 16px;
           left: 0;
           right: 0;
           height: 3px;
           background: var(--border);
           z-index: 1;
+        }
+
+        @media (min-width: 768px) {
+          .timeline-line {
+            top: 20px;
+          }
         }
 
         .btn-action {
@@ -493,34 +594,36 @@ export default function OrderDetail() {
             <Package className="w-5 h-5" />
             Order Items
           </h2>
-          <table className="items-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orderItems.length === 0 ? (
+          <div className="table-scroll-wrapper">
+            <table className="items-table">
+              <thead>
                 <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    No items found
-                  </td>
+                  <th>Product</th>
+                  <th>Quantity</th>
+                  <th>Price</th>
+                  <th>Total</th>
                 </tr>
-              ) : (
-                orderItems.map(item => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 600 }}>{item.product_name}</td>
-                    <td>{item.quantity}</td>
-                    <td>{moneyZAR(item.price)}</td>
-                    <td style={{ fontWeight: 700 }}>{moneyZAR(item.total)}</td>
+              </thead>
+              <tbody>
+                {orderItems.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                      No items found
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  orderItems.map(item => (
+                    <tr key={item.id}>
+                      <td style={{ fontWeight: 600 }}>{item.product_name}</td>
+                      <td>{item.quantity}</td>
+                      <td>{moneyZAR(item.price)}</td>
+                      <td style={{ fontWeight: 700 }}>{moneyZAR(item.total)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
           <div className="totals-table">
             <div className="total-row">
