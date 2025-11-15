@@ -151,8 +151,61 @@ button:focus-visible {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
+
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+  }
+
+  /* Mobile-first: Prevent horizontal scrolling */
+  html {
+    overflow-x: hidden;
+  }
+
+  /* Responsive images */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Form inputs - 16px minimum to prevent iOS zoom */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* Minimum touch targets for mobile - 44x44px */
+  button,
+  a,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Responsive tables */
+  @media (max-width: 768px) {
+    table {
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  /* Better text scaling on mobile */
+  @media (max-width: 640px) {
+    h1 {
+      font-size: 1.75rem;
+    }
+    h2 {
+      font-size: 1.5rem;
+    }
+    h3 {
+      font-size: 1.25rem;
+    }
   }
 }

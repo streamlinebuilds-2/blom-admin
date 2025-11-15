@@ -74,6 +74,7 @@ export default function Products() {
         .search-box {
           position: relative;
           width: 240px;
+          max-width: 100%;
         }
 
         .search-input {
@@ -219,8 +220,10 @@ export default function Products() {
         }
 
         .btn-icon {
-          width: 36px;
-          height: 36px;
+          min-width: 44px;
+          min-height: 44px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
           border: none;
           background: var(--card);
@@ -231,6 +234,7 @@ export default function Products() {
           justify-content: center;
           box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
           transition: all 0.2s ease;
+          flex-shrink: 0;
         }
 
         .btn-icon:hover {
@@ -272,6 +276,61 @@ export default function Products() {
           font-weight: 600;
           color: var(--text);
           margin-bottom: 8px;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+          .products-header {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .header-actions {
+            width: 100%;
+          }
+
+          .search-box {
+            width: 100%;
+          }
+
+          .filter-select {
+            flex: 1;
+          }
+
+          .btn-primary {
+            flex: 1;
+            justify-content: center;
+          }
+
+          /* Hide less important columns on mobile */
+          th:nth-child(4),
+          td:nth-child(4),
+          th:nth-child(5),
+          td:nth-child(5) {
+            display: none;
+          }
+
+          th,
+          td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
+
+          .products-title {
+            font-size: 24px;
+          }
+
+          .table-container {
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+
+        @media (max-width: 480px) {
+          /* On very small screens, also hide status column */
+          th:nth-child(2),
+          td:nth-child(2) {
+            display: none;
+          }
         }
       `}</style>
 
