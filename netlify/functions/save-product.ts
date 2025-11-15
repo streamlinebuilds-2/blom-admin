@@ -67,8 +67,8 @@ export const handler: Handler = async (event) => {
 
     const compareAt = body.compare_at_price == null ? null : Number(body.compare_at_price);
 
-    // Validate status - only allow 'draft', 'active', or 'archived'
-    const validStatuses = ['draft', 'active', 'archived'];
+    // Validate status - only allow 'draft', 'active', 'published', or 'archived'
+    const validStatuses = ['draft', 'active', 'published', 'archived'];
     const status = validStatuses.includes(body.status) ? body.status : 'active';
 
     // Map to table schema using clean column names
@@ -82,9 +82,11 @@ export const handler: Handler = async (event) => {
       category: body.category ?? null,
       status: status,
 
-      // Pricing (use clean columns)
+      // Pricing - save BOTH price and price_cents columns for compatibility
       price: price,
+      price_cents: Math.round(price * 100),
       compare_at_price: compareAt,
+      compare_at_price_cents: compareAt != null ? Math.round(compareAt * 100) : null,
 
       // Stock (use 'stock' as primary, sync others for compatibility)
       // DON'T set stock_available - it's computed from stock_on_hand - stock_reserved
@@ -115,10 +117,10 @@ export const handler: Handler = async (event) => {
       shelf_life: body.shelf_life ?? null,
       weight: body.weight ?? null,
 
-      // Meta
+      // Meta - sync is_active with status for consistency
       meta_title: body.meta_title ?? null,
       meta_description: body.meta_description ?? null,
-      is_active: body.is_active ?? true,
+      is_active: status === 'active' || status === 'published',
       is_featured: body.is_featured ?? false,
 
       // Timestamps
