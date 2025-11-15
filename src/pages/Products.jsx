@@ -416,8 +416,11 @@ export default function Products() {
                     <td>{dateShort(product.updated_at)}</td>
                     <td>
                       <div className="action-buttons">
-                        <Link to={createPageUrl(`ProductEdit?id=${product.id}`)}>
-                          <button className="btn-icon">
+                        <Link to={`/products/${product.id}`}>
+                          <button
+                            className="btn-icon"
+                            onClick={() => console.log('Navigating to edit:', product.id)}
+                          >
                             <Edit2 className="w-4 h-4" />
                           </button>
                         </Link>

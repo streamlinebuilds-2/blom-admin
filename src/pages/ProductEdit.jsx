@@ -89,13 +89,17 @@ export default function ProductEdit() {
 
   // Load product from database
   useEffect(() => {
+    console.log('ProductEdit mounted, ID:', id);
+
     async function loadProduct() {
       if (!id) {
+        console.error('No product ID provided');
         setLoading(false);
         navigate('/products');
         return;
       }
 
+      console.log('Loading product with ID:', id);
       try {
         const { data: product, error } = await supabase
           .from('products')
@@ -111,6 +115,7 @@ export default function ProductEdit() {
         }
 
         if (product) {
+          console.log('Product loaded successfully:', product);
           // Pre-fill form with ALL database values
           setForm({
             id: product.id,
