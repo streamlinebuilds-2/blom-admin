@@ -310,6 +310,7 @@ export default function Bundles() {
             <option value="all">All Status</option>
             <option value="draft">Draft</option>
             <option value="active">Active</option>
+            <option value="archived">Archived</option>
           </select>
           <Link to={createPageUrl("BundleNew")} className="btn-primary">
             <Plus className="w-5 h-5" />
