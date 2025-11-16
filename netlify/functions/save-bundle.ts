@@ -91,8 +91,6 @@ export const handler: Handler = async (event) => {
       ? parseFloat(payload.compare_at_price)
       : null;
 
-    const stock = parseInt(payload.stock || payload.inventory_quantity || '0') || 0;
-
     // Validate status
     const validStatuses = ['draft', 'active', 'published', 'archived'];
     const status = validStatuses.includes(payload.status) ? payload.status : 'active';
@@ -113,13 +111,6 @@ export const handler: Handler = async (event) => {
       compare_at_price_cents: compareAtPrice
         ? Math.round(compareAtPrice * 100)
         : null,
-
-      // Stock - sync all stock columns for compatibility
-      stock: stock,
-      stock_on_hand: stock,
-      stock_qty: stock,
-      stock_quantity: stock,
-      stock_reserved: 0,
 
       // Descriptions
       short_description: payload.short_description || null,

@@ -22,6 +22,97 @@ function parseFormUrlEncoded(body: string): Record<string, string> {
   return out;
 }
 
+/**
+ * Decrements stock for all items in an order.
+ * Handles regular products and unpacks bundles.
+ */
+async function updateStockForOrder(orderId: string, supabase: any) {
+  try {
+    console.log(`Updating stock for order: ${orderId}`);
+
+    // 1. Get all order items
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
+
+    if (itemsError) throw new Error(`Failed to fetch order_items: ${itemsError.message}`);
+    if (!orderItems || orderItems.length === 0) {
+      console.warn(`No order items found for order ${orderId}, skipping stock update.`);
+      return;
+    }
+
+    // 2. Get the product details for all items
+    const productIds = orderItems.map((item: any) => item.product_id);
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('id, product_type, bundle_products')
+      .in('id', productIds);
+
+    if (productsError) throw new Error(`Failed to fetch products: ${productsError.message}`);
+
+    const productMap = new Map(products.map((p: any) => [p.id, p]));
+
+    // 3. Loop through each order item and build a list of stock adjustments
+    const stockAdjustments = new Map<string, number>();
+
+    for (const item of orderItems) {
+      const product = productMap.get(item.product_id);
+      if (!product) {
+        console.warn(`Product ${item.product_id} not found, skipping stock.`);
+        continue;
+      }
+
+      const itemQuantity = parseInt(item.qty) || 0;
+
+      if (product.product_type === 'bundle' && product.bundle_products) {
+        // This is a bundle, unpack it
+        console.log(`Item ${item.name} is a bundle. Unpacking components.`);
+        for (const component of product.bundle_products) {
+          const componentProductId = component.product_id;
+          const componentQuantityInBundle = parseInt(component.quantity) || 0;
+
+          // Total to reduce = (component qty) * (number of bundles ordered)
+          const quantityToReduce = componentQuantityInBundle * itemQuantity;
+
+          if (quantityToReduce > 0) {
+            const current = stockAdjustments.get(componentProductId) || 0;
+            stockAdjustments.set(componentProductId, current + quantityToReduce);
+          }
+        }
+      } else {
+        // This is a regular product
+        console.log(`Item ${item.name} is a regular product.`);
+        const current = stockAdjustments.get(item.product_id) || 0;
+        stockAdjustments.set(item.product_id, current + itemQuantity);
+      }
+    }
+
+    console.log('Calculated stock adjustments:', Object.fromEntries(stockAdjustments));
+
+    // 4. Execute all stock adjustments by calling the RPC
+    for (const [product_id, quantity] of stockAdjustments.entries()) {
+      if (quantity > 0) {
+        console.log(`Adjusting stock for ${product_id} by -${quantity}`);
+        const { error: rpcError } = await supabase.rpc('adjust_stock', {
+          product_uuid: product_id,
+          quantity_to_reduce: quantity
+        });
+
+        if (rpcError) {
+          console.error(`Failed to adjust stock for ${product_id}:`, rpcError);
+        }
+      }
+    }
+
+    console.log(`Stock update complete for order: ${orderId}`);
+
+  } catch (error: any) {
+    console.error(`CRITICAL: Failed to update stock for order ${orderId}:`, error.message);
+    // Log error but don't throw - we don't want to fail the ITN response
+  }
+}
+
 // PayFast signature: md5 of querystring (sorted) + passphrase if set
 function computeSignature(fields: Record<string, string>): string {
   // Exclude 'signature' itself
@@ -81,7 +172,11 @@ export const handler: Handler = async (event) => {
     }
 
     console.log("apply_paid_order ok", rpc);
-    // 5) Always ACK PayFast quickly
+
+    // 5) Update stock for bundles and regular products
+    await updateStockForOrder(orderId, s);
+
+    // 6) Always ACK PayFast quickly
     return { statusCode: 200, body: "OK" };
   } catch (e: any) {
     console.error("ITN handler failed", e);
