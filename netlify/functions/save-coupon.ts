@@ -51,8 +51,8 @@ export const handler: Handler = async (event) => {
       // Usage
       max_uses: body.max_uses ? parseInt(body.max_uses) : 1,
 
-      // Dates (can be null)
-      valid_from: body.valid_from || null,
+      // Dates (valid_from defaults to now if not provided)
+      valid_from: body.valid_from || new Date().toISOString(),
       valid_until: body.valid_until || null,
 
       // Product exclusions (array of UUIDs)

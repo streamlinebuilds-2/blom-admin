@@ -23,6 +23,7 @@ export default function Specials() {
   // Coupon state
   const [isCouponFormOpen, setIsCouponFormOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [couponFilter, setCouponFilter] = useState('all'); // 'all', 'signup', 'created', 'active', 'inactive'
 
   // Special/Promotion form state
   const [formData, setFormData] = useState({
@@ -88,6 +89,29 @@ export default function Specials() {
   });
 
   const loading = productsFetching || bundlesFetching || specialsFetching;
+
+  // Helper to detect sign-up coupons (pattern: BLOM####-XXXXXX)
+  const isSignupCoupon = (code) => {
+    return /^BLOM\d{4}-[A-Z0-9]+$/i.test(code);
+  };
+
+  // Filtered coupons based on selected filter
+  const filteredCoupons = useMemo(() => {
+    if (!coupons || coupons.length === 0) return [];
+
+    switch (couponFilter) {
+      case 'signup':
+        return coupons.filter(c => isSignupCoupon(c.code));
+      case 'created':
+        return coupons.filter(c => !isSignupCoupon(c.code));
+      case 'active':
+        return coupons.filter(c => c.is_active);
+      case 'inactive':
+        return coupons.filter(c => !c.is_active);
+      default:
+        return coupons;
+    }
+  }, [coupons, couponFilter]);
 
   // Special/Promotion mutation
   const activateMutation = useMutation({
@@ -186,9 +210,47 @@ export default function Specials() {
   };
 
   const handleDeleteCoupon = async (couponId) => {
-    await supabase.from('coupons').update({ is_active: false }).eq('id', couponId);
-    queryClient.invalidateQueries({ queryKey: ['coupons'] });
-    showToast('success', 'Coupon deactivated');
+    if (!confirm('Are you sure you want to deactivate this coupon? This will make it unusable.')) {
+      return;
+    }
+    try {
+      const { error } = await supabase.from('coupons').update({ is_active: false }).eq('id', couponId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['coupons'] });
+      showToast('success', 'Coupon deactivated');
+    } catch (err) {
+      console.error('Error deactivating coupon:', err);
+      showToast('error', 'Failed to deactivate coupon: ' + err.message);
+    }
+  };
+
+  const [fixingSignupCoupons, setFixingSignupCoupons] = useState(false);
+
+  const handleFixSignupCoupons = async () => {
+    if (!confirm('This will update all sign-up coupons (BLOM####-XXXXXX pattern) to be 10% percentage discounts. Continue?')) {
+      return;
+    }
+
+    setFixingSignupCoupons(true);
+    try {
+      const response = await fetch('/.netlify/functions/fix-signup-coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fix coupons');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['coupons'] });
+      showToast('success', result.message);
+    } catch (err) {
+      console.error('Error fixing sign-up coupons:', err);
+      showToast('error', 'Failed to fix sign-up coupons: ' + err.message);
+    } finally {
+      setFixingSignupCoupons(false);
+    }
   };
 
   const selectedTargets = (Array.isArray(getTargets()) ? getTargets() : []).filter(t => formData.target_ids.includes(t?.id));
@@ -698,11 +760,41 @@ export default function Specials() {
       {/* COUPONS TAB */}
       {activeTab === 'coupons' && (
         <div>
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             <button className="btn-activate" onClick={handleAddNewCoupon}>
               <Plus className="w-5 h-5" />
               New Coupon
             </button>
+
+            {/* Filter Select */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>Filter:</label>
+              <select
+                className="form-select"
+                value={couponFilter}
+                onChange={(e) => setCouponFilter(e.target.value)}
+                style={{ width: 'auto', minWidth: '180px' }}
+              >
+                <option value="all">All Coupons ({coupons.length})</option>
+                <option value="signup">Sign-up Coupons ({coupons.filter(c => isSignupCoupon(c.code)).length})</option>
+                <option value="created">Created Coupons ({coupons.filter(c => !isSignupCoupon(c.code)).length})</option>
+                <option value="active">Active ({coupons.filter(c => c.is_active).length})</option>
+                <option value="inactive">Inactive ({coupons.filter(c => !c.is_active).length})</option>
+              </select>
+
+              {/* Fix Sign-up Coupons Button */}
+              {coupons.filter(c => isSignupCoupon(c.code) && (c.type !== 'percentage' || c.value !== 10)).length > 0 && (
+                <button
+                  className="btn-secondary"
+                  onClick={handleFixSignupCoupons}
+                  disabled={fixingSignupCoupons}
+                  style={{ padding: '10px 16px', fontSize: '14px' }}
+                  title="Fix sign-up coupons to be 10% discount"
+                >
+                  {fixingSignupCoupons ? 'Fixing...' : 'Fix Sign-up Coupons'}
+                </button>
+              )}
+            </div>
           </div>
 
           {isCouponFormOpen && (
@@ -716,17 +808,27 @@ export default function Specials() {
           )}
 
           <div className="specials-list">
-            <h3 className="preview-title">All Coupons</h3>
+            <h3 className="preview-title">
+              {couponFilter === 'all' && 'All Coupons'}
+              {couponFilter === 'signup' && 'Sign-up Coupons'}
+              {couponFilter === 'created' && 'Created Coupons'}
+              {couponFilter === 'active' && 'Active Coupons'}
+              {couponFilter === 'inactive' && 'Inactive Coupons'}
+              {' '}({filteredCoupons.length})
+            </h3>
             {couponsLoading ? (
               <div className="empty-state">Loading coupons...</div>
             ) : coupons.length === 0 ? (
               <div className="empty-state">No coupons created yet</div>
+            ) : filteredCoupons.length === 0 ? (
+              <div className="empty-state">No coupons match the selected filter</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="coupon-table">
                   <thead>
                     <tr>
                       <th>Code</th>
+                      <th>Source</th>
                       <th>Type</th>
                       <th>Value</th>
                       <th>Min. Spend</th>
@@ -739,9 +841,14 @@ export default function Specials() {
                     </tr>
                   </thead>
                   <tbody>
-                    {coupons.map((coupon) => (
+                    {filteredCoupons.map((coupon) => (
                       <tr key={coupon.id}>
                         <td className="coupon-code">{coupon.code}</td>
+                        <td>
+                          <span className={`special-badge ${isSignupCoupon(coupon.code) ? 'badge-scheduled' : 'badge-active'}`}>
+                            {isSignupCoupon(coupon.code) ? 'Sign-up' : 'Created'}
+                          </span>
+                        </td>
                         <td>{coupon.type}</td>
                         <td>
                           {coupon.type === 'percentage'
