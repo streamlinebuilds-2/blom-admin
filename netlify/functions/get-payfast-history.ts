@@ -39,15 +39,17 @@ const generateSignature = (data: { [key: string]: string }, passphrase: string) 
   // 1. Sort the data alphabetically by key
   const sortedKeys = Object.keys(data).sort();
 
-  // 2. Create the parameter string (NOT URL encoded for signature)
+  // 2. Create the parameter string with RAW values (no URL encoding)
   const paramString = sortedKeys
-    .map(key => `${key}=${encodeURIComponent(data[key]).replace(/%20/g, '+')}`)
+    .map(key => `${key}=${data[key]}`)
     .join('&');
 
-  // 3. Append passphrase at the end
-  const signatureString = `${paramString}&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, '+')}`;
+  // 3. Append passphrase at the end (also raw, not encoded)
+  const signatureString = `${paramString}&passphrase=${passphrase.trim()}`;
 
-  // 4. Generate MD5 hash
+  console.log('Signature string:', signatureString);
+
+  // 4. Generate MD5 hash (lowercase by default)
   return createMd5Hash(signatureString);
 };
 
