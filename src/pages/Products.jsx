@@ -7,7 +7,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, Search } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
-import { supabase } from "@/components/supabaseClient";
 
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,15 +22,21 @@ export default function Products() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       // Archive product instead of deleting (preserves order history)
-      const { error } = await supabase
-        .from('products')
-        .update({
+      // Use Netlify function to bypass client write restrictions
+      const response = await fetch('/.netlify/functions/save-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
           is_active: false,
           status: 'archived'
         })
-        .eq('id', id);
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to archive product');
+      }
       return id;
     },
     onSuccess: () => {
