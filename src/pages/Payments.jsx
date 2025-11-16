@@ -1,6 +1,5 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { Link } from 'react-router-dom';
 import { Database, Zap } from 'lucide-react';
 
@@ -27,18 +26,15 @@ export default function Payments() {
 
 // --- 1. Processed Payments (from our DB) ---
 function ProcessedPayments() {
-  const { data: payments, isLoading } = useQuery({
+  const { data: payments, isLoading, error } = useQuery({
     queryKey: ['payments'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('payments')
-        .select(`
-          *,
-          orders ( order_number, customer_name )
-        `)
-        .order('created_at', { ascending: false });
-      if (error) throw new Error(error.message);
-      return data;
+      const response = await fetch('/.netlify/functions/admin-payments');
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'Failed to fetch processed payments');
+      }
+      return result.data;
     },
   });
 
@@ -65,6 +61,9 @@ function ProcessedPayments() {
           <tbody>
             {isLoading && (
               <tr><td colSpan="8" className="p-4 text-center">Loading...</td></tr>
+            )}
+            {error && (
+              <tr><td colSpan="8" className="p-4 text-center text-red-500">{error.message}</td></tr>
             )}
             {payments?.map((payment) => (
               <tr key={payment.id} className="border-b border-border hover:bg-white/5">
