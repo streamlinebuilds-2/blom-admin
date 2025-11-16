@@ -214,8 +214,15 @@ export default function Specials() {
       return;
     }
     try {
-      const { error } = await supabase.from('coupons').update({ is_active: false }).eq('id', couponId);
-      if (error) throw error;
+      const response = await fetch('/.netlify/functions/delete-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: couponId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to deactivate coupon');
+      }
       queryClient.invalidateQueries({ queryKey: ['coupons'] });
       showToast('success', 'Coupon deactivated');
     } catch (err) {
