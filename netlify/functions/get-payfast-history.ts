@@ -16,6 +16,41 @@ const createMd5Hash = (str: string) => {
   return crypto.createHash('md5').update(str).digest('hex');
 };
 
+// Helper to generate PayFast-compatible timestamp (YYYY-MM-DDTHH:MM:SS+HH:MM)
+const generateTimestamp = () => {
+  const now = new Date();
+  const offset = -now.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const minutes = String(Math.abs(offset) % 60).padStart(2, '0');
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hour = String(now.getHours()).padStart(2, '0');
+  const minute = String(now.getMinutes()).padStart(2, '0');
+  const second = String(now.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}${sign}${hours}:${minutes}`;
+};
+
+// Helper to generate PayFast signature
+const generateSignature = (data: { [key: string]: string }, passphrase: string) => {
+  // 1. Sort the data alphabetically by key
+  const sortedKeys = Object.keys(data).sort();
+
+  // 2. Create the parameter string (NOT URL encoded for signature)
+  const paramString = sortedKeys
+    .map(key => `${key}=${encodeURIComponent(data[key]).replace(/%20/g, '+')}`)
+    .join('&');
+
+  // 3. Append passphrase at the end
+  const signatureString = `${paramString}&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, '+')}`;
+
+  // 4. Generate MD5 hash
+  return createMd5Hash(signatureString);
+};
+
 // Helper to parse CSV string into JSON
 const csvToJson = (csv: string) => {
   const lines = csv.trim().split('\n');
@@ -64,26 +99,27 @@ export const handler: Handler = async (event) => {
     const { from, to } = event.queryStringParameters || {};
 
     // 2. Build the Headers for PayFast API
+    const timestamp = generateTimestamp();
     const apiHeaders: { [key: string]: string } = {
       'merchant-id': PAYFAST_MERCHANT_ID,
       'version': 'v1',
-      'timestamp': new Date().toISOString(),
+      'timestamp': timestamp,
     };
 
     // 3. Generate the Signature
-    // Per docs: "MD5 hash of the alphabetised submitted header... variables, as well as the passphrase"
-    const dataToSign = sortObject({
-      ...apiHeaders,
-      passphrase: PAYFAST_PASSPHRASE.trim(),
-    });
-
-    // Create the query string (e.g., "merchant-id=...&passphrase=...&timestamp=...")
-    const signatureString = new URLSearchParams(dataToSign).toString().replace(/%20/g, '+');
-
-    const signature = createMd5Hash(signatureString);
+    // Per docs: "MD5 hash of the alphabetised submitted header variables, as well as the passphrase"
+    // Passphrase is appended at the end, not sorted with other fields
+    const signature = generateSignature(apiHeaders, PAYFAST_PASSPHRASE);
 
     // Add signature to the headers we will send
     apiHeaders['signature'] = signature;
+
+    console.log('PayFast API Request:', {
+      timestamp,
+      merchantId: PAYFAST_MERCHANT_ID,
+      signature,
+      url: `https://api.payfast.co.za/transactions/history?from=${from}&to=${to}`
+    });
 
     // 4. Build the final PayFast API URL
     const payfastApiUrl = new URL('https://api.payfast.co.za/transactions/history');
