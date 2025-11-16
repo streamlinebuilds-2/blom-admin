@@ -42,6 +42,83 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, note: 'products selectable', sample: (data||[]).map((r:any)=>r.id) }) };
     }
 
+    // Handle delete action
+    if (body?.action === 'delete' || body?._action === 'delete') {
+      const id = body.id;
+      const slug = body.slug;
+
+      if (!id && !slug) {
+        return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Delete requires id or slug' }) };
+      }
+
+      const supabaseUrl = process.env.SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      if (!supabaseUrl || !serviceKey) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'Server not configured (SUPABASE envs missing)' }) };
+      }
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+      const { error } = await admin
+        .from('products')
+        .delete()
+        .match(id ? { id } : { slug });
+
+      if (error) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ ok: true, deleted: true })
+      };
+    }
+
+    // Handle archive/partial update (status change only) - when id is provided but no name/slug
+    if (body?.id && body?.status && !body?.name && !body?.slug) {
+      const supabaseUrl = process.env.SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      if (!supabaseUrl || !serviceKey) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'Server not configured (SUPABASE envs missing)' }) };
+      }
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+      // Validate status
+      const validStatuses = ['draft', 'active', 'published', 'archived'];
+      const status = validStatuses.includes(body.status) ? body.status : null;
+      if (!status) {
+        return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid status value' }) };
+      }
+
+      const updateData: any = {
+        status: status,
+        is_active: status === 'active' || status === 'published',
+        updated_at: new Date().toISOString(),
+      };
+
+      // Include is_active if explicitly provided
+      if (body.is_active !== undefined) {
+        updateData.is_active = body.is_active;
+      }
+
+      const { data, error } = await admin
+        .from('products')
+        .update(updateData)
+        .eq('id', body.id)
+        .select('*')
+        .single();
+
+      if (error) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ ok: true, product: data })
+      };
+    }
+
     // Validate requireds (name, slug, price)
     const name = String(body.name || '').trim();
     const slug = String(body.slug || '').trim();
