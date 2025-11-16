@@ -360,31 +360,13 @@ export default function BundleNew() {
       return;
     }
 
-    // Auto-generate fields
-    const slug = slugify(form.name);
-    const sku = generateSKU();
-    const barcode = generateBarcode();
-    const meta_title = form.name;
-    const meta_description = form.short_description
-      ? `${form.short_description.substring(0, 150)}...`
-      : `Buy ${form.name} bundle online at BLOM Cosmetics`;
-
     const payload = {
       name: form.name.trim(),
-      slug: slug,
-      sku: sku,
-      category: 'Bundle Deals', // Force category
-      product_type: 'bundle', // Mark as bundle
-      status: form.status || 'active',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
-      inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
-      track_inventory: Boolean(form.track_inventory),
-      weight: weightNumber,
-      barcode: barcode,
+      stock: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
       short_description: form.short_description,
       overview: form.overview,
-      description: form.overview,
       thumbnail_url: form.thumbnail_url?.trim() || "",
       hover_url: form.hover_url?.trim() || "",
       gallery_urls: [],
@@ -396,38 +378,32 @@ export default function BundleNew() {
       size: form.size,
       shelf_life: form.shelf_life,
       claims,
-      meta_title: meta_title,
-      meta_description: meta_description,
-      is_active: true,
-      is_featured: false,
-      badges,
-      related,
-      stock_label: stockLabel,
-      price_string: priceString,
-      images: previewImages,
-      bundle_products: form.bundle_products.filter(b => b.product_id), // Filter out empty entries
+      bundle_products: form.bundle_products.filter(bp => bp.product_id),
+      status: form.status || 'active',
+      is_featured: form.is_featured || false,
+      weight: weightNumber,
     };
 
     try {
       setIsSubmitting(true);
-      const response = await fetch("/.netlify/functions/save-product", {
+      const response = await fetch("/.netlify/functions/save-bundle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create_product", payload }),
+        body: JSON.stringify({ payload }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const result = await response.json().catch(() => ({}));
 
-      if (!response.ok || data?.ok === false) {
-        const message = data?.error || data?.message || "Failed to create bundle";
+      if (!response.ok || result?.ok === false) {
+        const message = result?.error || result?.message || "Failed to create bundle";
         setServerError(message);
         showToast("error", message);
         return;
       }
 
-      showToast("success", "Bundle created successfully");
+      showToast("success", "Bundle created successfully!");
 
-      const createdId = data?.id || data?.product?.id || null;
+      const createdId = result?.bundle?.id || null;
 
       if (createdId) {
         navigate(`/bundles/${createdId}`);

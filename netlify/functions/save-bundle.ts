@@ -1,101 +1,215 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
+const headers = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*'
+};
 
 export const handler: Handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') {
-      return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Method Not Allowed' }) };
+      return {
+        statusCode: 405,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Method Not Allowed' })
+      };
     }
+
     if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Empty body' }) };
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Empty body' })
+      };
     }
 
     let body: any;
     try {
-      body = typeof event.body === 'string' ? (event.body ? JSON.parse(event.body) : {}) : (event.body || {});
+      body = typeof event.body === 'string'
+        ? JSON.parse(event.body)
+        : event.body;
     } catch (e) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid JSON: ' + (e instanceof Error ? e.message : String(e)) }) };
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Invalid JSON' })
+      };
     }
 
-    const name = String(body.name || '').trim();
-    const slug = String(body.slug || '').trim();
-    const price = Number(body.price);
-    const status = body.status || 'active';
-
-    if (!name || !slug) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing required fields (name, slug)' }) };
-    }
-    if (!Number.isFinite(price)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid price' }) };
-    }
+    const payload = body.payload || body;
 
     const supabaseUrl = process.env.SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
     if (!supabaseUrl || !serviceKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'Server not configured (SUPABASE envs missing)' }) };
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Missing env vars' })
+      };
     }
-    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    const compareAt = body.compare_at_price == null ? null : Number(body.compare_at_price);
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false }
+    });
 
-    const row: any = {
-      id: body.id ?? undefined,
-      name,
-      slug,
-      status,
+    // Auto-generate fields
+    const generateSKU = () => {
+      const prefix = 'BUNDLE';
+      const timestamp = Date.now().toString().slice(-6);
+      return `${prefix}-${timestamp}`;
+    };
+
+    const slugify = (text: string) => {
+      return text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    };
+
+    // Validate required fields
+    const name = String(payload.name || '').trim();
+    if (!name) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Bundle name is required' })
+      };
+    }
+
+    const price = parseFloat(payload.price) || 0;
+    if (price <= 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Price must be greater than 0' })
+      };
+    }
+
+    const compareAtPrice = payload.compare_at_price
+      ? parseFloat(payload.compare_at_price)
+      : null;
+
+    const stock = parseInt(payload.stock || payload.inventory_quantity || '0') || 0;
+
+    // Validate status
+    const validStatuses = ['draft', 'active', 'published', 'archived'];
+    const status = validStatuses.includes(payload.status) ? payload.status : 'active';
+
+    const bundleData: any = {
+      id: payload.id || undefined,
+      name: name,
+      slug: slugify(name),
+      sku: payload.sku || generateSKU(),
+      category: 'Bundle Deals', // Force bundle category
+      product_type: 'bundle',
+      status: status,
+
+      // Pricing - save both formats for compatibility
+      price: price,
       price_cents: Math.round(price * 100),
-      compare_at_price_cents: compareAt == null ? null : Math.round(compareAt * 100),
-      short_desc: body.short_description ?? null,
-      short_description: body.short_description ?? null,
-      long_desc: body.long_description ?? null,
-      long_description: body.long_description ?? null,
-      images: Array.isArray(body.images) ? body.images : [],
-      hover_image: body.hover_image ?? null,
+      compare_at_price: compareAtPrice,
+      compare_at_price_cents: compareAtPrice
+        ? Math.round(compareAtPrice * 100)
+        : null,
+
+      // Stock - sync all stock columns for compatibility
+      stock: stock,
+      stock_on_hand: stock,
+      stock_qty: stock,
+      stock_quantity: stock,
+      stock_reserved: 0,
+
+      // Descriptions
+      short_description: payload.short_description || null,
+      overview: payload.overview || null,
+
+      // Images
+      thumbnail_url: payload.thumbnail_url || null,
+      hover_url: payload.hover_url || null,
+      gallery_urls: Array.isArray(payload.gallery_urls) ? payload.gallery_urls : [],
+
+      // Arrays
+      features: Array.isArray(payload.features) ? payload.features : [],
+      how_to_use: Array.isArray(payload.how_to_use) ? payload.how_to_use : [],
+      inci_ingredients: Array.isArray(payload.inci_ingredients) ? payload.inci_ingredients : [],
+      key_ingredients: Array.isArray(payload.key_ingredients) ? payload.key_ingredients : [],
+      claims: Array.isArray(payload.claims) ? payload.claims : [],
+      variants: Array.isArray(payload.variants) ? payload.variants : [],
+
+      // Bundle-specific
+      bundle_products: Array.isArray(payload.bundle_products) ? payload.bundle_products : [],
+
+      // Details
+      size: payload.size || null,
+      shelf_life: payload.shelf_life || null,
+      weight: payload.weight || null,
+
+      // Meta
+      meta_title: name,
+      meta_description: payload.short_description
+        ? `${payload.short_description.substring(0, 150)}...`
+        : `Buy ${name} bundle at BLOM Cosmetics`,
+
+      is_active: status === 'active' || status === 'published',
+      is_featured: payload.is_featured || false,
+
       updated_at: new Date().toISOString(),
     };
 
     let data, error;
-    if (row.id) {
-      const { data: updated, error: updateError } = await admin
-        .from('bundles')
-        .update(row)
-        .eq('id', row.id)
-        .select('*')
+
+    if (payload.id) {
+      // Update existing bundle
+      const { data: updated, error: updateError } = await supabase
+        .from('products') // Bundles stored in products table
+        .update(bundleData)
+        .eq('id', payload.id)
+        .select()
         .single();
+
       data = updated;
       error = updateError;
     } else {
-      const { data: existing } = await admin
-        .from('bundles')
+      // Check if bundle with this slug exists
+      const { data: existing } = await supabase
+        .from('products')
         .select('id')
-        .eq('slug', row.slug)
+        .eq('slug', bundleData.slug)
         .maybeSingle();
 
       if (existing) {
-        const { data: updated, error: updateError } = await admin
-          .from('bundles')
-          .update(row)
+        // Update existing by slug
+        const { data: updated, error: updateError } = await supabase
+          .from('products')
+          .update(bundleData)
           .eq('id', existing.id)
-          .select('*')
+          .select()
           .single();
         data = updated;
         error = updateError;
       } else {
-        delete row.id;
-        const { data: inserted, error: insertError } = await admin
-          .from('bundles')
-          .insert(row)
-          .select('*')
+        // Create new bundle
+        delete bundleData.id;
+        const { data: created, error: createError } = await supabase
+          .from('products')
+          .insert(bundleData)
+          .select()
           .single();
-        data = inserted;
-        error = insertError;
+
+        data = created;
+        error = createError;
       }
     }
 
     if (error) {
-      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
+      console.error('DB error:', error);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: error.message })
+      };
     }
 
     return {
@@ -103,8 +217,13 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({ ok: true, bundle: data })
     };
+
   } catch (e: any) {
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: e?.message || String(e) }) };
+    console.error('Save bundle error:', e);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ ok: false, error: e.message || 'Server error' })
+    };
   }
 };
-
