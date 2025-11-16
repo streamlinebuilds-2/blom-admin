@@ -30,7 +30,6 @@ import Finance from '@/pages/Finance'
 import Orders from '@/pages/Orders'
 import OrderDetail from '@/pages/OrderDetail'
 import PriceUpdates from '@/pages/PriceUpdates'
-import Discounts from '@/pages/Discounts'
 import Specials from '@/pages/Specials'
 
 // Initialize Supabase adapter for real database access
@@ -128,7 +127,6 @@ const AuthenticatedApp = () => {
 
         {/* Additional pages */}
         <Route path="/price-updates" element={<PriceUpdates/>} />
-        <Route path="/discounts" element={<Discounts/>} />
 
         {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
         {Object.entries(Pages).map(([path, Page]) => {

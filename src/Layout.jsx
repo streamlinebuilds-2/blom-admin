@@ -21,7 +21,6 @@ import {
   DollarSign,
   Mail,
   Megaphone, // Kept for Campaigns
-  Percent, // Kept for Discounts
   Tag,
   BarChart3,
   Settings,
@@ -74,8 +73,7 @@ const navigationGroups = [
       { name: "Reviews", url: "Reviews", icon: Star },
       { name: "Messages", url: "Messages", icon: MessageSquare },
       { name: "Contacts", url: "Contacts", icon: Users },
-      { name: "Campaigns", url: "Campaigns", icon: Megaphone },
-      { name: "Discounts", url: "Discounts", icon: Percent }
+      { name: "Campaigns", url: "Campaigns", icon: Megaphone }
     ]
   },
   {
