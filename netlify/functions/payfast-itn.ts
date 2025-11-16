@@ -46,7 +46,7 @@ async function updateStockForOrder(orderId: string, supabase: any) {
     const productIds = orderItems.map((item: any) => item.product_id);
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, product_type, bundle_products')
+      .select('id, name, product_type, bundle_products')
       .in('id', productIds);
 
     if (productsError) throw new Error(`Failed to fetch products: ${productsError.message}`);
@@ -91,6 +91,14 @@ async function updateStockForOrder(orderId: string, supabase: any) {
     console.log('Calculated stock adjustments:', Object.fromEntries(stockAdjustments));
 
     // 4. Execute all stock adjustments by calling the RPC
+    const stockMovementLogs: Array<{
+      product_id: string;
+      product_name: string;
+      quantity_change: number;
+      reason: string;
+      order_id: string;
+    }> = [];
+
     for (const [product_id, quantity] of stockAdjustments.entries()) {
       if (quantity > 0) {
         console.log(`Adjusting stock for ${product_id} by -${quantity}`);
@@ -102,6 +110,28 @@ async function updateStockForOrder(orderId: string, supabase: any) {
         if (rpcError) {
           console.error(`Failed to adjust stock for ${product_id}:`, rpcError);
         }
+
+        // Prepare the log entry
+        const productName = productMap.get(product_id)?.name || product_id;
+        stockMovementLogs.push({
+          product_id: product_id,
+          product_name: productName,
+          quantity_change: -quantity, // Log as a negative number
+          reason: 'order',
+          order_id: orderId
+        });
+      }
+    }
+
+    // 5. Insert all stock movement logs in one batch
+    if (stockMovementLogs.length > 0) {
+      console.log('Logging stock movements:', stockMovementLogs);
+      const { error: logError } = await supabase
+        .from('stock_movements')
+        .insert(stockMovementLogs);
+
+      if (logError) {
+        console.error('Failed to log stock movements:', logError.message);
       }
     }
 

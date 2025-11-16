@@ -117,6 +117,9 @@ export const handler: Handler = async (event) => {
       shelf_life: body.shelf_life ?? null,
       weight: body.weight ?? null,
 
+      // Cost price for COGS calculation
+      cost_price_cents: body.cost_price_cents ?? 0,
+
       // Meta - sync is_active with status for consistency
       meta_title: body.meta_title ?? null,
       meta_description: body.meta_description ?? null,
