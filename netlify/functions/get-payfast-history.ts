@@ -36,16 +36,19 @@ const generateTimestamp = () => {
 
 // Helper to generate PayFast signature
 const generateSignature = (data: { [key: string]: string }, passphrase: string) => {
-  // 1. Sort the data alphabetically by key
-  const sortedKeys = Object.keys(data).sort();
+  // 1. Include passphrase in the data to be signed
+  const dataWithPassphrase = {
+    ...data,
+    passphrase: passphrase.trim()
+  };
 
-  // 2. Create the parameter string with RAW values (no URL encoding)
-  const paramString = sortedKeys
-    .map(key => `${key}=${data[key]}`)
+  // 2. Sort ALL keys alphabetically (including passphrase)
+  const sortedKeys = Object.keys(dataWithPassphrase).sort();
+
+  // 3. Create the parameter string with RAW values (no URL encoding)
+  const signatureString = sortedKeys
+    .map(key => `${key}=${dataWithPassphrase[key]}`)
     .join('&');
-
-  // 3. Append passphrase at the end (also raw, not encoded)
-  const signatureString = `${paramString}&passphrase=${passphrase.trim()}`;
 
   console.log('Signature string:', signatureString);
 
