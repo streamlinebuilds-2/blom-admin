@@ -26,8 +26,6 @@ const initialFormState = {
   category: "Bundle Deals",
   price: "",
   compare_at_price: "",
-  inventory_quantity: "0",
-  track_inventory: true,
   weight: "",
   barcode: "",
   short_description: "",
@@ -142,8 +140,6 @@ export default function BundleEdit() {
             status: bundle.status || 'active',
             price: bundle.price?.toString() || (bundle.price_cents ? (bundle.price_cents / 100).toString() : ''),
             compare_at_price: bundle.compare_at_price?.toString() || (bundle.compare_at_price_cents ? (bundle.compare_at_price_cents / 100).toString() : ''),
-            inventory_quantity: (bundle.inventory_quantity || bundle.stock || bundle.stock_on_hand || bundle.stock_qty || 0).toString(),
-            track_inventory: bundle.track_inventory ?? true,
             weight: bundle.weight?.toString() || '',
             barcode: bundle.barcode || '',
             short_description: bundle.short_description || bundle.short_desc || '',
@@ -207,13 +203,61 @@ export default function BundleEdit() {
     async function loadProducts() {
       const { data } = await supabase
         .from('products')
-        .select('id, name')
+        .select('id, name, price')
         .eq('is_active', true)
         .order('name');
       setAllProducts(data || []);
     }
     loadProducts();
   }, []);
+
+  // Auto-calculate compare_at_price based on bundle components
+  useEffect(() => {
+    const calculateComparePrice = async () => {
+      if (!form.bundle_products || form.bundle_products.length === 0) {
+        setForm(prev => ({ ...prev, compare_at_price: '0.00' }));
+        return;
+      }
+
+      const productIds = form.bundle_products
+        .map(bp => bp.product_id)
+        .filter(Boolean);
+
+      if (productIds.length === 0) {
+        setForm(prev => ({ ...prev, compare_at_price: '0.00' }));
+        return;
+      }
+
+      try {
+        // Fetch prices for the selected products
+        const { data: products, error } = await supabase
+          .from('products')
+          .select('id, price')
+          .in('id', productIds);
+
+        if (error) throw error;
+
+        // Create a map for quick price lookup
+        const priceMap = new Map(products.map(p => [p.id, p.price]));
+
+        // Calculate the total compare_at_price
+        const total = form.bundle_products.reduce((acc, item) => {
+          const price = priceMap.get(item.product_id) || 0;
+          const quantity = parseInt(item.quantity) || 0;
+          return acc + (price * quantity);
+        }, 0);
+
+        // Update the form state
+        setForm(prev => ({ ...prev, compare_at_price: total.toFixed(2) }));
+
+      } catch (error) {
+        console.error('Error calculating compare price:', error.message);
+      }
+    };
+
+    // Run the calculation when the bundle_products array changes
+    calculateComparePrice();
+  }, [form.bundle_products]);
 
   const update = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -267,11 +311,6 @@ export default function BundleEdit() {
     const parsed = parseFloat(form.compare_at_price);
     return Number.isFinite(parsed) ? parsed : null;
   }, [form.compare_at_price]);
-
-  const inventoryQuantityNumber = useMemo(() => {
-    const parsed = Number(form.inventory_quantity);
-    return Number.isFinite(parsed) ? parsed : Number.NaN;
-  }, [form.inventory_quantity]);
 
   const weightNumber = useMemo(() => {
     if (form.weight === "" || form.weight === null || form.weight === undefined) return null;
@@ -334,8 +373,6 @@ export default function BundleEdit() {
     [form.key_ingredients]
   );
 
-  const inStock = useMemo(() => inventoryQuantityNumber > 0, [inventoryQuantityNumber]);
-
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
     const hover = form.hover_url?.trim();
@@ -350,9 +387,9 @@ export default function BundleEdit() {
 
   const stockLabel = useMemo(() => {
     if (form.status === "archived") return "Archived";
-    if (inStock) return "In Stock";
-    return "Out of Stock";
-  }, [form.status, inStock]);
+    // Stock is determined by bundle components, not a separate field
+    return "In Stock";
+  }, [form.status]);
 
   const priceString = useMemo(() => {
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) return "R0";
@@ -368,10 +405,10 @@ export default function BundleEdit() {
       compare_at_price_cents: compareAtNumber ? Math.round(compareAtNumber * 100) : undefined,
       short_desc: form.short_description || "",
       images: previewImages,
-      stock_qty: form.status !== "archived" && inStock ? inventoryQuantityNumber : 0,
+      stock_qty: form.status !== "archived" ? 1 : 0, // Stock determined by components
       badges,
     }),
-    [badges, form.id, form.name, form.short_description, form.slug, form.status, inStock, inventoryQuantityNumber, previewImages, priceNumber, compareAtNumber]
+    [badges, form.id, form.name, form.short_description, form.slug, form.status, previewImages, priceNumber, compareAtNumber]
   );
 
   const pageModel = useMemo(
@@ -443,10 +480,6 @@ export default function BundleEdit() {
       nextErrors.price = "Price must be greater than 0";
     }
 
-    if (!Number.isFinite(inventoryQuantityNumber) || inventoryQuantityNumber < 0) {
-      nextErrors.inventory_quantity = "Inventory must be zero or greater";
-    }
-
     if (images.length === 0) {
       nextErrors.images = "Add at least one product image";
     }
@@ -471,8 +504,6 @@ export default function BundleEdit() {
       status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
-      inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
-      track_inventory: Boolean(form.track_inventory),
       weight: weightNumber,
       barcode: form.barcode?.trim() || null,
       short_description: form.short_description,
@@ -941,8 +972,8 @@ export default function BundleEdit() {
 
           <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Pricing &amp; Stock</h2>
-              <p className="text-sm text-[var(--text-muted)]">Control pricing, inventory and identifiers.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Pricing</h2>
+              <p className="text-sm text-[var(--text-muted)]">Set bundle pricing. Stock is automatically calculated from components.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
@@ -974,37 +1005,9 @@ export default function BundleEdit() {
                   value={form.compare_at_price}
                   onChange={(event) => update("compare_at_price", event.target.value)}
                   placeholder="499"
+                  readOnly
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="inventory_quantity">
-                  Inventory Quantity <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="inventory_quantity"
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="product-form-input"
-                  value={form.inventory_quantity}
-                  onChange={(event) => update("inventory_quantity", event.target.value)}
-                  placeholder="25"
-                />
-                {errors.inventory_quantity ? (
-                  <p className="text-xs text-red-500">{errors.inventory_quantity}</p>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-3 pt-6">
-                <input
-                  id="track_inventory"
-                  type="checkbox"
-                  checked={form.track_inventory}
-                  onChange={(event) => update("track_inventory", event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--card)]"
-                />
-                <label className="text-sm font-medium text-[var(--text)]" htmlFor="track_inventory">
-                  Track inventory automatically
-                </label>
+                <small className="text-xs text-[var(--text-muted)]">Auto-calculated from bundle components</small>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="weight">
