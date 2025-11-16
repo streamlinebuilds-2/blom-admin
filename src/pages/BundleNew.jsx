@@ -24,29 +24,19 @@ const generateBarcode = () => {
 };
 
 const initialFormState = {
-  name: "",
-  category: "Bundle Deals",
-  price: "",
-  compare_at_price: "",
-  inventory_quantity: "0",
-  track_inventory: true,
-  weight: "",
-  short_description: "",
-  overview: "",
-  thumbnail_url: "",
-  hover_url: "",
-  variants: [{ name: "", image: "" }],
-  features: [""],
-  how_to_use: [""],
-  inci_ingredients: [""],
-  key_ingredients: [""],
-  size: "",
-  shelf_life: "",
-  claims: [""],
-  status: "active",
-  badges: [""],
-  related: [],
-  bundle_products: [], // Array of { product_id, quantity }
+  name: '',
+  price: '',
+  compare_at_price: '',
+  inventory_quantity: '10',
+  short_description: '',
+  overview: '',
+  thumbnail_url: '',
+  hover_url: '',
+  features: [''],
+  how_to_use: [''],
+  status: 'active',
+  is_featured: false,
+  bundle_products: [{ product_id: '', quantity: 1 }],
 };
 
 const ensureList = (value) => {
@@ -83,31 +73,11 @@ export default function BundleNew() {
     return data.secure_url;
   };
 
-  const handleVariantImageUpload = async (index, file) => {
-    if (!file) return;
-
-    try {
-      showToast('info', 'Uploading variant image...');
-      const url = await uploadToCloudinary(file);
-
-      const current = form.variants[index];
-      const updated = typeof current === "string"
-        ? { name: current, image: url }
-        : { ...current, image: url };
-
-      updateArr("variants", index, updated);
-      showToast('success', 'Variant image uploaded');
-    } catch (error) {
-      showToast('error', 'Image upload failed');
-      console.error('Variant image upload error:', error);
-    }
-  };
-
   useEffect(() => {
     async function loadProducts() {
       const { data } = await supabase
         .from('products')
-        .select('id, name')
+        .select('id, name, price, product_type')
         .eq('is_active', true)
         .order('name');
       setAllProducts(data || []);
@@ -138,13 +108,7 @@ export default function BundleNew() {
   const addRow = (field) => {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
-      if (field === "variants") {
-        next.push({ name: "", image: "" });
-      } else if (field === "related") {
-        next.push("");
-      } else {
-        next.push("");
-      }
+      next.push("");
       return { ...previous, [field]: next };
     });
   };
@@ -153,11 +117,6 @@ export default function BundleNew() {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
       next.splice(index, 1);
-      if (field === "variants") {
-        return { ...previous, [field]: next.length ? next : [{ name: "", image: "" }] };
-      } else if (field === "related") {
-        return { ...previous, [field]: next.length ? next : [] };
-      }
       return { ...previous, [field]: next.length ? next : [""] };
     });
   };
@@ -177,42 +136,6 @@ export default function BundleNew() {
     return Number.isFinite(parsed) ? parsed : Number.NaN;
   }, [form.inventory_quantity]);
 
-  const weightNumber = useMemo(() => {
-    if (form.weight === "" || form.weight === null || form.weight === undefined) return null;
-    const parsed = parseFloat(form.weight);
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [form.weight]);
-
-  const badges = useMemo(
-    () => ensureList(form.badges).map((item) => item.trim()).filter(Boolean),
-    [form.badges]
-  );
-
-  const claims = useMemo(
-    () => ensureList(form.claims).map((item) => item.trim()).filter(Boolean),
-    [form.claims]
-  );
-
-  const related = useMemo(
-    () => Array.isArray(form.related) ? form.related.filter(Boolean) : [],
-    [form.related]
-  );
-
-  const variants = useMemo(() => {
-    const list = ensureList(form.variants);
-    return list
-      .map((item) => {
-        if (typeof item === "string") {
-          return item.trim() ? { name: item.trim(), image: "" } : null;
-        }
-        return (item?.name?.trim() || item?.image?.trim()) ? {
-          name: item.name?.trim() || "",
-          image: item.image?.trim() || ""
-        } : null;
-      })
-      .filter(Boolean);
-  }, [form.variants]);
-
   const features = useMemo(
     () => ensureList(form.features).map((item) => item.trim()).filter(Boolean),
     [form.features]
@@ -221,16 +144,6 @@ export default function BundleNew() {
   const howToUse = useMemo(
     () => ensureList(form.how_to_use).map((item) => item.trim()).filter(Boolean),
     [form.how_to_use]
-  );
-
-  const inciIngredients = useMemo(
-    () => ensureList(form.inci_ingredients).map((item) => item.trim()).filter(Boolean),
-    [form.inci_ingredients]
-  );
-
-  const keyIngredients = useMemo(
-    () => ensureList(form.key_ingredients).map((item) => item.trim()).filter(Boolean),
-    [form.key_ingredients]
   );
 
   const inStock = useMemo(() => inventoryQuantityNumber > 0, [inventoryQuantityNumber]);
@@ -262,21 +175,21 @@ export default function BundleNew() {
     () => ({
       id: "new-bundle-preview",
       name: form.name || "New Bundle",
-      slug: form.slug || "new-bundle",
+      slug: "new-bundle",
       price_cents: Number.isFinite(priceNumber) ? Math.round(priceNumber * 100) : 0,
       compare_at_price_cents: compareAtNumber ? Math.round(compareAtNumber * 100) : undefined,
       short_desc: form.short_description || "",
       images: previewImages,
       stock_qty: form.status !== "archived" && inStock ? inventoryQuantityNumber : 0,
-      badges,
+      badges: [],
     }),
-    [badges, form.name, form.short_description, form.slug, form.status, inStock, inventoryQuantityNumber, previewImages, priceNumber, compareAtNumber]
+    [form.name, form.short_description, form.status, inStock, inventoryQuantityNumber, previewImages, priceNumber, compareAtNumber]
   );
 
   const pageModel = useMemo(
     () => ({
       name: form.name || "New Bundle",
-      slug: form.slug || "new-bundle",
+      slug: "new-bundle",
       category: "Bundle Deals",
       shortDescription: form.short_description || "",
       overview: form.overview || "",
@@ -287,16 +200,16 @@ export default function BundleNew() {
       features,
       howToUse,
       ingredients: {
-        inci: inciIngredients,
-        key: keyIngredients,
+        inci: [],
+        key: [],
       },
       details: {
-        size: form.size || "",
-        shelfLife: form.shelf_life || "",
-        claims,
+        size: "",
+        shelfLife: "",
+        claims: [],
       },
-      variants,
-      related,
+      variants: [],
+      related: [],
       rating: 4.8,
       reviewCount: 124,
       reviews: [],
@@ -308,22 +221,15 @@ export default function BundleNew() {
       },
     }),
     [
-      claims,
       compareAtNumber,
       features,
       form.name,
       form.overview,
       form.short_description,
-      form.size,
-      form.shelf_life,
       howToUse,
-      inciIngredients,
-      keyIngredients,
       previewImages,
       priceString,
-      related,
       stockLabel,
-      variants,
     ]
   );
 
@@ -364,24 +270,33 @@ export default function BundleNew() {
       name: form.name.trim(),
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
-      stock: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
+      inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
+      track_inventory: true,
+      weight: null,
+      barcode: barcode,
       short_description: form.short_description,
       overview: form.overview,
       thumbnail_url: form.thumbnail_url?.trim() || "",
       hover_url: form.hover_url?.trim() || "",
       gallery_urls: [],
-      variants,
+      variants: [],
       features,
       how_to_use: howToUse,
-      inci_ingredients: inciIngredients,
-      key_ingredients: keyIngredients,
-      size: form.size,
-      shelf_life: form.shelf_life,
-      claims,
-      bundle_products: form.bundle_products.filter(bp => bp.product_id),
-      status: form.status || 'active',
-      is_featured: form.is_featured || false,
-      weight: weightNumber,
+      inci_ingredients: [],
+      key_ingredients: [],
+      size: "",
+      shelf_life: "",
+      claims: [],
+      meta_title: meta_title,
+      meta_description: meta_description,
+      is_active: true,
+      is_featured: Boolean(form.is_featured),
+      badges: [],
+      related: [],
+      stock_label: stockLabel,
+      price_string: priceString,
+      images: previewImages,
+      bundle_products: form.bundle_products.filter(b => b.product_id),
     };
 
     try {
@@ -463,7 +378,6 @@ export default function BundleNew() {
     );
   };
 
-  const inputClass = (hasError) => `product-form-input${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
   const textareaClass = (hasError) => `product-form-textarea${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
 
   return (
@@ -591,55 +505,13 @@ export default function BundleNew() {
         .product-required {
           color: #ef4444;
         }
-        /* Variant Styles */
-        .variant-row {
-          display: flex;
-          gap: 0.75rem;
+        /* Bundle Product Row Styles */
+        .bundle-product-row {
+          display: grid;
+          grid-template-columns: 1fr 100px 44px;
+          gap: 1rem;
+          margin-bottom: 1rem;
           align-items: center;
-          padding: 1rem;
-          background: var(--bg);
-          border-radius: 12px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-        .variant-image-upload {
-          display: flex;
-          gap: 0.5rem;
-          align-items: center;
-          flex-shrink: 0;
-        }
-        .upload-btn {
-          padding: 8px 14px;
-          border-radius: 8px;
-          border: none;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          color: white;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          white-space: nowrap;
-          box-shadow: 2px 2px 4px var(--shadow-dark);
-          transition: transform 0.2s;
-        }
-        .upload-btn:hover {
-          transform: translateY(-1px);
-        }
-        .variant-thumbnail {
-          width: 50px;
-          height: 50px;
-          object-fit: cover;
-          border-radius: 8px;
-          border: 2px solid var(--border);
-          box-shadow: 2px 2px 4px var(--shadow-dark);
-        }
-        /* Bundle product item styles */
-        .bundle-item {
-          display: flex;
-          gap: 0.75rem;
-          align-items: center;
-          padding: 1rem;
-          background: var(--bg);
-          border-radius: 12px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
         /* Utility Classes */
         .space-y-1 > * + * { margin-top: 0.25rem; }
@@ -689,7 +561,7 @@ export default function BundleNew() {
       <div className="flex h-full flex-col">
         <div className="topbar">
           <div className="font-bold text-lg">New Bundle</div>
-          <div className="text-sm text-[var(--text-muted)]">Create a new product bundle and preview the merchandising experience.</div>
+          <div className="text-sm text-[var(--text-muted)]">Create a new bundle and preview the merchandising experience.</div>
         </div>
 
         <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -702,7 +574,7 @@ export default function BundleNew() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="name">
-                  Bundle Name <span className="text-red-500">*</span>
+                  Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="name"
@@ -713,20 +585,6 @@ export default function BundleNew() {
                   placeholder="Ultimate Nail Care Bundle"
                 />
                 {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="category">
-                  Category
-                </label>
-                <input
-                  id="category"
-                  type="text"
-                  className="product-form-input"
-                  value="Bundle Deals"
-                  disabled
-                  style={{ opacity: 0.7, cursor: 'not-allowed' }}
-                />
-                <small className="text-xs text-[var(--text-muted)]">Category is automatically set to Bundle Deals</small>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
@@ -744,75 +602,79 @@ export default function BundleNew() {
                 </select>
               </div>
             </div>
-            <div className="mt-4">
-              {renderArrayField("badges", "Badges", "e.g. Best Value", "Add badge")}
-            </div>
           </section>
 
           <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Bundle Products</h2>
-              <p className="text-sm text-[var(--text-muted)]">Select products included in this bundle.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Bundle Products *</h2>
+              <p className="text-sm text-[var(--text-muted)]">Select products included in this bundle</p>
             </header>
-            <div className="space-y-3">
-              {form.bundle_products.map((item, index) => (
-                <div key={index} className="bundle-item">
-                  <select
-                    value={item.product_id || ''}
-                    onChange={(e) => {
-                      const updated = [...form.bundle_products];
-                      updated[index] = { ...updated[index], product_id: e.target.value };
-                      setForm(prev => ({ ...prev, bundle_products: updated }));
-                    }}
-                    className="product-form-select flex-1"
-                  >
-                    <option value="">Select product...</option>
-                    {allProducts.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
 
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Qty"
-                    value={item.quantity || 1}
-                    onChange={(e) => {
-                      const updated = [...form.bundle_products];
-                      updated[index] = { ...updated[index], quantity: parseInt(e.target.value) || 1 };
-                      setForm(prev => ({ ...prev, bundle_products: updated }));
-                    }}
-                    className="product-form-input"
-                    style={{ width: '100px' }}
-                  />
+            {form.bundle_products.map((item, index) => (
+              <div key={index} className="bundle-product-row">
+                <select
+                  value={item.product_id}
+                  onChange={(e) => {
+                    const updated = [...form.bundle_products];
+                    updated[index] = { ...updated[index], product_id: e.target.value };
+                    setForm(prev => ({ ...prev, bundle_products: updated }));
+                  }}
+                  className="product-form-select"
+                  required
+                >
+                  <option value="">Select product...</option>
+                  {allProducts
+                    .filter(p => p.product_type !== 'bundle')
+                    .map(product => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} - R{product.price}
+                      </option>
+                    ))
+                  }
+                </select>
 
-                  <button
-                    type="button"
-                    onClick={() => {
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Qty"
+                  value={item.quantity}
+                  onChange={(e) => {
+                    const updated = [...form.bundle_products];
+                    updated[index] = { ...updated[index], quantity: parseInt(e.target.value) || 1 };
+                    setForm(prev => ({ ...prev, bundle_products: updated }));
+                  }}
+                  className="product-form-input"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (form.bundle_products.length > 1) {
                       const updated = form.bundle_products.filter((_, i) => i !== index);
                       setForm(prev => ({ ...prev, bundle_products: updated }));
-                    }}
-                    className="product-btn-secondary"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                    }
+                  }}
+                  disabled={form.bundle_products.length === 1}
+                  className="product-btn-secondary"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
 
-              <button
-                type="button"
-                onClick={() => setForm(prev => ({
-                  ...prev,
-                  bundle_products: [...prev.bundle_products, { product_id: '', quantity: 1 }]
-                }))}
-                className="product-btn-add"
-              >
-                + Add Product
-              </button>
-              {errors.bundle_products ? (
-                <p className="text-xs text-red-500">{errors.bundle_products}</p>
-              ) : null}
-            </div>
+            <button
+              type="button"
+              onClick={() => setForm(prev => ({
+                ...prev,
+                bundle_products: [...prev.bundle_products, { product_id: '', quantity: 1 }]
+              }))}
+              className="btn-add product-btn-add"
+            >
+              + Add Product
+            </button>
+            {errors.bundle_products ? (
+              <p className="text-xs text-red-500 mt-2">{errors.bundle_products}</p>
+            ) : null}
           </section>
 
           <section className="product-form-section">
@@ -833,7 +695,7 @@ export default function BundleNew() {
                   className="product-form-input"
                   value={form.price}
                   onChange={(event) => update("price", event.target.value)}
-                  placeholder="399"
+                  placeholder="199"
                 />
                 {errors.price ? <p className="text-xs text-red-500">{errors.price}</p> : null}
               </div>
@@ -849,7 +711,7 @@ export default function BundleNew() {
                   className="product-form-input"
                   value={form.compare_at_price}
                   onChange={(event) => update("compare_at_price", event.target.value)}
-                  placeholder="499"
+                  placeholder="249"
                 />
               </div>
               <div className="space-y-1">
@@ -870,33 +732,6 @@ export default function BundleNew() {
                   <p className="text-xs text-red-500">{errors.inventory_quantity}</p>
                 ) : null}
               </div>
-              <div className="flex items-center gap-3 pt-6">
-                <input
-                  id="track_inventory"
-                  type="checkbox"
-                  checked={form.track_inventory}
-                  onChange={(event) => update("track_inventory", event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--card)]"
-                />
-                <label className="text-sm font-medium text-[var(--text)]" htmlFor="track_inventory">
-                  Track inventory automatically
-                </label>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="weight">
-                  Weight (grams)
-                </label>
-                <input
-                  id="weight"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="product-form-input"
-                  value={form.weight}
-                  onChange={(event) => update("weight", event.target.value)}
-                  placeholder="500"
-                />
-              </div>
             </div>
           </section>
 
@@ -916,7 +751,7 @@ export default function BundleNew() {
                   rows={3}
                   value={form.short_description}
                   onChange={(event) => update("short_description", event.target.value)}
-                  placeholder="A complete bundle of our best-selling nail care products."
+                  placeholder="A complete nail care bundle with everything you need."
                 />
               </div>
               <div className="space-y-1">
@@ -929,7 +764,7 @@ export default function BundleNew() {
                   rows={6}
                   value={form.overview}
                   onChange={(event) => update("overview", event.target.value)}
-                  placeholder="Detailed bundle description, what's included and benefits."
+                  placeholder="Detailed bundle description, usage story and benefits."
                 />
               </div>
             </div>
@@ -1019,178 +854,12 @@ export default function BundleNew() {
 
           <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Variants &amp; Highlights</h2>
-              <p className="text-sm text-[var(--text-muted)]">List variants, key features and how to use steps.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Features &amp; Highlights</h2>
+              <p className="text-sm text-[var(--text-muted)]">List key features and how to use steps.</p>
             </header>
             <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-[var(--text)]">Variants</label>
-                <small className="text-xs text-[var(--text-muted)] block mb-2">e.g., different sizes or colors with unique images</small>
-                <div className="space-y-3">
-                  {ensureList(form.variants).map((variant, index) => (
-                    <div key={`variant-${index}`} className="variant-row">
-                      <input
-                        type="text"
-                        placeholder="Variant name (e.g. 250ml, Pink)"
-                        className="product-form-input"
-                        style={{ flex: 2 }}
-                        value={variant?.name || variant}
-                        onChange={(e) => {
-                          const current = form.variants[index];
-                          const updated = typeof current === "string"
-                            ? { name: e.target.value, image: "" }
-                            : { ...current, name: e.target.value };
-                          updateArr("variants", index, updated);
-                        }}
-                      />
-                      <div className="variant-image-upload">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          id={`variant-image-${index}`}
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleVariantImageUpload(index, file);
-                          }}
-                        />
-                        <label htmlFor={`variant-image-${index}`} className="upload-btn">
-                          {variant?.image ? '📷 Change' : '📷 Upload'}
-                        </label>
-                        {variant?.image && (
-                          <img
-                            src={variant.image}
-                            alt={variant?.name || 'Variant'}
-                            className="variant-thumbnail"
-                          />
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeRow("variants", index)}
-                        className="product-btn-secondary"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addRow("variants")}
-                  className="product-btn-add"
-                >
-                  + Add variant
-                </button>
-              </div>
               {renderArrayField("features", "Features", "Key selling point", "Add feature")}
               {renderArrayField("how_to_use", "How to Use", "Usage instruction", "Add step")}
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Ingredients</h2>
-              <p className="text-sm text-[var(--text-muted)]">Break down formulation details.</p>
-            </header>
-            <div className="space-y-6">
-              {renderArrayField("inci_ingredients", "INCI Ingredients", "Water (Aqua)", "Add INCI")}
-              {renderArrayField("key_ingredients", "Key Ingredients", "Biotin", "Add key ingredient")}
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Product Details</h2>
-              <p className="text-sm text-[var(--text-muted)]">Supporting specifications and claims.</p>
-            </header>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="size">
-                  Size
-                </label>
-                <input
-                  id="size"
-                  type="text"
-                  className="product-form-input"
-                  value={form.size}
-                  onChange={(event) => update("size", event.target.value)}
-                  placeholder="Bundle"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="shelf_life">
-                  Shelf Life
-                </label>
-                <input
-                  id="shelf_life"
-                  type="text"
-                  className="product-form-input"
-                  value={form.shelf_life}
-                  onChange={(event) => update("shelf_life", event.target.value)}
-                  placeholder="12 months"
-                />
-              </div>
-            </div>
-            <div className="mt-4">
-              {renderArrayField("claims", "Claims", "Vegan", "Add claim")}
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Related Products</h2>
-              <p className="text-sm text-[var(--text-muted)]">Select products to recommend (up to 3).</p>
-            </header>
-            <div className="space-y-2">
-              {form.related.map((productId, index) => (
-                <div key={index} className="flex gap-2">
-                  <select
-                    value={productId}
-                    onChange={(e) => {
-                      const updated = [...form.related];
-                      updated[index] = e.target.value;
-                      setForm(prev => ({ ...prev, related: updated }));
-                    }}
-                    className="product-form-select flex-1"
-                  >
-                    <option value="">Select product...</option>
-                    {allProducts
-                      .filter(p => !form.related.includes(p.id) || p.id === productId)
-                      .map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name}
-                        </option>
-                      ))
-                    }
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForm(prev => ({
-                        ...prev,
-                        related: prev.related.filter((_, i) => i !== index)
-                      }));
-                    }}
-                    className="product-btn-secondary"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-
-              {form.related.length < 3 && (
-                <button
-                  type="button"
-                  onClick={() => setForm(prev => ({
-                    ...prev,
-                    related: [...prev.related, '']
-                  }))}
-                  className="product-btn-add"
-                >
-                  + Add Related Product
-                </button>
-              )}
             </div>
           </section>
 
@@ -1293,10 +962,6 @@ export default function BundleNew() {
               <div className="flex justify-between">
                 <dt className="text-[var(--text-muted)]">Images</dt>
                 <dd className="font-medium text-[var(--text)]">{previewImages.length}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-[var(--text-muted)]">Bundle Products</dt>
-                <dd className="font-medium text-[var(--text)]">{form.bundle_products.filter(b => b.product_id).length}</dd>
               </div>
             </dl>
           </div>
