@@ -1,534 +1,156 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { CreditCard, X, ExternalLink } from "lucide-react";
-import { moneyZAR, dateTime } from "../components/formatUtils";
-import { useToast } from "../components/ui/ToastProvider";
-import { Banner } from "../components/ui/Banner";
-import { api } from "@/components/data/api";
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { Link } from 'react-router-dom';
+import { Database, Zap } from 'lucide-react';
+
+// Helper to format currency
+const formatRands = (value, isCents = true) => {
+  if (value == null) return '-';
+  const amount = isCents ? parseFloat(value) / 100 : parseFloat(value);
+  return `R${amount.toFixed(2)}`;
+};
 
 export default function Payments() {
-  const [selectedPayment, setSelectedPayment] = useState(null);
-  const [refundAmount, setRefundAmount] = useState("");
-  const [refundReason, setRefundReason] = useState("");
-  const { showToast } = useToast();
-  const queryClient = useQueryClient();
+  return (
+    <div className="p-4 md:p-8 space-y-8">
+      <h1 className="text-3xl font-bold">Payments</h1>
 
-  const { data: paymentsData = [], isLoading, error } = useQuery({
+      {/* Section 1: Payments processed by our ITN */}
+      <ProcessedPayments />
+
+      {/* Section 2: Live history from PayFast API */}
+      <LivePayFastHistory />
+    </div>
+  );
+}
+
+// --- 1. Processed Payments (from our DB) ---
+function ProcessedPayments() {
+  const { data: payments, isLoading } = useQuery({
     queryKey: ['payments'],
-    queryFn: () => api?.listPayments() || [],
-    enabled: !!api,
-  });
-
-  const { data: ordersData = [] } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => api?.listOrders() || [],
-    enabled: !!api,
-  });
-
-  // Ensure arrays
-  const payments = Array.isArray(paymentsData) ? paymentsData : [];
-  const orders = Array.isArray(ordersData) ? ordersData : [];
-
-  const refundMutation = useMutation({
-    mutationFn: async ({ paymentId, amount, reason }) => {
-      if (!api) throw new Error('API not available');
-      // Refund functionality would need to be added to the adapter
-      // For now, just show a message
-      throw new Error('Refund functionality not yet implemented in Supabase adapter');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      showToast('success', 'Refund processed successfully');
-      setSelectedPayment(null);
-      setRefundAmount("");
-      setRefundReason("");
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to process refund');
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          orders ( order_number, customer_name )
+        `)
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data;
     },
   });
-
-  const handleRefund = () => {
-    if (!refundAmount || parseFloat(refundAmount) <= 0) {
-      showToast('error', 'Enter a valid refund amount');
-      return;
-    }
-    if (!refundReason.trim()) {
-      showToast('error', 'Enter a refund reason');
-      return;
-    }
-    refundMutation.mutate({
-      paymentId: selectedPayment.id,
-      amount: refundAmount,
-      reason: refundReason
-    });
-  };
-
-  const getOrder = (orderId) => {
-    return orders.find(o => o.id === orderId);
-  };
 
   return (
-    <>
-      <style>{`
-        .payments-header {
-          margin-bottom: 24px;
-        }
-
-        @media (min-width: 768px) {
-          .payments-header {
-            margin-bottom: 32px;
-          }
-        }
-
-        .header-title {
-          font-size: 22px;
-          font-weight: 700;
-          color: var(--text);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        @media (min-width: 768px) {
-          .header-title {
-            font-size: 28px;
-            gap: 12px;
-          }
-        }
-
-        .payments-table {
-          background: var(--card);
-          border-radius: 20px;
-          padding: 0;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-          overflow: hidden;
-        }
-
-        .table-scroll-wrapper {
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 700px;
-        }
-
-        th {
-          text-align: left;
-          padding: 16px 12px;
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border-bottom: 2px solid var(--border);
-          background: var(--card);
-          white-space: nowrap;
-        }
-
-        @media (min-width: 768px) {
-          th {
-            padding: 20px 24px;
-            font-size: 12px;
-          }
-        }
-
-        td {
-          padding: 16px 12px;
-          color: var(--text);
-          border-bottom: 1px solid var(--border);
-          font-size: 13px;
-        }
-
-        @media (min-width: 768px) {
-          td {
-            padding: 20px 24px;
-            font-size: 14px;
-          }
-        }
-
-        tr:last-child td {
-          border-bottom: none;
-        }
-
-        tbody tr {
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        tbody tr:hover {
-          background: rgba(110, 193, 255, 0.05);
-        }
-
-        .payment-id {
-          font-weight: 600;
-          font-family: monospace;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          padding: 6px 14px;
-          border-radius: 10px;
-          font-size: 12px;
-          font-weight: 600;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .drawer-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.7);
-          z-index: 1000;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-        }
-
-        .drawer {
-          width: 600px;
-          max-width: 90vw;
-          height: 100vh;
-          background: var(--card);
-          box-shadow: -8px 0 16px rgba(0,0,0,0.3);
-          display: flex;
-          flex-direction: column;
-          animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-
-        .drawer-header {
-          padding: 24px;
-          border-bottom: 2px solid var(--border);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .drawer-title {
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--text);
-        }
-
-        .btn-close {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-        }
-
-        .drawer-content {
-          flex: 1;
-          overflow-y: auto;
-          padding: 24px;
-        }
-
-        .drawer-section {
-          margin-bottom: 32px;
-        }
-
-        .section-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          margin-bottom: 16px;
-        }
-
-        .info-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 12px 0;
-          border-bottom: 1px solid var(--border);
-        }
-
-        .info-label {
-          color: var(--text-muted);
-        }
-
-        .info-value {
-          font-weight: 600;
-          color: var(--text);
-        }
-
-        .json-viewer {
-          background: var(--bg);
-          padding: 16px;
-          border-radius: 10px;
-          overflow-x: auto;
-          font-family: monospace;
-          font-size: 13px;
-          line-height: 1.6;
-          color: var(--text);
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .refund-form {
-          background: var(--bg);
-          padding: 20px;
-          border-radius: 12px;
-        }
-
-        .form-group {
-          margin-bottom: 16px;
-        }
-
-        .form-label {
-          display: block;
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--text-muted);
-          margin-bottom: 8px;
-          text-transform: uppercase;
-        }
-
-        .form-input, .form-textarea {
-          width: 100%;
-          padding: 12px 16px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .form-input:focus, .form-textarea:focus {
-          outline: none;
-        }
-
-        .form-textarea {
-          min-height: 80px;
-          resize: vertical;
-        }
-
-        .btn-refund {
-          width: 100%;
-          padding: 14px;
-          border-radius: 10px;
-          border: none;
-          background: linear-gradient(135deg, #ef4444, #dc2626);
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-          margin-top: 16px;
-        }
-
-        .btn-refund:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .link-order {
-          color: var(--accent);
-          text-decoration: none;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-weight: 600;
-        }
-
-        .link-order:hover {
-          text-decoration: underline;
-        }
-      `}</style>
-
-      {error && <Banner type="error">{error.message || 'Failed to load payments'}</Banner>}
-
-      <div className="payments-header">
-        <h1 className="header-title">
-          <CreditCard className="w-8 h-8" />
-          Payments
-        </h1>
-      </div>
-
-      <div className="payments-table">
-        <div className="table-scroll-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Payment #</th>
-                <th>Order #</th>
-                <th>Provider</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Loading payments...
-                </td>
-              </tr>
-            ) : payments.length === 0 ? (
-              <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  No payments found
-                </td>
-              </tr>
-            ) : (
-              payments.map(payment => {
-                const order = getOrder(payment.order_id);
-                return (
-                  <tr key={payment.id} onClick={() => setSelectedPayment(payment)}>
-                    <td className="payment-id">#{payment.id.slice(0, 8)}</td>
-                    <td>
-                      {order ? order.order_number || `#${order.id.slice(0, 8)}` : payment.order_id}
-                    </td>
-                    <td style={{ textTransform: 'capitalize' }}>{payment.provider}</td>
-                    <td style={{ fontWeight: 700 }}>{moneyZAR(payment.amount)}</td>
-                    <td>
-                      <span
-                        className="status-badge"
-                        style={{
-                          background: payment.status === 'succeeded' ? '#10b98120' : payment.status === 'failed' ? '#ef444420' : '#f59e0b20',
-                          color: payment.status === 'succeeded' ? '#10b981' : payment.status === 'failed' ? '#ef4444' : '#f59e0b'
-                        }}
-                      >
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {dateTime(payment.created_date)}
-                    </td>
-                  </tr>
-                );
-              })
+    <div className="section-card">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Database size={20} />
+        Processed Payments (From Your Database)
+      </h2>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border text-left text-text-muted">
+              <th className="p-3">Date</th>
+              <th className="p-3">Order</th>
+              <th className="p-3">Customer</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Gross</th>
+              <th className="p-3">Fee</th>
+              <th className="p-3">Net</th>
+              <th className="p-3">PayFast ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && (
+              <tr><td colSpan="8" className="p-4 text-center">Loading...</td></tr>
             )}
-          </tbody>
-          </table>
-        </div>
-      </div>
-
-      {selectedPayment && (
-        <div className="drawer-overlay" onClick={() => setSelectedPayment(null)}>
-          <div className="drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <h2 className="drawer-title">Payment Details</h2>
-              <button className="btn-close" onClick={() => setSelectedPayment(null)}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="drawer-content">
-              <div className="drawer-section">
-                <h3 className="section-title">Information</h3>
-                <div className="info-row">
-                  <span className="info-label">Payment ID:</span>
-                  <span className="info-value">#{selectedPayment.id.slice(0, 8)}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Order:</span>
+            {payments?.map((payment) => (
+              <tr key={payment.id} className="border-b border-border hover:bg-white/5">
+                <td className="p-3 text-sm">{new Date(payment.created_at).toLocaleString()}</td>
+                <td className="p-3">
                   <Link
-                    to={createPageUrl(`OrderDetail?id=${selectedPayment.order_id}`)}
-                    className="link-order"
-                    onClick={() => setSelectedPayment(null)}
+                    to={`/orders/${payment.order_id}`}
+                    className="text-accent hover:underline font-medium"
                   >
-                    {getOrder(selectedPayment.order_id)?.order_number || `#${selectedPayment.order_id.slice(0, 8)}`}
-                    <ExternalLink className="w-4 h-4" />
+                    {payment.orders?.order_number || 'View Order'}
                   </Link>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Provider:</span>
-                  <span className="info-value" style={{ textTransform: 'capitalize' }}>
-                    {selectedPayment.provider}
+                </td>
+                <td className="p-3">{payment.orders?.customer_name}</td>
+                <td className="p-3">
+                  <span className={`status-badge ${payment.payment_status === 'COMPLETE' ? 'status-active' : 'status-archived'}`}>
+                    {payment.payment_status}
                   </span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Amount:</span>
-                  <span className="info-value">{moneyZAR(selectedPayment.amount)}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Status:</span>
-                  <span
-                    className="status-badge"
-                    style={{
-                      background: selectedPayment.status === 'succeeded' ? '#10b98120' : '#ef444420',
-                      color: selectedPayment.status === 'succeeded' ? '#10b981' : '#ef4444'
-                    }}
-                  >
-                    {selectedPayment.status}
-                  </span>
-                </div>
-                <div className="info-row" style={{ borderBottom: 'none' }}>
-                  <span className="info-label">Created:</span>
-                  <span className="info-value">{dateTime(selectedPayment.created_date)}</span>
-                </div>
-              </div>
+                </td>
+                <td className="p-3">{formatRands(payment.amount_gross_cents)}</td>
+                <td className="p-3 text-red-400">{formatRands(payment.amount_fee_cents)}</td>
+                <td className="p-3 font-bold text-green-400">{formatRands(payment.amount_net_cents)}</td>
+                <td className="p-3 font-mono text-xs">{payment.payfast_payment_id}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
-              {selectedPayment.raw && (
-                <div className="drawer-section">
-                  <h3 className="section-title">Raw Data</h3>
-                  <div className="json-viewer">
-                    <pre>{JSON.stringify(selectedPayment.raw, null, 2)}</pre>
-                  </div>
-                </div>
-              )}
+// --- 2. Live PayFast History (from API) ---
+function LivePayFastHistory() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['payfastHistory'],
+    queryFn: async () => {
+      // Call our new Netlify function
+      const response = await fetch('/.netlify/functions/get-payfast-history');
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'Failed to fetch PayFast history');
+      }
+      return result.data;
+    },
+  });
 
-              {selectedPayment.status === 'succeeded' && (
-                <div className="drawer-section">
-                  <h3 className="section-title">Refund</h3>
-                  <div className="refund-form">
-                    <div className="form-group">
-                      <label className="form-label">Amount (ZAR)</label>
-                      <input
-                        type="number"
-                        className="form-input"
-                        value={refundAmount}
-                        onChange={(e) => setRefundAmount(e.target.value)}
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0.01"
-                        max={(selectedPayment.amount / 100).toFixed(2)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Reason *</label>
-                      <textarea
-                        className="form-textarea"
-                        value={refundReason}
-                        onChange={(e) => setRefundReason(e.target.value)}
-                        placeholder="Enter refund reason..."
-                      />
-                    </div>
-                    <button
-                      className="btn-refund"
-                      onClick={handleRefund}
-                      disabled={refundMutation.isPending}
-                    >
-                      {refundMutation.isPending ? 'Processing...' : 'Process Refund'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+  return (
+    <div className="section-card">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Zap size={20} className="text-accent" />
+        Live PayFast Transaction History (Last 100)
+      </h2>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border text-left text-text-muted">
+              <th className="p-3">Date</th>
+              <th className="p-3">Name</th>
+              <th className="p-3">Description</th>
+              <th className="p-3">Gross</th>
+              <th className="p-3">Fee</th>
+              <th className="p-3">Net</th>
+              <th className="p-3">Order ID (m_payment_id)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && (
+              <tr><td colSpan="7" className="p-4 text-center">Loading history...</td></tr>
+            )}
+            {error && (
+              <tr><td colSpan="7" className="p-4 text-center text-red-500">{error.message}</td></tr>
+            )}
+            {data?.map((tx, index) => (
+              <tr key={index} className="border-b border-border hover:bg-white/5">
+                <td className="p-3 text-sm">{tx.Date}</td>
+                <td className="p-3">{tx.Name}</td>
+                <td className="p-3">{tx.Description}</td>
+                <td className="p-3">{formatRands(tx.Gross, false)}</td>
+                <td className="p-3 text-red-400">{formatRands(tx.Fee, false)}</td>
+                <td className="p-3 font-bold text-green-400">{formatRands(tx.Net, false)}</td>
+                <td className="p-3 font-mono text-xs">{tx['M Payment ID']}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

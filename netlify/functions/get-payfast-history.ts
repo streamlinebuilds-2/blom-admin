@@ -21,11 +21,13 @@ const csvToJson = (csv: string) => {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return [];
 
+  // Clean header: remove quotes and spaces
   const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
 
   const result = [];
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
+    // Handle CSVs that might have commas inside quotes (though this example doesn't)
     const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ''));
     if (values.length === headers.length) {
       const obj = headers.reduce((acc, header, index) => {
@@ -38,7 +40,9 @@ const csvToJson = (csv: string) => {
   return result;
 };
 
+// ---
 // THE MAIN HANDLER
+// ---
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'GET') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -56,7 +60,7 @@ export const handler: Handler = async (event) => {
       throw new Error('Missing PayFast environment variables');
     }
 
-    // 1. Get query params from client
+    // 1. Get query params from client (e.g., ?from=2025-01-01)
     const { from, to } = event.queryStringParameters || {};
 
     // 2. Build the Headers for PayFast API
@@ -67,13 +71,18 @@ export const handler: Handler = async (event) => {
     };
 
     // 3. Generate the Signature
+    // Per docs: "MD5 hash of the alphabetised submitted header... variables, as well as the passphrase"
     const dataToSign = sortObject({
       ...apiHeaders,
       passphrase: PAYFAST_PASSPHRASE.trim(),
     });
 
+    // Create the query string (e.g., "merchant-id=...&passphrase=...&timestamp=...")
     const signatureString = new URLSearchParams(dataToSign).toString().replace(/%20/g, '+');
+
     const signature = createMd5Hash(signatureString);
+
+    // Add signature to the headers we will send
     apiHeaders['signature'] = signature;
 
     // 4. Build the final PayFast API URL
