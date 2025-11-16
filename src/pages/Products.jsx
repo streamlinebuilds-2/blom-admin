@@ -21,35 +21,31 @@ export default function Products() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      // Archive product instead of deleting (preserves order history)
+      // Permanently delete product from database
       // Use Netlify function to bypass client write restrictions
-      const response = await fetch('/.netlify/functions/save-product', {
+      const response = await fetch('/.netlify/functions/delete-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          is_active: false,
-          status: 'archived'
-        })
+        body: JSON.stringify({ id })
       });
 
       const result = await response.json();
       if (!result.ok) {
-        throw new Error(result.error || 'Failed to archive product');
+        throw new Error(result.error || 'Failed to delete product');
       }
       return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      showToast('success', 'Product archived successfully');
+      showToast('success', 'Product deleted successfully');
     },
     onError: (error) => {
-      showToast('error', error.message || 'Failed to archive product');
+      showToast('error', error.message || 'Failed to delete product');
     },
   });
 
   const handleDelete = (id, name) => {
-    if (!confirm(`Archive "${name}"? It will be hidden from the website and admin.`)) return;
+    if (!confirm(`Permanently delete "${name}"? This action cannot be undone and will remove the product from Supabase completely.`)) return;
     deleteMutation.mutate(id);
   };
 
