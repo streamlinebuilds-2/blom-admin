@@ -1,220 +1,155 @@
-// netlify/functions/payfast-itn.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
-import * as crypto from "crypto";
+import crypto from 'crypto';
 
-// --- ENV you must have in Netlify ---
-// SUPABASE_URL
-// SUPABASE_SERVICE_ROLE_KEY
-// PAYFAST_PASSPHRASE  (exactly what you set in PayFast account)
-
-const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-const PASSPHRASE = process.env.PAYFAST_PASSPHRASE || "";
-
-// Helpers
-function parseFormUrlEncoded(body: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const part of body.split("&")) {
-    const [k, v] = part.split("=");
-    if (!k) continue;
-    out[decodeURIComponent(k)] = decodeURIComponent((v || "").replace(/\+/g, " "));
+// Helper to get Supabase admin client
+const getSupabaseAdmin = () => {
+  const supabaseUrl = process.env.SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error('Missing Supabase env vars');
   }
-  return out;
-}
-
-/**
- * Decrements stock for all items in an order.
- * Handles regular products and unpacks bundles.
- */
-async function updateStockForOrder(orderId: string, supabase: any) {
-  try {
-    console.log(`Updating stock for order: ${orderId}`);
-
-    // 1. Get all order items
-    const { data: orderItems, error: itemsError } = await supabase
-      .from('order_items')
-      .select('*')
-      .eq('order_id', orderId);
-
-    if (itemsError) throw new Error(`Failed to fetch order_items: ${itemsError.message}`);
-    if (!orderItems || orderItems.length === 0) {
-      console.warn(`No order items found for order ${orderId}, skipping stock update.`);
-      return;
-    }
-
-    // 2. Get the product details for all items
-    const productIds = orderItems.map((item: any) => item.product_id);
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('id, name, product_type, bundle_products')
-      .in('id', productIds);
-
-    if (productsError) throw new Error(`Failed to fetch products: ${productsError.message}`);
-
-    const productMap = new Map(products.map((p: any) => [p.id, p]));
-
-    // 3. Loop through each order item and build a list of stock adjustments
-    const stockAdjustments = new Map<string, number>();
-
-    for (const item of orderItems) {
-      const product = productMap.get(item.product_id);
-      if (!product) {
-        console.warn(`Product ${item.product_id} not found, skipping stock.`);
-        continue;
-      }
-
-      const itemQuantity = parseInt(item.qty) || 0;
-
-      if (product.product_type === 'bundle' && product.bundle_products) {
-        // This is a bundle, unpack it
-        console.log(`Item ${item.name} is a bundle. Unpacking components.`);
-        for (const component of product.bundle_products) {
-          const componentProductId = component.product_id;
-          const componentQuantityInBundle = parseInt(component.quantity) || 0;
-
-          // Total to reduce = (component qty) * (number of bundles ordered)
-          const quantityToReduce = componentQuantityInBundle * itemQuantity;
-
-          if (quantityToReduce > 0) {
-            const current = stockAdjustments.get(componentProductId) || 0;
-            stockAdjustments.set(componentProductId, current + quantityToReduce);
-          }
-        }
-      } else {
-        // This is a regular product
-        console.log(`Item ${item.name} is a regular product.`);
-        const current = stockAdjustments.get(item.product_id) || 0;
-        stockAdjustments.set(item.product_id, current + itemQuantity);
-      }
-    }
-
-    console.log('Calculated stock adjustments:', Object.fromEntries(stockAdjustments));
-
-    // 4. Execute all stock adjustments by calling the RPC
-    const stockMovementLogs: Array<{
-      product_id: string;
-      product_name: string;
-      quantity_change: number;
-      reason: string;
-      order_id: string;
-    }> = [];
-
-    for (const [product_id, quantity] of stockAdjustments.entries()) {
-      if (quantity > 0) {
-        console.log(`Adjusting stock for ${product_id} by -${quantity}`);
-        const { error: rpcError } = await supabase.rpc('adjust_stock', {
-          product_uuid: product_id,
-          quantity_to_reduce: quantity
-        });
-
-        if (rpcError) {
-          console.error(`Failed to adjust stock for ${product_id}:`, rpcError);
-        }
-
-        // Prepare the log entry
-        const productName = productMap.get(product_id)?.name || product_id;
-        stockMovementLogs.push({
-          product_id: product_id,
-          product_name: productName,
-          quantity_change: -quantity, // Log as a negative number
-          reason: 'order',
-          order_id: orderId
-        });
-      }
-    }
-
-    // 5. Insert all stock movement logs in one batch
-    if (stockMovementLogs.length > 0) {
-      console.log('Logging stock movements:', stockMovementLogs);
-      const { error: logError } = await supabase
-        .from('stock_movements')
-        .insert(stockMovementLogs);
-
-      if (logError) {
-        console.error('Failed to log stock movements:', logError.message);
-      }
-    }
-
-    console.log(`Stock update complete for order: ${orderId}`);
-
-  } catch (error: any) {
-    console.error(`CRITICAL: Failed to update stock for order ${orderId}:`, error.message);
-    // Log error but don't throw - we don't want to fail the ITN response
-  }
-}
-
-// PayFast signature: md5 of querystring (sorted) + passphrase if set
-function computeSignature(fields: Record<string, string>): string {
-  // Exclude 'signature' itself
-  const clean: Record<string, string> = {};
-  Object.keys(fields)
-    .filter((k) => k.toLowerCase() !== "signature")
-    .sort()
-    .forEach((k) => (clean[k] = fields[k]));
-
-  // Build string
-  const qs = Object.entries(clean)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join("&");
-
-  // Append passphrase if present
-  const payload = PASSPHRASE ? `${qs}&passphrase=${encodeURIComponent(PASSPHRASE)}` : qs;
-
-  // PayFast uses MD5 hash
-  return crypto.createHash("md5").update(payload).digest("hex");
-}
-
-export const handler: Handler = async (event) => {
-  try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
-    }
-
-    // PayFast sends form-urlencoded
-    const raw = event.body || "";
-    const data = parseFormUrlEncoded(raw);
-
-    // 1) Verify signature
-    const theirSig = (data.signature || "").toLowerCase();
-    const ourSig = computeSignature(data);
-    if (!theirSig || theirSig !== ourSig) {
-      console.warn("Invalid signature", { theirSig, ourSig });
-      return { statusCode: 400, body: "Invalid signature" };
-    }
-
-    // 2) Only act on COMPLETE
-    const status = (data.payment_status || "").toUpperCase();
-    if (status !== "COMPLETE") {
-      // still ack to avoid retries; do nothing
-      return { statusCode: 200, body: "OK (not complete)" };
-    }
-
-    // 3) m_payment_id must be your internal order id (UUID or string)
-    const orderId = data.m_payment_id;
-    if (!orderId) return { statusCode: 400, body: "Missing m_payment_id" };
-
-    // 4) Apply stock + sales via RPC (idempotent)
-    const { data: rpc, error } = await s.rpc("apply_paid_order", { p_order_id: orderId });
-    if (error) {
-      console.error("apply_paid_order error", error);
-      // Still return 200 to avoid PayFast retries — you may alert internally
-      return { statusCode: 200, body: "OK (rpc failed, logged)" };
-    }
-
-    console.log("apply_paid_order ok", rpc);
-
-    // 5) Update stock for bundles and regular products
-    await updateStockForOrder(orderId, s);
-
-    // 6) Always ACK PayFast quickly
-    return { statusCode: 200, body: "OK" };
-  } catch (e: any) {
-    console.error("ITN handler failed", e);
-    // ACK anyway to stop retries (you’ll have the logs)
-    return { statusCode: 200, body: "OK (exception logged)" };
-  }
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false }
+  });
 };
 
+// Helper to parse form-urlencoded body
+const parseBody = (body: string) => {
+  const params = new URLSearchParams(body);
+  const payload: { [key: string]: any } = {};
+  for (const [key, value] of params.entries()) {
+    payload[key] = value;
+  }
+  return payload;
+};
 
+// CRITICAL: PayFast Security Validation
+const validatePayfastSignature = (payload: any, passphrase: string) => {
+  const pfPassphrase = passphrase.trim();
 
+  // 1. Remove 'signature' from payload
+  const { signature, ...data } = payload;
+  if (!signature) return false;
 
+  // 2. Create the data string
+  const sortedData = Object.keys(data)
+    .sort()
+    .reduce((acc, key) => {
+      if (data[key] !== '') {
+        acc[key] = data[key];
+      }
+      return acc;
+    }, {} as { [key: string]: any });
+
+  const pfDataString = new URLSearchParams({
+    ...sortedData,
+    passphrase: pfPassphrase,
+  }).toString();
+
+  // 3. Create the MD5 hash
+  const generatedSignature = crypto.createHash('md5').update(pfDataString).digest('hex');
+
+  // 4. Compare
+  return signature === generatedSignature;
+};
+
+// THE MAIN HANDLER
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const passphrase = process.env.PAYFAST_PASSPHRASE; // You MUST set this in Netlify
+
+  if (!passphrase) {
+    console.error('CRITICAL: PAYFAST_PASSPHRASE is not set.');
+    return { statusCode: 500, body: 'Internal config error' };
+  }
+
+  try {
+    // 1. Parse the incoming ITN data
+    const itnPayload = parseBody(event.body || '');
+    console.log('Received ITN Payload:', itnPayload);
+
+    // 2. Validate the ITN Signature (SECURITY)
+    if (!validatePayfastSignature(itnPayload, passphrase)) {
+      console.warn('CRITICAL: PayFast ITN Signature Validation FAILED.');
+      return { statusCode: 401, body: 'ITN Validation Failed' };
+    }
+    console.log('PayFast ITN Signature Validated.');
+
+    // 3. Get key data
+    const orderId = itnPayload.m_payment_id; // Your internal order ID
+    const pfPaymentId = itnPayload.pf_payment_id;
+    const paymentStatus = itnPayload.payment_status;
+    const couponCode = itnPayload.custom_str1; // Assumes coupon code is passed here
+
+    // 4. Check if this is a 'COMPLETE' payment
+    if (paymentStatus !== 'COMPLETE') {
+      console.log(`ITN for order ${orderId} has status: ${paymentStatus}. No action taken.`);
+      return { statusCode: 200, body: 'OK (non-complete status)' };
+    }
+
+    // 5. Convert Rands to cents
+    const grossCents = Math.round(parseFloat(itnPayload.amount_gross) * 100);
+    const feeCents = Math.round(parseFloat(itnPayload.amount_fee) * 100);
+    const netCents = Math.round(parseFloat(itnPayload.amount_net) * 100);
+
+    // 6. Update the Order status
+    const { error: orderError } = await supabase
+      .from('orders')
+      .update({
+        status: 'paid',
+        payment_status: 'paid',
+        paid_at: new Date().toISOString()
+      })
+      .eq('id', orderId); // Use your internal order ID
+
+    if (orderError) console.error(`Error updating order ${orderId}:`, orderError.message);
+
+    // 7. Create the new Payment record (this will fail safely if it's a duplicate)
+    const { error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        order_id: orderId,
+        payfast_payment_id: pfPaymentId,
+        payment_status: paymentStatus,
+        amount_gross_cents: grossCents,
+        amount_fee_cents: feeCents,
+        amount_net_cents: netCents,
+        itn_payload: itnPayload,
+      });
+
+    if (paymentError && paymentError.code !== '23505') {
+      console.error(`Error creating payment record for ${orderId}:`, paymentError.message);
+    }
+
+    // 8. Call the 'adjust_stock_for_order' RPC
+    const { error: rpcError } = await supabase.rpc('adjust_stock_for_order', {
+      p_order_id: orderId
+    });
+    if (rpcError) {
+      console.error(`Error triggering stock adjustment RPC for ${orderId}:`, rpcError.message);
+    }
+
+    // 9. Call 'mark_coupon_used' RPC if a coupon was used
+    if (couponCode) {
+      const { error: couponError } = await supabase.rpc('mark_coupon_used', { p_code: couponCode });
+      if (couponError) {
+         console.error(`Error marking coupon ${couponCode} as used:`, couponError.message);
+      }
+    }
+
+    // 10. Send a 200 OK to PayFast
+    return { statusCode: 200, body: 'OK' };
+
+  } catch (e: any) {
+    console.error('Server error in payfast-itn:', e);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ ok: false, error: e.message })
+    };
+  }
+};
