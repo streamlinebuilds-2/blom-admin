@@ -3,7 +3,17 @@ import { useParams, useNavigate } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
-import { supabase } from "@/components/supabaseClient";
+import { supabase } from "../components/supabaseClient";
+
+const CATEGORIES = [
+  'Bundle Deals',
+  'Acrylic System',
+  'Prep & Finish',
+  'Gel System',
+  'Tools & Essentials',
+  'Furniture',
+  'Coming Soon'
+];
 
 const slugify = (value) =>
   value
@@ -13,30 +23,29 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-const generateSKU = () => {
-  const prefix = "SKU";
+const generateSKU = (category) => {
+  const prefix = category?.substring(0, 3).toUpperCase() || 'PRD';
   const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `${prefix}-${timestamp}-${random}`;
+  return `${prefix}-${timestamp}`;
+};
+
+const generateBarcode = () => {
+  return `BC${Date.now()}${Math.floor(Math.random() * 1000)}`;
 };
 
 const initialFormState = {
   name: "",
-  slug: "",
-  sku: generateSKU(),
   category: "",
   price: "",
   compare_at_price: "",
   inventory_quantity: "0",
   track_inventory: true,
   weight: "",
-  barcode: "",
   short_description: "",
   overview: "",
   thumbnail_url: "",
   hover_url: "",
-  gallery_urls: [""],
-  variants: [{ label: "", image: "" }],
+  variants: [{ name: "", image: "" }],
   features: [""],
   how_to_use: [""],
   inci_ingredients: [""],
@@ -44,13 +53,9 @@ const initialFormState = {
   size: "",
   shelf_life: "",
   claims: [""],
-  meta_title: "",
-  meta_description: "",
-  is_active: true,
-  is_featured: false,
-  status: "published",
+  status: "active",
   badges: [""],
-  related: [""],
+  related: [],
 };
 
 const ensureList = (value) => {
@@ -68,8 +73,10 @@ export default function ProductEdit() {
   const [serverError, setServerError] = useState("");
   const [previewTab, setPreviewTab] = useState("card");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [allProducts, setAllProducts] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -97,7 +104,7 @@ export default function ProductEdit() {
 
       const current = form.variants[index];
       const updated = typeof current === "string"
-        ? { label: current, image: url }
+        ? { name: current, image: url }
         : { ...current, image: url };
 
       updateArr("variants", index, updated);
@@ -108,19 +115,28 @@ export default function ProductEdit() {
     }
   };
 
-  // Load product from database
+  // Load all products for related products dropdown
   useEffect(() => {
-    console.log('ProductEdit mounted, ID:', id);
+    async function loadProducts() {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      setAllProducts(data || []);
+    }
+    loadProducts();
+  }, []);
 
+  // Load product data for editing
+  useEffect(() => {
     async function loadProduct() {
       if (!id) {
-        console.error('No product ID provided');
         setLoading(false);
         navigate('/products');
         return;
       }
 
-      console.log('Loading product with ID:', id);
       try {
         const { data: product, error } = await supabase
           .from('products')
@@ -136,33 +152,34 @@ export default function ProductEdit() {
         }
 
         if (product) {
-          console.log('Product loaded successfully:', product);
-          // Pre-fill form with ALL database values
+          // Check if category is custom (not in predefined list)
+          const isCustomCategory = product.category && !CATEGORIES.includes(product.category);
+          setShowCustomCategory(isCustomCategory);
+
+          // Convert variants from label to name format if needed
+          const normalizedVariants = Array.isArray(product.variants) && product.variants.length > 0
+            ? product.variants.map(v => {
+                if (typeof v === 'string') return { name: v, image: '' };
+                // Handle both 'label' and 'name' formats
+                return { name: v.name || v.label || '', image: v.image || '' };
+              })
+            : [{ name: "", image: "" }];
+
           setForm({
             id: product.id,
             name: product.name || '',
-            slug: product.slug || '',
-            sku: product.sku || generateSKU(),
             category: product.category || '',
-            status: product.status || 'published',
+            status: product.status === 'published' ? 'active' : (product.status || 'active'),
             price: product.price?.toString() || (product.price_cents ? (product.price_cents / 100).toString() : ''),
             compare_at_price: product.compare_at_price?.toString() || (product.compare_at_price_cents ? (product.compare_at_price_cents / 100).toString() : ''),
             inventory_quantity: (product.inventory_quantity || product.stock || product.stock_on_hand || product.stock_qty || 0).toString(),
             track_inventory: product.track_inventory ?? true,
             weight: product.weight?.toString() || '',
-            barcode: product.barcode || '',
             short_description: product.short_description || product.short_desc || '',
             overview: product.overview || product.long_description || product.description || '',
             thumbnail_url: product.thumbnail_url || product.image_url || '',
             hover_url: product.hover_url || '',
-            gallery_urls: Array.isArray(product.gallery_urls) && product.gallery_urls.length > 0
-              ? product.gallery_urls
-              : (Array.isArray(product.gallery) && product.gallery.length > 0
-                ? product.gallery
-                : ['']),
-            variants: Array.isArray(product.variants) && product.variants.length > 0
-              ? product.variants
-              : [{ label: "", image: "" }],
+            variants: normalizedVariants,
             features: Array.isArray(product.features) && product.features.length > 0
               ? product.features
               : [''],
@@ -180,16 +197,12 @@ export default function ProductEdit() {
             claims: Array.isArray(product.claims) && product.claims.length > 0
               ? product.claims
               : [''],
-            meta_title: product.meta_title || '',
-            meta_description: product.meta_description || '',
-            is_active: product.is_active ?? true,
-            is_featured: product.is_featured ?? false,
             badges: Array.isArray(product.badges) && product.badges.length > 0
               ? product.badges
               : [''],
             related: Array.isArray(product.related) && product.related.length > 0
               ? product.related
-              : [''],
+              : [],
           });
         }
 
@@ -202,7 +215,7 @@ export default function ProductEdit() {
     }
 
     loadProduct();
-  }, [id]);
+  }, [id, navigate, showToast]);
 
   const update = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -228,7 +241,9 @@ export default function ProductEdit() {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
       if (field === "variants") {
-        next.push({ label: "", image: "" });
+        next.push({ name: "", image: "" });
+      } else if (field === "related") {
+        next.push("");
       } else {
         next.push("");
       }
@@ -241,7 +256,9 @@ export default function ProductEdit() {
       const next = getArrayFromPrevious(previous, field);
       next.splice(index, 1);
       if (field === "variants") {
-        return { ...previous, [field]: next.length ? next : [{ label: "", image: "" }] };
+        return { ...previous, [field]: next.length ? next : [{ name: "", image: "" }] };
+      } else if (field === "related") {
+        return { ...previous, [field]: next.length ? next : [] };
       }
       return { ...previous, [field]: next.length ? next : [""] };
     });
@@ -268,11 +285,6 @@ export default function ProductEdit() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [form.weight]);
 
-  const galleryUrls = useMemo(
-    () => ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean),
-    [form.gallery_urls]
-  );
-
   const badges = useMemo(
     () => ensureList(form.badges).map((item) => item.trim()).filter(Boolean),
     [form.badges]
@@ -284,7 +296,7 @@ export default function ProductEdit() {
   );
 
   const related = useMemo(
-    () => ensureList(form.related).map((item) => item.trim()).filter(Boolean),
+    () => Array.isArray(form.related) ? form.related.filter(Boolean) : [],
     [form.related]
   );
 
@@ -293,10 +305,10 @@ export default function ProductEdit() {
     return list
       .map((item) => {
         if (typeof item === "string") {
-          return item.trim() ? { label: item.trim(), image: "" } : null;
+          return item.trim() ? { name: item.trim(), image: "" } : null;
         }
-        return (item?.label?.trim() || item?.image?.trim()) ? {
-          label: item.label?.trim() || "",
+        return (item?.name?.trim() || item?.image?.trim()) ? {
+          name: item.name?.trim() || "",
           image: item.image?.trim() || ""
         } : null;
       })
@@ -328,9 +340,9 @@ export default function ProductEdit() {
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
     const hover = form.hover_url?.trim();
-    const list = [primary, hover, ...galleryUrls].filter(Boolean);
+    const list = [primary, hover].filter(Boolean);
     return list;
-  }, [form.thumbnail_url, form.hover_url, galleryUrls]);
+  }, [form.thumbnail_url, form.hover_url]);
 
   const previewImages = useMemo(
     () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
@@ -391,8 +403,10 @@ export default function ProductEdit() {
       reviewCount: 124,
       reviews: [],
       seo: {
-        title: form.meta_title?.trim() || form.name || "",
-        description: form.meta_description?.trim() || form.short_description || "",
+        title: form.name || "",
+        description: form.short_description
+          ? `${form.short_description.substring(0, 150)}...`
+          : `Buy ${form.name} online at BLOM Cosmetics`,
       },
     }),
     [
@@ -400,13 +414,10 @@ export default function ProductEdit() {
       compareAtNumber,
       features,
       form.category,
-      form.meta_description,
-      form.meta_title,
       form.name,
       form.overview,
       form.short_description,
       form.size,
-      form.slug,
       form.shelf_life,
       howToUse,
       inciIngredients,
@@ -419,15 +430,9 @@ export default function ProductEdit() {
     ]
   );
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setServerError("");
-
-    // Validate
+  const validate = () => {
     const nextErrors = {};
     if (!form.name.trim()) nextErrors.name = "Name is required";
-    if (!form.slug.trim()) nextErrors.slug = "Slug is required";
-    if (!form.sku.trim()) nextErrors.sku = "SKU is required";
     if (!form.category.trim()) nextErrors.category = "Category is required";
 
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
@@ -443,30 +448,46 @@ export default function ProductEdit() {
     }
 
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setServerError("");
+
+    if (!validate()) {
       showToast("error", "Please fix the highlighted fields");
       return;
     }
 
+    // Auto-generate fields
+    const slug = slugify(form.name);
+    const sku = generateSKU(form.category);
+    const barcode = generateBarcode();
+    const meta_title = form.name;
+    const meta_description = form.short_description
+      ? `${form.short_description.substring(0, 150)}...`
+      : `Buy ${form.name} online at BLOM Cosmetics`;
+
     const payload = {
-      id: form.id, // CRITICAL - include ID for update
+      id: id, // ← ONLY difference from ProductNew - include product ID for update
       name: form.name.trim(),
-      slug: form.slug.trim(),
-      sku: form.sku.trim(),
+      slug: slug,
+      sku: sku,
       category: form.category.trim(),
-      status: form.status,
+      status: form.status || 'active',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
       inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
       track_inventory: Boolean(form.track_inventory),
       weight: weightNumber,
-      barcode: form.barcode?.trim() || null,
+      barcode: barcode,
       short_description: form.short_description,
       overview: form.overview,
       description: form.overview,
       thumbnail_url: form.thumbnail_url?.trim() || "",
       hover_url: form.hover_url?.trim() || "",
-      gallery_urls: galleryUrls,
+      gallery_urls: [],
       variants,
       features,
       how_to_use: howToUse,
@@ -475,10 +496,10 @@ export default function ProductEdit() {
       size: form.size,
       shelf_life: form.shelf_life,
       claims,
-      meta_title: form.meta_title,
-      meta_description: form.meta_description,
-      is_active: Boolean(form.is_active),
-      is_featured: Boolean(form.is_featured),
+      meta_title: meta_title,
+      meta_description: meta_description,
+      is_active: true,
+      is_featured: false,
       badges,
       related,
       stock_label: stockLabel,
@@ -504,7 +525,7 @@ export default function ProductEdit() {
       }
 
       showToast("success", "Product updated successfully");
-      navigate("/products");
+      navigate(`/products/${id}`);
     } catch (error) {
       const message = error?.message || "Failed to update product";
       setServerError(message);
@@ -558,22 +579,24 @@ export default function ProductEdit() {
     );
   };
 
-  const inputClass = (hasError) => `product-form-input${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
   const textareaClass = (hasError) => `product-form-textarea${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="flex items-center justify-center py-12">
-          <div style={{
-            width: '32px',
-            height: '32px',
-            border: '4px solid var(--card)',
-            borderTopColor: 'var(--accent)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-        </div>
+      <div className="flex h-full items-center justify-center">
+        <div style={{
+          width: '32px',
+          height: '32px',
+          border: '4px solid var(--card)',
+          borderTopColor: 'var(--accent)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}></div>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -581,7 +604,7 @@ export default function ProductEdit() {
   return (
     <>
       <style>{`
-        /* Product Form Styling - Matching ProductNew */
+        /* Product Form Styling - Matching BundleEditor */
         .topbar {
           padding: 24px 32px;
           border-bottom: 2px solid var(--border);
@@ -787,17 +810,11 @@ export default function ProductEdit() {
           max-width: 375px;
           margin: 0 auto;
         }
-
-        @media (max-width: 768px) {
-          .preview-fullscreen {
-            padding: 1rem;
-          }
-        }
       `}</style>
       <div className="flex h-full flex-col">
         <div className="topbar">
           <div className="font-bold text-lg">Edit Product</div>
-          <div className="text-sm text-[var(--text-muted)]">Update product details and preview changes.</div>
+          <div className="text-sm text-[var(--text-muted)]">Update product details and preview the merchandising experience.</div>
         </div>
 
         <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -805,7 +822,7 @@ export default function ProductEdit() {
           <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Basic Information</h2>
-              <p className="text-sm text-[var(--text-muted)]">Name, slug and classification for the product.</p>
+              <p className="text-sm text-[var(--text-muted)]">Name and classification for the product.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
@@ -823,54 +840,38 @@ export default function ProductEdit() {
                 {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="slug">
-                  Slug <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="slug"
-                  type="text"
-                  className="product-form-input"
-                  value={form.slug}
-                  onChange={(event) => update("slug", event.target.value)}
-                  placeholder="base-44-nail-strengthener"
-                />
-                {errors.slug ? <p className="text-xs text-red-500">{errors.slug}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="sku">
-                  SKU <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="sku"
-                    type="text"
-                    className="product-form-input flex-1"
-                    value={form.sku}
-                    onChange={(event) => update("sku", event.target.value)}
-                    placeholder="Auto-generated"
-                  />
-                  <button
-                    type="button"
-                    className="product-btn-secondary"
-                    onClick={() => update("sku", generateSKU())}
-                  >
-                    Generate
-                  </button>
-                </div>
-                {errors.sku ? <p className="text-xs text-red-500">{errors.sku}</p> : null}
-              </div>
-              <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="category">
                   Category <span className="text-red-500">*</span>
                 </label>
-                <input
+                <select
                   id="category"
-                  type="text"
-                  className="product-form-input"
-                  value={form.category}
-                  onChange={(event) => update("category", event.target.value)}
-                  placeholder="Treatments"
-                />
+                  className="product-form-select"
+                  value={showCustomCategory ? '__custom__' : form.category}
+                  onChange={(event) => {
+                    if (event.target.value === '__custom__') {
+                      setShowCustomCategory(true);
+                      update('category', '');
+                    } else {
+                      setShowCustomCategory(false);
+                      update('category', event.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Select category...</option>
+                  {CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  <option value="__custom__">+ Add New Category</option>
+                </select>
+                {showCustomCategory && (
+                  <input
+                    type="text"
+                    placeholder="Enter new category name"
+                    value={form.category}
+                    onChange={(event) => update('category', event.target.value)}
+                    className="product-form-input mt-2"
+                  />
+                )}
                 {errors.category ? <p className="text-xs text-red-500">{errors.category}</p> : null}
               </div>
               <div className="space-y-1">
@@ -884,7 +885,7 @@ export default function ProductEdit() {
                   onChange={(event) => update("status", event.target.value)}
                 >
                   <option value="draft">Draft</option>
-                  <option value="published">Published</option>
+                  <option value="active">Active</option>
                   <option value="archived">Archived</option>
                 </select>
               </div>
@@ -976,19 +977,6 @@ export default function ProductEdit() {
                   placeholder="250"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="barcode">
-                  Barcode
-                </label>
-                <input
-                  id="barcode"
-                  type="text"
-                  className="product-form-input"
-                  value={form.barcode}
-                  onChange={(event) => update("barcode", event.target.value)}
-                  placeholder="6001234567890"
-                />
-              </div>
             </div>
           </section>
 
@@ -1030,12 +1018,12 @@ export default function ProductEdit() {
           <section className="product-form-section">
             <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Images</h2>
-              <p className="text-sm text-[var(--text-muted)]">Primary, hover and gallery imagery.</p>
+              <p className="text-sm text-[var(--text-muted)]">Main product image and optional hover image.</p>
             </header>
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="thumbnail_url">
-                  Thumbnail URL
+                  Main Product Image URL <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1044,7 +1032,7 @@ export default function ProductEdit() {
                     className="product-form-input flex-1"
                     value={form.thumbnail_url}
                     onChange={(event) => update("thumbnail_url", event.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://example.com/image.jpg"
                   />
                   <label className="product-btn-secondary cursor-pointer">
                     Upload
@@ -1067,10 +1055,12 @@ export default function ProductEdit() {
                     />
                   </label>
                 </div>
+                <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
+                {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
-                  Hover URL
+                  Hover Image URL (optional)
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1079,7 +1069,7 @@ export default function ProductEdit() {
                     className="product-form-input flex-1"
                     value={form.hover_url}
                     onChange={(event) => update("hover_url", event.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://example.com/hover.jpg"
                   />
                   <label className="product-btn-secondary cursor-pointer">
                     Upload
@@ -1102,64 +1092,7 @@ export default function ProductEdit() {
                     />
                   </label>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-[var(--text)]">Gallery URLs</label>
-                  {errors.images ? (
-                    <span className="text-xs font-medium text-red-500">{errors.images}</span>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  {ensureList(form.gallery_urls).map((item, index) => (
-                    <div key={`gallery_urls-${index}`} className="flex gap-2">
-                      <input
-                        type="text"
-                        className="product-form-input flex-1"
-                        value={item}
-                        placeholder="https://..."
-                        onChange={(event) => updateArr("gallery_urls", index, event.target.value)}
-                      />
-                      <label className="product-btn-secondary cursor-pointer">
-                        Upload
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            try {
-                              showToast('info', 'Uploading...');
-                              const url = await uploadToCloudinary(file);
-                              updateArr("gallery_urls", index, url);
-                              showToast('success', 'Image uploaded');
-                            } catch (err) {
-                              showToast('error', 'Upload failed');
-                            }
-                          }}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => removeRow("gallery_urls", index)}
-                        className="product-btn-secondary"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addRow("gallery_urls")}
-                  className="product-btn-add"
-                >
-                  + Add image
-                </button>
-                {errors.images ? (
-                  <p className="text-xs text-red-500">{errors.images}</p>
-                ) : null}
+                <small className="text-xs text-[var(--text-muted)]">Shows when customer hovers over product</small>
               </div>
             </div>
           </section>
@@ -1181,12 +1114,12 @@ export default function ProductEdit() {
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
                         style={{ flex: 2 }}
-                        value={variant?.label || variant}
+                        value={variant?.name || variant}
                         onChange={(e) => {
                           const current = form.variants[index];
                           const updated = typeof current === "string"
-                            ? { label: e.target.value, image: "" }
-                            : { ...current, label: e.target.value };
+                            ? { name: e.target.value, image: "" }
+                            : { ...current, name: e.target.value };
                           updateArr("variants", index, updated);
                         }}
                       />
@@ -1194,20 +1127,20 @@ export default function ProductEdit() {
                         <input
                           type="file"
                           accept="image/*"
-                          id={`edit-variant-${index}`}
+                          id={`variant-image-${index}`}
                           style={{ display: 'none' }}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) handleVariantImageUpload(index, file);
                           }}
                         />
-                        <label htmlFor={`edit-variant-${index}`} className="upload-btn">
+                        <label htmlFor={`variant-image-${index}`} className="upload-btn">
                           {variant?.image ? '📷 Change' : '📷 Upload'}
                         </label>
                         {variant?.image && (
                           <img
                             src={variant.image}
-                            alt={variant?.label || 'Variant'}
+                            alt={variant?.name || 'Variant'}
                             className="variant-thumbnail"
                           />
                         )}
@@ -1286,74 +1219,59 @@ export default function ProductEdit() {
 
           <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">SEO</h2>
-              <p className="text-sm text-[var(--text-muted)]">Meta information for search engines.</p>
-            </header>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_title">
-                  Meta Title
-                </label>
-                <input
-                  id="meta_title"
-                  type="text"
-                  className="product-form-input"
-                  value={form.meta_title}
-                  onChange={(event) => update("meta_title", event.target.value)}
-                  placeholder="Base 44 | Nail Strengthener"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_description">
-                  Meta Description
-                </label>
-                <textarea
-                  id="meta_description"
-                  className={textareaClass(false)}
-                  rows={3}
-                  value={form.meta_description}
-                  onChange={(event) => update("meta_description", event.target.value)}
-                  placeholder="Boost your nails with Base 44's restorative strengthener."
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Display Settings</h2>
-              <p className="text-sm text-[var(--text-muted)]">Control visibility across storefront experiences.</p>
-            </header>
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-3 text-sm font-medium text-[var(--text)]" htmlFor="is_active">
-                <input
-                  id="is_active"
-                  type="checkbox"
-                  checked={form.is_active}
-                  onChange={(event) => update("is_active", event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--card)]"
-                />
-                Active
-              </label>
-              <label className="flex items-center gap-3 text-sm font-medium text-[var(--text)]" htmlFor="is_featured">
-                <input
-                  id="is_featured"
-                  type="checkbox"
-                  checked={form.is_featured}
-                  onChange={(event) => update("is_featured", event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--card)]"
-                />
-                Featured product
-              </label>
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <header className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--text)]">Related Products</h2>
-              <p className="text-sm text-[var(--text-muted)]">Surface complementary products by ID or slug.</p>
+              <p className="text-sm text-[var(--text-muted)]">Select products to recommend (up to 3).</p>
             </header>
-            {renderArrayField("related", "Related Product IDs or Slugs", "product-slug", "Add related product")}
+            <div className="space-y-2">
+              {form.related.map((productId, index) => (
+                <div key={index} className="flex gap-2">
+                  <select
+                    value={productId}
+                    onChange={(e) => {
+                      const updated = [...form.related];
+                      updated[index] = e.target.value;
+                      setForm(prev => ({ ...prev, related: updated }));
+                    }}
+                    className="product-form-select flex-1"
+                  >
+                    <option value="">Select product...</option>
+                    {allProducts
+                      .filter(p => !form.related.includes(p.id) || p.id === productId)
+                      .map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))
+                    }
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(prev => ({
+                        ...prev,
+                        related: prev.related.filter((_, i) => i !== index)
+                      }));
+                    }}
+                    className="product-btn-secondary"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+
+              {form.related.length < 3 && (
+                <button
+                  type="button"
+                  onClick={() => setForm(prev => ({
+                    ...prev,
+                    related: [...prev.related, '']
+                  }))}
+                  className="product-btn-add"
+                >
+                  + Add Related Product
+                </button>
+              )}
+            </div>
           </section>
 
           {serverError ? (
