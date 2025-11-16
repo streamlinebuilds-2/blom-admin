@@ -9,11 +9,18 @@ const formatRands = (cents) => {
   return `R${(cents / 100).toFixed(2)}`;
 };
 
+// Helper to detect if a coupon code is a sign-up coupon
+// Sign-up coupons follow pattern like: BLOM1105-3B306C
+const isSignupCoupon = (code) => {
+  return /^BLOM\d{4}-[A-Z0-9]+$/i.test(code);
+};
+
 // Main component for the Specials/Coupons page
 export default function Coupons() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [couponFilter, setCouponFilter] = useState('all'); // 'all', 'signup', 'created'
 
   // --- Data Fetching ---
   const { data: coupons, isLoading } = useQuery({
@@ -58,10 +65,22 @@ export default function Coupons() {
   };
 
   const handleDelete = async (couponId) => {
+    if (!confirm('Are you sure you want to deactivate this coupon?')) {
+      return;
+    }
     // We'll just deactivate it, which is safer than deleting.
     await supabase.from('coupons').update({ is_active: false }).eq('id', couponId);
     queryClient.invalidateQueries({ queryKey: ['coupons'] });
   };
+
+  // Filter coupons based on selected filter
+  const filteredCoupons = useMemo(() => {
+    if (!coupons) return [];
+    if (couponFilter === 'all') return coupons;
+    if (couponFilter === 'signup') return coupons.filter(c => isSignupCoupon(c.code));
+    if (couponFilter === 'created') return coupons.filter(c => !isSignupCoupon(c.code));
+    return coupons;
+  }, [coupons, couponFilter]);
 
   return (
     <div className="p-4 md:p-8">
@@ -86,7 +105,22 @@ export default function Coupons() {
       )}
 
       <div className="section-card mt-8">
-        <h2 className="text-xl font-semibold mb-4">Active Coupons</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Active Coupons</h2>
+          <div className="flex items-center gap-2">
+            <label htmlFor="coupon-filter" className="text-sm text-text-muted">Filter:</label>
+            <select
+              id="coupon-filter"
+              value={couponFilter}
+              onChange={(e) => setCouponFilter(e.target.value)}
+              className="select text-sm py-1 px-2"
+            >
+              <option value="all">All Coupons</option>
+              <option value="signup">Sign-up Coupons</option>
+              <option value="created">Created Coupons</option>
+            </select>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>
@@ -107,7 +141,7 @@ export default function Coupons() {
               {isLoading && (
                 <tr><td colSpan="10" className="p-4 text-center">Loading coupons...</td></tr>
               )}
-              {coupons && coupons.map((coupon) => (
+              {filteredCoupons && filteredCoupons.map((coupon) => (
                 <tr key={coupon.id} className="border-b border-border hover:bg-white/5">
                   <td className="p-3 font-mono">{coupon.code}</td>
                   <td className="p-3">{coupon.type}</td>
