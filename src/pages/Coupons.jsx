@@ -1,216 +1,348 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { Plus, Edit, Trash2, TrendingUp } from 'lucide-react';
 
-function toISO(d){ return d ? new Date(d).toISOString().slice(0,16) : ''; }
+// Helper to format currency
+const formatRands = (cents) => {
+  if (cents == null || cents === 0) return '-';
+  return `R${(cents / 100).toFixed(2)}`;
+};
 
-export default function CouponsPage(){
-  const [rows,setRows]=useState([]);
-  const [edit,setEdit]=useState(null);
-  const [usage,setUsage]=useState([]);
+// Main component for the Specials/Coupons page
+export default function Coupons() {
+  const queryClient = useQueryClient();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
 
-  async function load(){
-    const r = await fetch('/.netlify/functions/admin-coupons'); const j = await r.json();
-    setRows(j.data||[]);
-  }
-  useEffect(()=>{load()},[]);
+  // --- Data Fetching ---
+  const { data: coupons, isLoading } = useQuery({
+    queryKey: ['coupons'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  });
 
-  async function save(c){
-    const r = await fetch('/.netlify/functions/admin-coupon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});
-    if(!r.ok){ alert(await r.text()); return; }
-    setEdit(null); load();
-  }
-  async function openUsage(id){
-    const r = await fetch(`/.netlify/functions/admin-coupon-usage?couponId=${id}`);
-    const j = await r.json(); setUsage(j.data||[]);
-  }
+  // --- Event Handlers ---
+  const handleAddNew = () => {
+    setSelectedCoupon(null);
+    setIsFormOpen(true);
+  };
 
-  return <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
-    <div className="flex items-center justify-between">
-      <h1 className="text-2xl font-semibold">Coupons</h1>
-      <button
-        style={{
-          padding: '8px 12px',
-          background: '#10b981',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: 'pointer'
-        }}
-        onClick={()=>setEdit({ code:'', type:'percent', value:10, is_active:true })}
-      >
-        New Coupon
-      </button>
-    </div>
-    <table className="w-full text-sm">
-      <thead><tr className="text-left border-b">
-        <th>Code</th><th>Type</th><th>Value</th><th>Uses</th><th>Active</th><th>Window</th><th></th>
-      </tr></thead>
-      <tbody>
-        {rows.map((c)=>(
-          <tr key={c.id} className="border-b">
-            <td className="font-mono">{c.code}</td>
-            <td>{c.type}</td>
-            <td>{c.type==='percent' ? `${c.value}%` : `R ${Number(c.value||0).toFixed(2)}`}</td>
-            <td>{c.uses}{c.max_uses?` / ${c.max_uses}`:''}</td>
-            <td>{c.is_active?'Yes':'No'}</td>
-            <td className="text-xs">{c.starts_at?new Date(c.starts_at).toLocaleDateString():'-'} → {c.ends_at?new Date(c.ends_at).toLocaleDateString():'-'}</td>
-            <td className="text-right">
-              <button style={{ color: 'var(--accent)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', marginRight: '12px' }} onClick={()=>{setEdit(c);}}>Edit</button>
-              <button style={{ color: 'var(--text-muted)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }} onClick={()=>openUsage(c.id)}>Usage</button>
-            </td>
-          </tr>
-        ))}
-        {rows.length===0 && <tr><td colSpan={7} className="py-4" style={{ color: 'var(--text-muted)' }}>No coupons yet.</td></tr>}
-      </tbody>
-    </table>
+  const handleEdit = (coupon) => {
+    setSelectedCoupon(coupon);
+    setIsFormOpen(true);
+  };
 
-    {edit && (
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{
-          background: 'var(--card)',
-          borderRadius: '8px',
-          padding: '24px',
-          width: '640px'
-        }} className="space-y-3">
-          <h3 className="text-lg font-semibold">{edit.id?'Edit':'New'} Coupon</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm">Code
-              <input style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={edit.code} onChange={e=>setEdit({...edit, code:e.target.value.toUpperCase()})} placeholder="BLOM10"/>
-            </label>
-            <label className="text-sm">Type
-              <select style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={edit.type} onChange={e=>setEdit({...edit, type:e.target.value})}>
-                <option value="percent">percent</option>
-                <option value="fixed">fixed</option>
-              </select>
-            </label>
-            <label className="text-sm">Value
-              <input type="number" style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={edit.value} onChange={e=>setEdit({...edit, value:Number(e.target.value)})}/>
-            </label>
-            <label className="text-sm">Min order total
-              <input type="number" style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={edit.min_order_total||0} onChange={e=>setEdit({...edit, min_order_total:Number(e.target.value)})}/>
-            </label>
-            <label className="text-sm">Max uses
-              <input type="number" style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={edit.max_uses||''} onChange={e=>setEdit({...edit, max_uses: e.target.value?Number(e.target.value):null})}/>
-            </label>
-            <label className="text-sm">Active
-              <select style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={edit.is_active?'1':'0'} onChange={e=>setEdit({...edit, is_active:e.target.value==='1'})}>
-                <option value="1">Yes</option><option value="0">No</option>
-              </select>
-            </label>
-            <label className="text-sm">Starts
-              <input type="datetime-local" style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={toISO(edit.starts_at)} onChange={e=>setEdit({...edit, starts_at:e.target.value?new Date(e.target.value).toISOString():null})}/>
-            </label>
-            <label className="text-sm">Ends
-              <input type="datetime-local" style={{
-                width: '100%',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                border: '1px solid var(--card)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }} value={toISO(edit.ends_at)} onChange={e=>setEdit({...edit, ends_at:e.target.value?new Date(e.target.value).toISOString():null})}/>
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 pt-3">
-            <button style={{
-              padding: '8px 12px',
-              border: '1px solid var(--card)',
-              background: 'var(--card)',
-              color: 'var(--text)',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }} onClick={()=>setEdit(null)}>Cancel</button>
-            <button style={{
-              padding: '8px 12px',
-              background: 'var(--accent)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }} onClick={()=>save(edit)}>Save</button>
-          </div>
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setSelectedCoupon(null);
+  };
+
+  const handleDelete = async (couponId) => {
+    // We'll just deactivate it, which is safer than deleting.
+    await supabase.from('coupons').update({ is_active: false }).eq('id', couponId);
+    queryClient.invalidateQueries({ queryKey: ['coupons'] });
+  };
+
+  return (
+    <div className="p-4 md:p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Specials & Coupons</h1>
+        <button
+          onClick={handleAddNew}
+          className="btn-primary flex items-center gap-2"
+        >
+          <Plus size={18} />
+          <span>New Coupon</span>
+        </button>
+      </div>
+
+      {isFormOpen && (
+        <CouponForm
+          coupon={selectedCoupon}
+          onClose={handleCloseForm}
+        />
+      )}
+
+      <div className="section-card mt-8">
+        <h2 className="text-xl font-semibold mb-4">Active Coupons</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px]">
+            <thead>
+              <tr className="border-b border-border text-left text-text-muted">
+                <th className="p-3">Code</th>
+                <th className="p-3">Type</th>
+                <th className="p-3">Value</th>
+                <th className="p-3">Min. Spend</th>
+                <th className="p-3">Max Discount</th>
+                <th className="p-3">Usage</th>
+                <th className="p-3">Expires</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && (
+                <tr><td colSpan="9" className="p-4 text-center">Loading coupons...</td></tr>
+              )}
+              {coupons && coupons.map((coupon) => (
+                <tr key={coupon.id} className="border-b border-border hover:bg-white/5">
+                  <td className="p-3 font-mono">{coupon.code}</td>
+                  <td className="p-3">{coupon.type}</td>
+                  <td className="p-3">
+                    {coupon.type === 'percentage'
+                      ? `${coupon.value}%`
+                      : formatRands(coupon.value * 100)}
+                  </td>
+                  <td className="p-3">{formatRands(coupon.min_order_cents)}</td>
+                  <td className="p-3">{formatRands(coupon.max_discount_cents)}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp size={16} className="text-accent" />
+                      {coupon.used_count || 0} / {coupon.max_uses || '∞'}
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    {coupon.valid_until ? new Date(coupon.valid_until).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="p-3">
+                    <span className={`status-badge ${coupon.is_active ? 'status-active' : 'status-archived'}`}>
+                      {coupon.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <button onClick={() => handleEdit(coupon)} className="p-1 hover:text-accent">
+                        <Edit size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(coupon.id)} className="p-1 hover:text-red-500">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    )}
+    </div>
+  );
+}
 
-    {usage.length>0 && (
-      <div style={{
-        background: 'var(--card)',
-        border: '1px solid var(--card)',
-        borderRadius: '6px',
-        padding: '16px'
-      }}>
-        <h3 className="font-semibold mb-2">Usage</h3>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left border-b"><th>When</th><th>Order</th><th>Email</th><th>Total</th><th>Status</th></tr></thead>
-          <tbody>
-            {usage.map((u)=>(
-              <tr key={u.id} className="border-b">
-                <td>{new Date(u.used_at).toLocaleString()}</td>
-                <td className="font-mono">{u.orders?.m_payment_id||'-'}</td>
-                <td>{u.buyer_email||'-'}</td>
-                <td>{u.orders?`R ${Number(u.orders.total||0).toFixed(2)}`:'-'}</td>
-                <td>{u.orders?.status||'-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </div>
+// --- Coupon Form Component ---
+function CouponForm({ coupon, onClose }) {
+  const queryClient = useQueryClient();
+  const [formState, setFormState] = useState({
+    id: coupon?.id || null,
+    code: coupon?.code || '',
+    description: coupon?.notes || '', // Read from 'notes'
+    is_active: coupon?.is_active ?? true,
+    type: coupon?.type || 'percentage', // Use 'type'
+    value: coupon?.value || 0, // Use 'value'
+    min_spend: coupon ? (coupon.min_order_cents / 100).toFixed(2) : '0.00', // Read from 'min_order_cents'
+    max_discount: coupon ? (coupon.max_discount_cents ? (coupon.max_discount_cents / 100).toFixed(2) : '') : '',
+    max_uses: coupon?.max_uses || 1,
+    valid_from: coupon?.valid_from ? coupon.valid_from.split('T')[0] : '',
+    valid_until: coupon?.valid_until ? coupon.valid_until.split('T')[0] : '',
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (formData) => {
+      const response = await fetch('/.netlify/functions/save-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to save coupon');
+      return result.coupon;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coupons'] });
+      onClose();
+    },
+    onError: (error) => {
+      console.error('Save error:', error);
+      alert('Error saving coupon: ' + error.message);
+    }
+  });
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormState(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    mutation.mutate(formState);
+  };
+
+  return (
+    <div className="section-card p-6 mb-8">
+      <h2 className="text-xl font-semibold mb-6">
+        {coupon ? 'Edit Coupon' : 'Create New Coupon'}
+      </h2>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Col 1 */}
+        <div className="md:col-span-1 space-y-4">
+          <div className="form-group">
+            <label htmlFor="code">Coupon Code</label>
+            <input
+              type="text"
+              id="code"
+              name="code"
+              value={formState.code}
+              onChange={handleChange}
+              className="input"
+              placeholder="e.g., WELCOME10"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="description">Description (Internal)</label>
+            <textarea
+              id="description"
+              name="description"
+              value={formState.description}
+              onChange={handleChange}
+              className="textarea"
+              placeholder="e.g., Welcome discount for new customers"
+              rows={3}
+            />
+          </div>
+          <div className="flex items-center gap-3 pt-2">
+            <input
+              type="checkbox"
+              id="is_active"
+              name="is_active"
+              checked={formState.is_active}
+              onChange={handleChange}
+              className="h-5 w-5 rounded"
+            />
+            <label htmlFor="is_active">Activate Coupon</label>
+          </div>
+        </div>
+
+        {/* Col 2 */}
+        <div className="md:col-span-1 space-y-4">
+          <div className="form-group">
+            <label htmlFor="type">Discount Type</label>
+            <select
+              id="type"
+              name="type"
+              value={formState.type}
+              onChange={handleChange}
+              className="select"
+            >
+              <option value="percentage">Percentage (%)</option>
+              <option value="fixed">Fixed Amount (R)</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label htmlFor="value">
+              Value ({formState.type === 'percentage' ? '%' : 'R'})
+            </label>
+            <input
+              type="number"
+              id="value"
+              name="value"
+              value={formState.value}
+              onChange={handleChange}
+              className="input"
+              step="0.01"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="max_discount">Max Discount (R)</label>
+            <input
+              type="number"
+              id="max_discount"
+              name="max_discount"
+              value={formState.max_discount}
+              onChange={handleChange}
+              className="input"
+              placeholder="e.g., 100 (for R100 max)"
+              step="0.01"
+              disabled={formState.type === 'fixed'}
+            />
+            <small className="text-text-muted">
+              {formState.type === 'percentage'
+                ? 'Max R value off for % discounts. Leave empty for no limit.'
+                : 'Not needed for fixed discounts.'}
+            </small>
+          </div>
+        </div>
+
+        {/* Col 3 */}
+        <div className="md:col-span-1 space-y-4">
+          <div className="form-group">
+            <label htmlFor="min_spend">Minimum Spend (R)</label>
+            <input
+              type="number"
+              id="min_spend"
+              name="min_spend"
+              value={formState.min_spend}
+              onChange={handleChange}
+              className="input"
+              placeholder="e.g., 500 (for R500)"
+              step="0.01"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="max_uses">Total Usage Limit</label>
+            <input
+              type="number"
+              id="max_uses"
+              name="max_uses"
+              value={formState.max_uses}
+              onChange={handleChange}
+              className="input"
+              placeholder="e.g., 100"
+              step="1"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="valid_until">Expiry Date</label>
+            <input
+              type="date"
+              id="valid_until"
+              name="valid_until"
+              value={formState.valid_until}
+              onChange={handleChange}
+              className="input"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="md:col-span-3 flex justify-end gap-4 mt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? 'Saving...' : (coupon ? 'Save Changes' : 'Create Coupon')}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
