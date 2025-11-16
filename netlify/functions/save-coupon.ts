@@ -54,6 +54,9 @@ export const handler: Handler = async (event) => {
       // Dates (can be null)
       valid_from: body.valid_from || null,
       valid_until: body.valid_until || null,
+
+      // Product exclusions (array of UUIDs)
+      excluded_product_ids: body.excluded_product_ids || [],
     };
 
     // Upsert logic: update if ID exists, insert if not

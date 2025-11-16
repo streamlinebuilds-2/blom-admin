@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit, Trash2, TrendingUp } from 'lucide-react';
+import { Plus, Edit, Trash2, TrendingUp, X, Search } from 'lucide-react';
 
 // Helper to format currency
 const formatRands = (cents) => {
@@ -26,6 +26,19 @@ export default function Coupons() {
       if (error) throw new Error(error.message);
       return data;
     },
+  });
+
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['products-for-exclusion'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, sku, product_type')
+        .or('status.eq.active,status.is.null')
+        .order('name', { ascending: true });
+      if (error) throw new Error(error.message);
+      return data || [];
+    }
   });
 
   // --- Event Handlers ---
@@ -67,6 +80,8 @@ export default function Coupons() {
         <CouponForm
           coupon={selectedCoupon}
           onClose={handleCloseForm}
+          products={products}
+          isLoadingProducts={isLoadingProducts}
         />
       )}
 
@@ -82,6 +97,7 @@ export default function Coupons() {
                 <th className="p-3">Min. Spend</th>
                 <th className="p-3">Max Discount</th>
                 <th className="p-3">Usage</th>
+                <th className="p-3">Exclusions</th>
                 <th className="p-3">Expires</th>
                 <th className="p-3">Status</th>
                 <th className="p-3">Actions</th>
@@ -89,7 +105,7 @@ export default function Coupons() {
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan="9" className="p-4 text-center">Loading coupons...</td></tr>
+                <tr><td colSpan="10" className="p-4 text-center">Loading coupons...</td></tr>
               )}
               {coupons && coupons.map((coupon) => (
                 <tr key={coupon.id} className="border-b border-border hover:bg-white/5">
@@ -107,6 +123,15 @@ export default function Coupons() {
                       <TrendingUp size={16} className="text-accent" />
                       {coupon.used_count || 0} / {coupon.max_uses || '∞'}
                     </div>
+                  </td>
+                  <td className="p-3">
+                    {coupon.excluded_product_ids && coupon.excluded_product_ids.length > 0 ? (
+                      <span className="text-red-400 text-sm">
+                        {coupon.excluded_product_ids.length} products
+                      </span>
+                    ) : (
+                      <span className="text-text-muted">-</span>
+                    )}
                   </td>
                   <td className="p-3">
                     {coupon.valid_until ? new Date(coupon.valid_until).toLocaleDateString() : '-'}
@@ -137,7 +162,7 @@ export default function Coupons() {
 }
 
 // --- Coupon Form Component ---
-function CouponForm({ coupon, onClose }) {
+function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false }) {
   const queryClient = useQueryClient();
   const [formState, setFormState] = useState({
     id: coupon?.id || null,
@@ -151,7 +176,10 @@ function CouponForm({ coupon, onClose }) {
     max_uses: coupon?.max_uses || 1,
     valid_from: coupon?.valid_from ? coupon.valid_from.split('T')[0] : '',
     valid_until: coupon?.valid_until ? coupon.valid_until.split('T')[0] : '',
+    excluded_product_ids: coupon?.excluded_product_ids || [],
   });
+
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
   const mutation = useMutation({
     mutationFn: async (formData) => {
@@ -181,6 +209,30 @@ function CouponForm({ coupon, onClose }) {
       [name]: type === 'checkbox' ? checked : value,
     }));
   };
+
+  const handleProductExclusionToggle = (productId) => {
+    setFormState(prev => {
+      const excluded = prev.excluded_product_ids;
+      if (excluded.includes(productId)) {
+        return { ...prev, excluded_product_ids: excluded.filter(id => id !== productId) };
+      } else {
+        return { ...prev, excluded_product_ids: [...excluded, productId] };
+      }
+    });
+  };
+
+  const filteredProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    const term = productSearchTerm.toLowerCase();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(term) ||
+      (p.sku && p.sku.toLowerCase().includes(term))
+    ).slice(0, 50); // Limit for performance
+  }, [products, productSearchTerm]);
+
+  const excludedProductsMap = useMemo(() => {
+    return new Map(products.filter(p => formState.excluded_product_ids.includes(p.id)).map(p => [p.id, p]));
+  }, [products, formState.excluded_product_ids]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -323,6 +375,97 @@ function CouponForm({ coupon, onClose }) {
               className="input"
             />
           </div>
+        </div>
+
+        {/* Product Exclusions Section */}
+        <div className="md:col-span-3 pt-4 mt-4 border-t border-border">
+          <label className="block text-sm font-medium mb-2">
+            Exclude Products
+            {formState.excluded_product_ids.length > 0 && (
+              <span className="ml-2 text-text-muted">
+                ({formState.excluded_product_ids.length} selected)
+              </span>
+            )}
+          </label>
+          <p className="text-xs text-text-muted mb-3">
+            Select products that this coupon CANNOT be applied to.
+          </p>
+
+          {/* Selected exclusions as tags */}
+          {formState.excluded_product_ids.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {formState.excluded_product_ids.map(id => {
+                const product = excludedProductsMap.get(id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1.5 bg-red-500/10 text-red-400 px-2 py-1 rounded-md text-sm"
+                  >
+                    {product ? product.name : id}
+                    <button
+                      type="button"
+                      onClick={() => handleProductExclusionToggle(id)}
+                      className="hover:text-red-300"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Search input */}
+          <div className="relative mb-2">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              placeholder="Search products by name or SKU..."
+              className="input pl-9"
+              value={productSearchTerm}
+              onChange={(e) => setProductSearchTerm(e.target.value)}
+              disabled={isLoadingProducts}
+            />
+          </div>
+
+          {isLoadingProducts && (
+            <p className="text-sm text-text-muted">Loading products...</p>
+          )}
+
+          {/* Product list */}
+          {!isLoadingProducts && (
+            <div className="max-h-48 overflow-y-auto border border-border rounded-md bg-bg">
+              {filteredProducts.length === 0 ? (
+                <div className="p-3 text-sm text-text-muted text-center">
+                  {productSearchTerm ? 'No products found matching your search.' : 'No products available.'}
+                </div>
+              ) : (
+                filteredProducts.map(product => (
+                  <div
+                    key={product.id}
+                    className="flex items-center gap-3 p-2 border-b border-border last:border-b-0 hover:bg-white/5 cursor-pointer"
+                    onClick={() => handleProductExclusionToggle(product.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formState.excluded_product_ids.includes(product.id)}
+                      onChange={() => {}}
+                      className="h-4 w-4 rounded"
+                    />
+                    <div className="flex-1">
+                      <span className="font-medium">{product.name}</span>
+                      {product.sku && (
+                        <span className="text-xs text-text-muted ml-2">({product.sku})</span>
+                      )}
+                      <span className="text-xs text-text-muted ml-2">
+                        [{product.product_type === 'bundle' ? 'Bundle' : 'Product'}]
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
