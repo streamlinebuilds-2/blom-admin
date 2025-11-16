@@ -29,9 +29,9 @@ import Stock from '@/pages/Stock'
 import Finance from '@/pages/Finance'
 import Orders from '@/pages/Orders'
 import OrderDetail from '@/pages/OrderDetail'
-import CouponsPage from '@/pages/Coupons'
 import PriceUpdates from '@/pages/PriceUpdates'
 import Discounts from '@/pages/Discounts'
+import Specials from '@/pages/Specials'
 
 // Initialize Supabase adapter for real database access
 try {
@@ -100,10 +100,10 @@ const AuthenticatedApp = () => {
         <Route path="/bundles/new" element={<BundleNew />} />
         <Route path="/bundles/:id" element={<BundleEdit />} />
 
-        {/* Specials - Canonical Routes (using Discounts for now) */}
-        <Route path="/specials" element={<Discounts />} />
-        <Route path="/specials/new" element={<Discounts />} />
-        <Route path="/specials/:id" element={<Discounts />} />
+        {/* Specials - Canonical Routes */}
+        <Route path="/specials" element={<Specials />} />
+        <Route path="/specials/new" element={<Specials />} />
+        <Route path="/specials/:id" element={<Specials />} />
 
         {/* Orders - Canonical Routes */}
         <Route path="/orders" element={<Orders/>} />
@@ -129,7 +129,6 @@ const AuthenticatedApp = () => {
         {/* Additional pages */}
         <Route path="/price-updates" element={<PriceUpdates/>} />
         <Route path="/discounts" element={<Discounts/>} />
-        <Route path="/coupons" element={<CouponsPage/>} />
 
         {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
         {Object.entries(Pages).map(([path, Page]) => {
