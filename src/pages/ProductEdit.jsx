@@ -38,6 +38,7 @@ const initialFormState = {
   category: "",
   price: "",
   compare_at_price: "",
+  cost_price: "",
   inventory_quantity: "0",
   track_inventory: true,
   weight: "",
@@ -172,6 +173,7 @@ export default function ProductEdit() {
             status: product.status === 'published' ? 'active' : (product.status || 'active'),
             price: product.price?.toString() || (product.price_cents ? (product.price_cents / 100).toString() : ''),
             compare_at_price: product.compare_at_price?.toString() || (product.compare_at_price_cents ? (product.compare_at_price_cents / 100).toString() : ''),
+            cost_price: product.cost_price_cents ? (product.cost_price_cents / 100).toFixed(2) : '',
             inventory_quantity: (product.inventory_quantity || product.stock || product.stock_on_hand || product.stock_qty || 0).toString(),
             track_inventory: product.track_inventory ?? true,
             weight: product.weight?.toString() || '',
@@ -478,6 +480,7 @@ export default function ProductEdit() {
       status: form.status || 'active',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
+      cost_price_cents: form.cost_price ? Math.round(parseFloat(form.cost_price) * 100) : 0,
       inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
       track_inventory: Boolean(form.track_inventory),
       weight: weightNumber,
@@ -931,6 +934,22 @@ export default function ProductEdit() {
                   onChange={(event) => update("compare_at_price", event.target.value)}
                   placeholder="249"
                 />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="cost_price">
+                  Cost Price (R)
+                </label>
+                <input
+                  id="cost_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="product-form-input"
+                  value={form.cost_price}
+                  onChange={(event) => update("cost_price", event.target.value)}
+                  placeholder="150.00"
+                />
+                <small className="text-xs text-[var(--text-muted)]">What you pay for the product</small>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="inventory_quantity">
