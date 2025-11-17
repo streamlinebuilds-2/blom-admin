@@ -118,7 +118,6 @@ export const handler: Handler = async (event) => {
 
       // Images
       thumbnail_url: payload.thumbnail_url || null,
-      hover_url: payload.hover_url || null,
       gallery_urls: Array.isArray(payload.gallery_urls) ? payload.gallery_urls : [],
 
       // Arrays
