@@ -88,6 +88,88 @@ export function createSupabaseAdapter() {
       return saved.product || saved;
     },
 
+    // Partial update - only updates specified fields, preserves all others (like images)
+    async partialUpdateProduct(p) {
+      if (!p.id) {
+        throw new Error('partialUpdateProduct requires product id');
+      }
+
+      // Build payload with only the fields that should be updated
+      const payload = {
+        id: p.id,
+        partial_update: true,  // This flag tells the backend to only update provided fields
+      };
+
+      // Only include fields that are explicitly provided
+      if (p.name !== undefined) payload.name = String(p.name).trim();
+      if (p.slug !== undefined) payload.slug = String(p.slug).trim();
+      if (p.status !== undefined) payload.status = p.status;
+      if (p.sku !== undefined) payload.sku = p.sku;
+      if (p.category !== undefined) payload.category = p.category;
+
+      // Price - convert from cents if provided as price_cents
+      if (p.price !== undefined) {
+        payload.price = Number(p.price);
+      } else if (p.price_cents !== undefined) {
+        payload.price = Number(p.price_cents) / 100;
+      }
+
+      if (p.compare_at_price !== undefined) {
+        payload.compare_at_price = p.compare_at_price != null ? Number(p.compare_at_price) : null;
+      }
+
+      // Stock
+      if (p.stock !== undefined || p.stock_qty !== undefined || p.stock_on_hand !== undefined) {
+        payload.stock = Number(p.stock ?? p.stock_qty ?? p.stock_on_hand ?? 0);
+      }
+
+      // Descriptions
+      if (p.short_description !== undefined) payload.short_description = p.short_description;
+      if (p.overview !== undefined) payload.overview = p.overview;
+
+      // Images
+      if (p.thumbnail_url !== undefined) payload.thumbnail_url = p.thumbnail_url;
+      if (p.gallery_urls !== undefined) payload.gallery_urls = p.gallery_urls;
+      if (p.image_url !== undefined) payload.thumbnail_url = p.image_url;
+      if (p.images !== undefined) payload.gallery_urls = p.images;
+
+      // Product details
+      if (p.features !== undefined) payload.features = p.features;
+      if (p.how_to_use !== undefined) payload.how_to_use = p.how_to_use;
+      if (p.inci_ingredients !== undefined) payload.inci_ingredients = p.inci_ingredients;
+      if (p.key_ingredients !== undefined) payload.key_ingredients = p.key_ingredients;
+      if (p.claims !== undefined) payload.claims = p.claims;
+      if (p.variants !== undefined) payload.variants = p.variants;
+
+      // Details
+      if (p.size !== undefined) payload.size = p.size;
+      if (p.shelf_life !== undefined) payload.shelf_life = p.shelf_life;
+      if (p.weight !== undefined) payload.weight = p.weight;
+
+      // Cost price
+      if (p.cost_price_cents !== undefined) payload.cost_price_cents = p.cost_price_cents;
+
+      // Meta
+      if (p.meta_title !== undefined) payload.meta_title = p.meta_title;
+      if (p.meta_description !== undefined) payload.meta_description = p.meta_description;
+      if (p.is_active !== undefined) payload.is_active = p.is_active;
+      if (p.is_featured !== undefined) payload.is_featured = p.is_featured;
+
+      const res = await fetch('/.netlify/functions/save-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`save-product partial update failed: ${res.status} ${text}`);
+      }
+
+      const saved = await res.json();
+      return saved.product || saved;
+    },
+
     // ===== INVENTORY =====
     async listStockMovements(limit = 50) {
       const { data, error } = await supabase
