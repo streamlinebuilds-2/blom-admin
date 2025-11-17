@@ -12,8 +12,22 @@ const CATEGORIES = [
   'Gel System',
   'Tools & Essentials',
   'Furniture',
+  'Courses',
+  'Workshops',
   'Coming Soon'
 ];
+
+// Helper function to determine stock type based on category
+const getStockTypeFromCategory = (category) => {
+  const cat = (category || '').toLowerCase();
+  if (cat.includes('course') || cat.includes('workshop') || cat.includes('training')) {
+    return 'unlimited';
+  }
+  if (cat.includes('furniture')) {
+    return 'made_on_demand';
+  }
+  return 'tracked';
+};
 
 const slugify = (value) =>
   value
@@ -470,6 +484,7 @@ export default function ProductEdit() {
     const meta_description = form.short_description
       ? `${form.short_description.substring(0, 150)}...`
       : `Buy ${form.name} online at BLOM Cosmetics`;
+    const stockType = getStockTypeFromCategory(form.category);
 
     const payload = {
       id: id, // ← ONLY difference from ProductNew - include product ID for update
@@ -477,6 +492,7 @@ export default function ProductEdit() {
       slug: slug,
       sku: sku,
       category: form.category.trim(),
+      stock_type: stockType,
       status: form.status || 'active',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,

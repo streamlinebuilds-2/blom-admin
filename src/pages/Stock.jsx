@@ -1,8 +1,25 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../components/supabaseClient';
-import { History } from 'lucide-react';
+import { History, Infinity, Hammer } from 'lucide-react';
 import { useToast } from '../components/ui/ToastProvider';
+
+// Helper function to determine stock type based on category or explicit stock_type field
+const getStockType = (product) => {
+  // If explicit stock_type is set, use it
+  if (product.stock_type) {
+    return product.stock_type;
+  }
+  // Auto-detect based on category
+  const category = (product.category || '').toLowerCase();
+  if (category.includes('course') || category.includes('workshop') || category.includes('training')) {
+    return 'unlimited';
+  }
+  if (category.includes('furniture')) {
+    return 'made_on_demand';
+  }
+  return 'tracked';
+};
 
 // --- Main Stock Page Component ---
 export default function Stock() {
@@ -16,7 +33,7 @@ export default function Stock() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock')
+        .select('id, name, sku, stock, category, stock_type')
         .order('name');
       if (error) throw error;
       return data;
@@ -271,6 +288,30 @@ export default function Stock() {
           padding: 40px 20px;
           color: var(--text-muted);
         }
+
+        .stock-type-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .stock-type-unlimited {
+          background: #8b5cf620;
+          color: #8b5cf6;
+        }
+
+        .stock-type-made-on-demand {
+          background: #f59e0b20;
+          color: #f59e0b;
+        }
+
+        .stock-type-icon {
+          font-size: 14px;
+        }
       `}</style>
 
       <div className="stock-page">
@@ -299,21 +340,42 @@ export default function Stock() {
               </thead>
               <tbody>
                 {isLoadingProducts && <tr><td colSpan="4" className="loading-text">Loading...</td></tr>}
-                {products?.map(product => (
-                  <tr key={product.id}>
-                    <td>{product.name}</td>
-                    <td className="font-mono">{product.sku || '—'}</td>
-                    <td className="font-bold">{product.stock ?? 0}</td>
-                    <td>
-                      <button
-                        onClick={() => handleOpenAdjust(product)}
-                        className="btn-secondary"
-                      >
-                        Adjust Stock
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {products?.map(product => {
+                  const stockType = getStockType(product);
+                  return (
+                    <tr key={product.id}>
+                      <td>{product.name}</td>
+                      <td className="font-mono">{product.sku || '—'}</td>
+                      <td className="font-bold">
+                        {stockType === 'unlimited' ? (
+                          <span className="stock-type-badge stock-type-unlimited">
+                            <Infinity size={14} className="stock-type-icon" />
+                            Unlimited
+                          </span>
+                        ) : stockType === 'made_on_demand' ? (
+                          <span className="stock-type-badge stock-type-made-on-demand">
+                            <Hammer size={14} className="stock-type-icon" />
+                            Made on Demand
+                          </span>
+                        ) : (
+                          product.stock ?? 0
+                        )}
+                      </td>
+                      <td>
+                        {stockType === 'tracked' ? (
+                          <button
+                            onClick={() => handleOpenAdjust(product)}
+                            className="btn-secondary"
+                          >
+                            Adjust Stock
+                          </button>
+                        ) : (
+                          <span className="text-text-muted text-sm">N/A</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -4,9 +4,26 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api"; // Updated path for api
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Search } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Infinity, Hammer } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
+
+// Helper function to determine stock type based on category or explicit stock_type field
+const getStockType = (product) => {
+  // If explicit stock_type is set, use it
+  if (product.stock_type) {
+    return product.stock_type;
+  }
+  // Auto-detect based on category
+  const category = (product.category || '').toLowerCase();
+  if (category.includes('course') || category.includes('workshop') || category.includes('training')) {
+    return 'unlimited';
+  }
+  if (category.includes('furniture')) {
+    return 'made_on_demand';
+  }
+  return 'tracked';
+};
 
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -278,6 +295,27 @@ export default function Products() {
           color: #ef4444;
         }
 
+        .stock-type-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .stock-type-unlimited {
+          background: #8b5cf620;
+          color: #8b5cf6;
+        }
+
+        .stock-type-made-on-demand {
+          background: #f59e0b20;
+          color: #f59e0b;
+        }
+
         .empty-state {
           padding: 80px 20px;
           text-align: center;
@@ -404,51 +442,68 @@ export default function Products() {
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map(product => (
-                  <tr key={product.id}>
-                    <td>
-                      <div className="product-name">{product.name}</div>
-                      {product.sku && <div className="product-sku">SKU: {product.sku}</div>}
-                    </td>
-                    <td>
-                      <span className={`status-badge status-${product.status}`}>
-                        {product.status}
-                      </span>
-                    </td>
-                    <td className="price-cell">
-                      {moneyZAR(product.price_cents)}
-                      {product.compare_at_price_cents && (
-                        <span className="compare-price">
-                          {moneyZAR(product.compare_at_price_cents)}
+                filteredProducts.map(product => {
+                  const stockType = getStockType(product);
+                  return (
+                    <tr key={product.id}>
+                      <td>
+                        <div className="product-name">{product.name}</div>
+                        {product.sku && <div className="product-sku">SKU: {product.sku}</div>}
+                      </td>
+                      <td>
+                        <span className={`status-badge status-${product.status}`}>
+                          {product.status}
                         </span>
-                      )}
-                    </td>
-                    <td className={product.stock_qty < 5 ? 'stock-low' : ''}>
-                      {product.stock_qty}
-                      {product.stock_qty < 5 && ' (Low)'}
-                    </td>
-                    <td>{dateShort(product.updated_at)}</td>
-                    <td>
-                      <div className="action-buttons">
-                        <Link to={`/products/${product.id}`}>
+                      </td>
+                      <td className="price-cell">
+                        {moneyZAR(product.price_cents)}
+                        {product.compare_at_price_cents && (
+                          <span className="compare-price">
+                            {moneyZAR(product.compare_at_price_cents)}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {stockType === 'unlimited' ? (
+                          <span className="stock-type-badge stock-type-unlimited">
+                            <Infinity size={12} />
+                            Unlimited
+                          </span>
+                        ) : stockType === 'made_on_demand' ? (
+                          <span className="stock-type-badge stock-type-made-on-demand">
+                            <Hammer size={12} />
+                            On Demand
+                          </span>
+                        ) : (
+                          <span className={product.stock_qty < 5 ? 'stock-low' : ''}>
+                            {product.stock_qty}
+                            {product.stock_qty < 5 && ' (Low)'}
+                          </span>
+                        )}
+                      </td>
+                      <td>{dateShort(product.updated_at)}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <Link to={`/products/${product.id}`}>
+                            <button
+                              className="btn-icon"
+                              onClick={() => console.log('Navigating to edit:', product.id)}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </Link>
                           <button
-                            className="btn-icon"
-                            onClick={() => console.log('Navigating to edit:', product.id)}
+                            className="btn-icon btn-icon-danger"
+                            onClick={() => handleDelete(product.id, product.name)}
+                            disabled={deleteMutation.isPending}
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        </Link>
-                        <button
-                          className="btn-icon btn-icon-danger"
-                          onClick={() => handleDelete(product.id, product.name)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
