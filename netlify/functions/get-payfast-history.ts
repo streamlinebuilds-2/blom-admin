@@ -61,8 +61,8 @@ export const handler: Handler = async (event) => {
     }
 
     // 1. Prepare Data for Signature
-    // "Sort all the submitted variables (header, body, query string parameters and passphrase) in alphabetical order"
-    const timestamp = new Date().toISOString();
+    // CRITICAL FIX: Remove milliseconds from ISO string (.123Z) -> YYYY-MM-DDTHH:MM:SS
+    const timestamp = new Date().toISOString().slice(0, 19);
     const version = 'v1';
 
     // We must include ALL parameters we are sending
