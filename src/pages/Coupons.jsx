@@ -15,6 +15,19 @@ const isSignupCoupon = (code) => {
   return /^BLOM\d{4}-[A-Z0-9]+$/i.test(code);
 };
 
+// Helper to normalize coupon type to valid database values
+const normalizeCouponType = (type) => {
+  if (!type) return 'percentage';
+  const lowerType = String(type).toLowerCase().trim();
+  if (lowerType === 'percentage' || lowerType === 'percent' || lowerType === '%' || lowerType.includes('percent')) {
+    return 'percentage';
+  }
+  if (lowerType === 'fixed' || lowerType === 'r' || lowerType === 'rand' || lowerType === 'amount' || lowerType.includes('fixed')) {
+    return 'fixed';
+  }
+  return 'percentage'; // Default fallback
+};
+
 // Main component for the Specials/Coupons page
 export default function Coupons() {
   const queryClient = useQueryClient();
@@ -216,9 +229,9 @@ export default function Coupons() {
                     />
                   </td>
                   <td className="p-3 font-mono">{coupon.code}</td>
-                  <td className="p-3">{coupon.type}</td>
+                  <td className="p-3">{normalizeCouponType(coupon.type) === 'percentage' ? 'Percentage' : 'Fixed Amount'}</td>
                   <td className="p-3">
-                    {coupon.type === 'percentage'
+                    {normalizeCouponType(coupon.type) === 'percentage'
                       ? `${coupon.value}%`
                       : formatRands(coupon.value * 100)}
                   </td>
@@ -275,7 +288,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false 
     code: coupon?.code || '',
     description: coupon?.notes || '', // Read from 'notes'
     is_active: coupon?.is_active ?? true,
-    type: coupon?.type || 'percentage', // Use 'type'
+    type: normalizeCouponType(coupon?.type), // Normalize to 'percentage' or 'fixed'
     value: coupon?.value || 0, // Use 'value'
     min_spend: coupon ? (coupon.min_order_cents / 100).toFixed(2) : '0.00', // Read from 'min_order_cents'
     max_discount: coupon ? (coupon.max_discount_cents ? (coupon.max_discount_cents / 100).toFixed(2) : '') : '',
