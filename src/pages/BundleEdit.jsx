@@ -32,6 +32,7 @@ const initialFormState = {
   short_description: "",
   overview: "",
   thumbnail_url: "",
+  hover_url: "",
   gallery_urls: [""],
   variants: [{ label: "", image: "" }],
   features: [""],
@@ -117,8 +118,9 @@ export default function BundleEdit() {
       }
 
       try {
+        // Load from bundles table
         const { data: bundle, error } = await supabase
-          .from('products')
+          .from('bundles')
           .select('*')
           .eq('id', id)
           .single();
@@ -130,59 +132,56 @@ export default function BundleEdit() {
           return;
         }
 
+        // Load bundle items
+        let bundleProducts = [];
         if (bundle) {
+          const { data: items } = await supabase
+            .from('bundle_items')
+            .select('product_id, qty')
+            .eq('bundle_id', bundle.id);
+
+          if (items && items.length > 0) {
+            bundleProducts = items.map(item => ({
+              product_id: item.product_id,
+              quantity: item.qty || 1,
+            }));
+          }
+        }
+
+        if (bundle) {
+          // Map bundles table columns to form fields
+          const images = Array.isArray(bundle.images) ? bundle.images : [];
           setForm({
             id: bundle.id,
             name: bundle.name || '',
             slug: bundle.slug || '',
-            sku: bundle.sku || generateSKU(),
+            sku: generateSKU(), // Bundles table doesn't have SKU
             category: 'Bundle Deals',
             status: bundle.status || 'active',
-            price: bundle.price?.toString() || (bundle.price_cents ? (bundle.price_cents / 100).toString() : ''),
-            compare_at_price: bundle.compare_at_price?.toString() || (bundle.compare_at_price_cents ? (bundle.compare_at_price_cents / 100).toString() : ''),
-            weight: bundle.weight?.toString() || '',
-            barcode: bundle.barcode || '',
-            short_description: bundle.short_description || bundle.short_desc || '',
-            overview: bundle.overview || bundle.long_description || bundle.description || '',
-            thumbnail_url: bundle.thumbnail_url || bundle.image_url || '',
-            gallery_urls: Array.isArray(bundle.gallery_urls) && bundle.gallery_urls.length > 0
-              ? bundle.gallery_urls
-              : (Array.isArray(bundle.gallery) && bundle.gallery.length > 0
-                ? bundle.gallery
-                : ['']),
-            variants: Array.isArray(bundle.variants) && bundle.variants.length > 0
-              ? bundle.variants
-              : [{ label: "", image: "" }],
-            features: Array.isArray(bundle.features) && bundle.features.length > 0
-              ? bundle.features
-              : [''],
-            how_to_use: Array.isArray(bundle.how_to_use) && bundle.how_to_use.length > 0
-              ? bundle.how_to_use
-              : [''],
-            inci_ingredients: Array.isArray(bundle.inci_ingredients) && bundle.inci_ingredients.length > 0
-              ? bundle.inci_ingredients
-              : [''],
-            key_ingredients: Array.isArray(bundle.key_ingredients) && bundle.key_ingredients.length > 0
-              ? bundle.key_ingredients
-              : [''],
-            size: bundle.size || '',
-            shelf_life: bundle.shelf_life || '',
-            claims: Array.isArray(bundle.claims) && bundle.claims.length > 0
-              ? bundle.claims
-              : [''],
-            meta_title: bundle.meta_title || '',
-            meta_description: bundle.meta_description || '',
-            is_active: bundle.is_active ?? true,
-            is_featured: bundle.is_featured ?? false,
-            badges: Array.isArray(bundle.badges) && bundle.badges.length > 0
-              ? bundle.badges
-              : [''],
-            related: Array.isArray(bundle.related) && bundle.related.length > 0
-              ? bundle.related
-              : [''],
-            bundle_products: Array.isArray(bundle.bundle_products) && bundle.bundle_products.length > 0
-              ? bundle.bundle_products
-              : [],
+            price: bundle.price_cents ? (bundle.price_cents / 100).toString() : '',
+            compare_at_price: bundle.compare_at_price_cents ? (bundle.compare_at_price_cents / 100).toString() : '',
+            weight: '',
+            barcode: '',
+            short_description: bundle.short_desc || '',
+            overview: bundle.long_desc || '',
+            thumbnail_url: images[0] || '',
+            hover_url: bundle.hover_image || '',
+            gallery_urls: images.length > 0 ? images : [''],
+            variants: [{ label: "", image: "" }],
+            features: [''],
+            how_to_use: [''],
+            inci_ingredients: [''],
+            key_ingredients: [''],
+            size: '',
+            shelf_life: '',
+            claims: [''],
+            meta_title: '',
+            meta_description: '',
+            is_active: bundle.status === 'active',
+            is_featured: false,
+            badges: [''],
+            related: [''],
+            bundle_products: bundleProducts,
           });
         }
 
@@ -533,10 +532,10 @@ export default function BundleEdit() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch("/.netlify/functions/save-product", {
+      const response = await fetch("/.netlify/functions/save-bundle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update_product", payload }),
+        body: JSON.stringify({ payload }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -549,7 +548,7 @@ export default function BundleEdit() {
       }
 
       showToast("success", "Bundle updated successfully");
-      navigate("/products");
+      navigate("/bundles");
     } catch (error) {
       const message = error?.message || "Failed to update bundle";
       setServerError(message);
@@ -1388,7 +1387,7 @@ export default function BundleEdit() {
             <button
               type="button"
               className="product-btn-secondary"
-              onClick={() => navigate("/products")}
+              onClick={() => navigate("/bundles")}
               disabled={isSubmitting}
             >
               Cancel

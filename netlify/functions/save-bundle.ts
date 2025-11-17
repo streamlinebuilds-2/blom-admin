@@ -33,59 +33,99 @@ export const handler: Handler = async (event) => {
 
     const supabase = getSupabaseAdmin();
 
-    // FORCE these values to ensure it appears in the Bundle List
-    const bundleData = {
-      // ID handling (update if exists, create new if not)
-      ...(payload.id ? { id: payload.id } : {}),
+    // Calculate price_cents from price if provided
+    const priceCents = payload.price_cents ?? (payload.price ? Math.round(Number(payload.price) * 100) : 0);
+    const compareAtPriceCents = payload.compare_at_price_cents ??
+      (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
+    // Build bundle data for the bundles table
+    const bundleData: any = {
       name: payload.name,
-      // Generate slug if missing, otherwise use existing
       slug: payload.slug || slugify(payload.name),
-      sku: payload.sku || `BND-${Date.now()}`,
-
-      // CRITICAL: This tags it so the Admin Bundles page can find it
-      product_type: 'bundle',
-      category: 'Bundle Deals',
-
-      price: payload.price,
-      compare_at_price: payload.compare_at_price,
-
-      // Bundles don't have their own stock count (calculated from components)
-      // We set it to 0 or null to avoid confusion
-      stock: 0,
-      track_inventory: false,
-
-      short_description: payload.short_description,
-      overview: payload.overview,
-      thumbnail_url: payload.thumbnail_url,
-      hover_url: payload.hover_url,
-
-      // Store the components (array of objects { product_id, quantity })
-      bundle_products: payload.bundle_products || [],
-
-      // Status (default to active if not sent)
       status: payload.status || 'active',
-      is_active: payload.status === 'active' || payload.is_active === true,
-
+      pricing_mode: payload.pricing_mode || 'manual',
+      discount_value: payload.discount_value || null,
+      price_cents: priceCents,
+      compare_at_price_cents: compareAtPriceCents,
+      short_desc: payload.short_description || payload.short_desc || '',
+      long_desc: payload.overview || payload.long_desc || '',
+      images: payload.gallery_urls || payload.images || [],
+      hover_image: payload.hover_url || payload.hover_image || null,
       updated_at: new Date().toISOString(),
     };
 
-    // Upsert: Update if ID exists, Insert if not
-    const { data, error } = await supabase
-      .from('products')
-      .upsert(bundleData)
-      .select()
-      .single();
+    let bundleResult;
 
-    if (error) {
-      console.error('Database Error:', error);
-      throw error;
+    // Upsert: Update if ID exists, Insert if not
+    if (payload.id) {
+      // Update existing bundle
+      const { data, error } = await supabase
+        .from('bundles')
+        .update(bundleData)
+        .eq('id', payload.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database Error updating bundle:', error);
+        throw error;
+      }
+      bundleResult = data;
+    } else {
+      // Insert new bundle
+      const { data, error } = await supabase
+        .from('bundles')
+        .insert(bundleData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database Error inserting bundle:', error);
+        throw error;
+      }
+      bundleResult = data;
+    }
+
+    // Handle bundle_products (items) - save to bundle_items table
+    if (payload.bundle_products && Array.isArray(payload.bundle_products) && payload.bundle_products.length > 0) {
+      const bundleId = bundleResult.id;
+
+      // First, delete existing items for this bundle
+      const { error: deleteError } = await supabase
+        .from('bundle_items')
+        .delete()
+        .eq('bundle_id', bundleId);
+
+      if (deleteError) {
+        console.error('Error deleting old bundle items:', deleteError);
+        // Continue anyway, items might not exist yet
+      }
+
+      // Insert new items
+      const bundleItems = payload.bundle_products
+        .filter((item: any) => item.product_id)
+        .map((item: any) => ({
+          bundle_id: bundleId,
+          product_id: item.product_id,
+          qty: item.quantity || item.qty || 1,
+        }));
+
+      if (bundleItems.length > 0) {
+        const { error: insertError } = await supabase
+          .from('bundle_items')
+          .insert(bundleItems);
+
+        if (insertError) {
+          console.error('Error inserting bundle items:', insertError);
+          throw insertError;
+        }
+      }
     }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, bundle: data })
+      body: JSON.stringify({ ok: true, bundle: bundleResult })
     };
 
   } catch (e: any) {
