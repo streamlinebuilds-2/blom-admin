@@ -34,13 +34,11 @@ export const handler: Handler = async (event) => {
 
     const supabase = getSupabaseAdmin();
 
-    // Soft delete by setting is_active to false
-    const { data, error } = await supabase
+    // Hard delete - completely remove the coupon from the database
+    const { error } = await supabase
       .from('coupons')
-      .update({ is_active: false })
-      .eq('id', body.id)
-      .select()
-      .single();
+      .delete()
+      .eq('id', body.id);
 
     if (error) {
       console.error('Supabase error:', error);
@@ -54,7 +52,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, coupon: data })
+      body: JSON.stringify({ ok: true, deleted: true })
     };
 
   } catch (e: any) {

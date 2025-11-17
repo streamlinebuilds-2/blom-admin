@@ -15,6 +15,19 @@ const formatRands = (cents) => {
   return `R${(cents / 100).toFixed(2)}`;
 };
 
+// Helper to normalize coupon type to valid database values
+const normalizeCouponType = (type) => {
+  if (!type) return 'percentage';
+  const lowerType = String(type).toLowerCase().trim();
+  if (lowerType === 'percentage' || lowerType === 'percent' || lowerType === '%' || lowerType.includes('percent')) {
+    return 'percentage';
+  }
+  if (lowerType === 'fixed' || lowerType === 'r' || lowerType === 'rand' || lowerType === 'amount' || lowerType.includes('fixed')) {
+    return 'fixed';
+  }
+  return 'percentage'; // Default fallback
+};
+
 export default function Specials() {
   const [activeTab, setActiveTab] = useState("coupons");
   const { showToast } = useToast();
@@ -202,6 +215,8 @@ export default function Specials() {
   const handleEditCoupon = (coupon) => {
     setSelectedCoupon(coupon);
     setIsCouponFormOpen(true);
+    // Scroll to top to show the edit form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCloseCouponForm = () => {
@@ -210,7 +225,7 @@ export default function Specials() {
   };
 
   const handleDeleteCoupon = async (couponId) => {
-    if (!confirm('Are you sure you want to deactivate this coupon? This will make it unusable.')) {
+    if (!confirm('Are you sure you want to permanently delete this coupon? This action cannot be undone.')) {
       return;
     }
     try {
@@ -221,13 +236,13 @@ export default function Specials() {
       });
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to deactivate coupon');
+        throw new Error(result.error || 'Failed to delete coupon');
       }
       queryClient.invalidateQueries({ queryKey: ['coupons'] });
-      showToast('success', 'Coupon deactivated');
+      showToast('success', 'Coupon deleted permanently');
     } catch (err) {
-      console.error('Error deactivating coupon:', err);
-      showToast('error', 'Failed to deactivate coupon: ' + err.message);
+      console.error('Error deleting coupon:', err);
+      showToast('error', 'Failed to delete coupon: ' + err.message);
     }
   };
 
@@ -856,11 +871,11 @@ export default function Specials() {
                             {isSignupCoupon(coupon.code) ? 'Sign-up' : 'Created'}
                           </span>
                         </td>
-                        <td>{coupon.type}</td>
+                        <td>{normalizeCouponType(coupon.type) === 'percentage' ? 'Percentage' : 'Fixed Amount'}</td>
                         <td>
-                          {coupon.type === 'percentage'
+                          {normalizeCouponType(coupon.type) === 'percentage'
                             ? `${coupon.value}%`
-                            : formatRands(coupon.value * 100)}
+                            : `R${Number(coupon.value).toFixed(2)}`}
                         </td>
                         <td>{formatRands(coupon.min_order_cents)}</td>
                         <td>{formatRands(coupon.max_discount_cents)}</td>
@@ -1129,7 +1144,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     code: coupon?.code || '',
     description: coupon?.notes || '',
     is_active: coupon?.is_active ?? true,
-    type: coupon?.type || 'percentage',
+    type: normalizeCouponType(coupon?.type),
     value: coupon?.value || 0,
     min_spend: coupon ? (coupon.min_order_cents / 100).toFixed(2) : '0.00',
     max_discount: coupon ? (coupon.max_discount_cents ? (coupon.max_discount_cents / 100).toFixed(2) : '') : '',
