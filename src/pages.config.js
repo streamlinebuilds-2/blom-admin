@@ -16,7 +16,6 @@ import Shipping from './pages/Shipping';
 import Reviews from './pages/Reviews';
 import Messages from './pages/Messages';
 import Contacts from './pages/Contacts';
-import Campaigns from './pages/Campaigns';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import SupabaseDebug from './pages/SupabaseDebug';
@@ -53,7 +52,6 @@ export const PAGES = {
     "Reviews": Reviews,
     "Messages": Messages,
     "Contacts": Contacts,
-    "Campaigns": Campaigns,
     "Analytics": Analytics,
     "Settings": Settings,
     "SupabaseDebug": SupabaseDebug,
