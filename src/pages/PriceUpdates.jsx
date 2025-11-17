@@ -29,8 +29,8 @@ export default function PriceUpdates() {
     mutationFn: async ({ updates }) => {
       if (!api) throw new Error('API not available');
       await Promise.all(
-        updates.map(({ id, name, slug, stock, newPrice }) =>
-          api.upsertProduct({ id, name, slug, stock, price_cents: newPrice })
+        updates.map(({ id, newPrice }) =>
+          api.partialUpdateProduct({ id, price_cents: newPrice })
         )
       );
     },

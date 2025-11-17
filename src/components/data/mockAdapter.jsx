@@ -316,6 +316,52 @@ export function createMockAdapter() {
       return newProduct;
     },
 
+    // Partial update - only updates specified fields, preserves all others
+    async partialUpdateProduct(p) {
+      if (!p.id) {
+        throw new Error('partialUpdateProduct requires product id');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      const now = new Date().toISOString();
+      const index = db.products.findIndex(prod => prod.id === p.id);
+
+      if (index < 0) {
+        throw new Error(`Product ${p.id} not found`);
+      }
+
+      const oldProduct = db.products[index];
+      const updated = { ...oldProduct, updated_at: now };
+
+      // Only update fields that are explicitly provided (not undefined)
+      if (p.name !== undefined) updated.name = p.name;
+      if (p.slug !== undefined) updated.slug = p.slug;
+      if (p.status !== undefined) updated.status = p.status;
+      if (p.price_cents !== undefined) updated.price_cents = p.price_cents;
+      if (p.compare_at_price_cents !== undefined) updated.compare_at_price_cents = p.compare_at_price_cents;
+      if (p.stock_qty !== undefined) {
+        const delta = p.stock_qty - oldProduct.stock_qty;
+        if (delta !== 0) {
+          const movement = {
+            id: generateId(),
+            product_id: p.id,
+            delta,
+            reason: 'partial edit',
+            created_at: now
+          };
+          db.stockMovements.push(movement);
+        }
+        updated.stock_qty = p.stock_qty;
+      }
+      if (p.short_desc !== undefined) updated.short_desc = p.short_desc;
+      if (p.category_id !== undefined) updated.category_id = p.category_id;
+
+      db.products[index] = updated;
+      saveDB();
+      return updated;
+    },
+
     async listStockMovements(limit) {
       await new Promise(resolve => setTimeout(resolve, 0));
       const db = loadDB();

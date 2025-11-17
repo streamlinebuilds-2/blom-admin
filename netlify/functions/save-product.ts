@@ -120,6 +120,107 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    // Handle PARTIAL updates - when id is provided with only specific fields to update
+    // This preserves all other fields (like images) that weren't explicitly provided
+    if (body?.id && body?.partial_update === true) {
+      const supabaseUrl = process.env.SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      if (!supabaseUrl || !serviceKey) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'Server not configured (SUPABASE envs missing)' }) };
+      }
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only include fields that are explicitly provided in the request
+      if (body.name !== undefined) updateData.name = String(body.name).trim();
+      if (body.slug !== undefined) updateData.slug = String(body.slug).trim();
+      if (body.sku !== undefined) updateData.sku = body.sku;
+      if (body.category !== undefined) updateData.category = body.category;
+
+      if (body.status !== undefined) {
+        const validStatuses = ['draft', 'active', 'published', 'archived'];
+        if (validStatuses.includes(body.status)) {
+          updateData.status = body.status;
+          updateData.is_active = body.status === 'active' || body.status === 'published';
+        }
+      }
+
+      // Price fields
+      if (body.price !== undefined) {
+        const price = Number(body.price);
+        if (Number.isFinite(price)) {
+          updateData.price = price;
+          updateData.price_cents = Math.round(price * 100);
+        }
+      }
+      if (body.compare_at_price !== undefined) {
+        const compareAt = body.compare_at_price == null ? null : Number(body.compare_at_price);
+        updateData.compare_at_price = compareAt;
+        updateData.compare_at_price_cents = compareAt != null ? Math.round(compareAt * 100) : null;
+      }
+
+      // Stock fields - sync all stock columns
+      if (body.stock !== undefined || body.inventory_quantity !== undefined) {
+        const stock = Number(body.stock ?? body.inventory_quantity ?? 0);
+        if (Number.isFinite(stock)) {
+          updateData.stock = stock;
+          updateData.stock_on_hand = stock;
+          updateData.stock_qty = stock;
+          updateData.stock_quantity = stock;
+        }
+      }
+
+      // Description fields
+      if (body.short_description !== undefined) updateData.short_description = body.short_description;
+      if (body.overview !== undefined) updateData.overview = body.overview;
+
+      // Image fields
+      if (body.thumbnail_url !== undefined) updateData.thumbnail_url = body.thumbnail_url;
+      if (body.gallery_urls !== undefined) updateData.gallery_urls = Array.isArray(body.gallery_urls) ? body.gallery_urls : [];
+
+      // Product details arrays
+      if (body.features !== undefined) updateData.features = Array.isArray(body.features) ? body.features : [];
+      if (body.how_to_use !== undefined) updateData.how_to_use = Array.isArray(body.how_to_use) ? body.how_to_use : [];
+      if (body.inci_ingredients !== undefined) updateData.inci_ingredients = Array.isArray(body.inci_ingredients) ? body.inci_ingredients : [];
+      if (body.key_ingredients !== undefined) updateData.key_ingredients = Array.isArray(body.key_ingredients) ? body.key_ingredients : [];
+      if (body.claims !== undefined) updateData.claims = Array.isArray(body.claims) ? body.claims : [];
+      if (body.variants !== undefined) updateData.variants = Array.isArray(body.variants) ? body.variants : [];
+
+      // Details
+      if (body.size !== undefined) updateData.size = body.size;
+      if (body.shelf_life !== undefined) updateData.shelf_life = body.shelf_life;
+      if (body.weight !== undefined) updateData.weight = body.weight;
+
+      // Cost price
+      if (body.cost_price_cents !== undefined) updateData.cost_price_cents = body.cost_price_cents;
+
+      // Meta
+      if (body.meta_title !== undefined) updateData.meta_title = body.meta_title;
+      if (body.meta_description !== undefined) updateData.meta_description = body.meta_description;
+      if (body.is_active !== undefined) updateData.is_active = body.is_active;
+      if (body.is_featured !== undefined) updateData.is_featured = body.is_featured;
+
+      const { data, error } = await admin
+        .from('products')
+        .update(updateData)
+        .eq('id', body.id)
+        .select('*')
+        .single();
+
+      if (error) {
+        return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ ok: true, product: data })
+      };
+    }
+
     // Validate requireds (name, slug, price)
     const name = String(body.name || '').trim();
     const slug = String(body.slug || '').trim();
