@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/ToastProvider";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, GraduationCap } from "lucide-react";
 
 export default function Orders() {
   const [rows, setRows] = useState([]);
@@ -109,7 +109,10 @@ export default function Orders() {
 
   useEffect(() => { load(); }, [status, fulfillment, search, page]);
 
-  const moneyZAR = (n) => `R${(n || 0).toFixed(2)}`;
+  const moneyZAR = (cents) => {
+    if (typeof cents !== 'number') return 'R 0.00';
+    return 'R ' + (cents / 100).toFixed(2);
+  };
   const formatDate = (d) => {
     if (!d) return "-";
     const date = new Date(d);
@@ -224,6 +227,18 @@ export default function Orders() {
           font-size: 12px;
           font-weight: 500;
         }
+        .workshop-indicator {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-size: 10px;
+          font-weight: 600;
+          background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+          color: white;
+          margin-left: 6px;
+        }
         @media (max-width: 768px) {
           .orders-card {
             padding: 16px;
@@ -325,13 +340,25 @@ export default function Orders() {
               <tbody>
                 {rows.map(r => (
                 <tr key={r.id}>
-                  <td className="font-mono text-xs font-medium">{r.short_code || "-"}</td>
+                  <td className="font-mono text-xs font-medium">
+                    {r.short_code || "-"}
+                    {r.is_workshop && (
+                      <span className="workshop-indicator">
+                        <GraduationCap className="w-3 h-3" />
+                        Course
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <div className="font-medium">{r.buyer_name || "-"}</div>
                     <div className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{r.buyer_email || "-"}</div>
                   </td>
                   <td>
-                    {r.fulfillment_type ? (
+                    {r.is_workshop ? (
+                      <span className={`orders-badge bg-purple-500/20 text-purple-700 dark:text-purple-400`}>
+                        Enrollment
+                      </span>
+                    ) : r.fulfillment_type ? (
                       <span className={`orders-badge ${getFulfillmentColor(r.fulfillment_type)}`}>
                         {r.fulfillment_type === 'delivery' ? '🚚' : '📦'} {r.fulfillment_type}
                       </span>
@@ -362,7 +389,7 @@ export default function Orders() {
                     </select>
                   </td>
                   <td className="text-center font-medium">{r.item_count || 0}</td>
-                  <td className="font-semibold">{moneyZAR(r.total)}</td>
+                  <td className="font-semibold">{moneyZAR(r.total_cents)}</td>
                   <td className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{formatDate(r.placed_at || r.created_at)}</td>
                   <td>
                     <button

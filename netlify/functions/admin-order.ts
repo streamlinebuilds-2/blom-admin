@@ -19,7 +19,7 @@ export const handler: Handler = async (e) => {
     if (oErr) throw oErr;
 
     const { data: items, error: iErr } = await s.from("order_items")
-      .select("*").eq("order_id", id).order("product_name", { ascending: true });
+      .select("*").eq("order_id", id).order("name", { ascending: true });
     if (iErr) throw iErr;
 
     return {

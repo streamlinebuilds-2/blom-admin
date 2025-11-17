@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Package, MapPin, FileText, CheckCircle } from "lucide-react";
+import { ArrowLeft, Package, MapPin, FileText, CheckCircle, GraduationCap, Calendar } from "lucide-react";
 import { moneyZAR } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
@@ -30,6 +30,14 @@ export default function OrderDetail() {
 
   const order = orderData?.order;
   const orderItems = orderData?.items || [];
+
+  // Detect if this is a workshop/course enrollment
+  const isWorkshopOrder = orderItems.some(item =>
+    item.name?.toLowerCase().includes('workshop') ||
+    item.name?.toLowerCase().includes('course') ||
+    item.sku?.toLowerCase().includes('workshop') ||
+    item.sku?.toLowerCase().includes('course')
+  );
 
   const updateFulfillmentStatusMutation = useMutation({
     mutationFn: async (newStatus) => {
@@ -577,6 +585,73 @@ export default function OrderDetail() {
           font-weight: 600;
           box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
         }
+
+        .workshop-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+
+        .enrollment-status {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 20px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #10b98120, #10b98110);
+          color: #10b981;
+          font-size: 16px;
+          font-weight: 600;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+        }
+
+        .enrollment-info {
+          background: var(--bg);
+          padding: 20px;
+          border-radius: 12px;
+          margin-bottom: 16px;
+        }
+
+        .enrollment-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .enrollment-value {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .customer-info {
+          background: var(--bg);
+          padding: 16px;
+          border-radius: 10px;
+          margin-bottom: 12px;
+        }
+
+        .customer-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          margin-bottom: 6px;
+        }
+
+        .customer-value {
+          color: var(--text);
+          font-weight: 500;
+        }
       `}</style>
 
       <div className="order-detail-header">
@@ -584,16 +659,151 @@ export default function OrderDetail() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="order-title">
-          Order {order.order_number || `#${order.id.slice(0, 8)}`}
+          {isWorkshopOrder ? 'Course Enrollment' : 'Order'} {order.order_number || `#${order.id.slice(0, 8)}`}
         </h1>
+        {isWorkshopOrder && (
+          <div className="workshop-badge">
+            <GraduationCap className="w-4 h-4" />
+            Course Enrollment
+          </div>
+        )}
       </div>
 
-      <div className="order-grid">
-        <div className="order-card">
-          <h2 className="card-title">
-            <Package className="w-5 h-5" />
-            Order Items
-          </h2>
+      {isWorkshopOrder ? (
+        // Simplified view for workshop/course enrollments
+        <div className="order-grid">
+          <div className="order-card">
+            <h2 className="card-title">
+              <GraduationCap className="w-5 h-5" />
+              Enrollment Status
+            </h2>
+            <div className="enrollment-status">
+              <CheckCircle className="w-6 h-6" />
+              <span>Enrolled</span>
+            </div>
+          </div>
+
+          <div className="order-card">
+            <h2 className="card-title">
+              <Calendar className="w-5 h-5" />
+              Enrollment Details
+            </h2>
+            <div className="enrollment-info">
+              <div className="enrollment-label">Course(s) Enrolled</div>
+              <div className="enrollment-value">
+                {orderItems.map(item => item.name).join(', ')}
+              </div>
+            </div>
+            <div className="enrollment-info">
+              <div className="enrollment-label">Time Enrolled</div>
+              <div className="enrollment-value">
+                {order.paid_at ? new Date(order.paid_at).toLocaleString('en-ZA', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : order.placed_at ? new Date(order.placed_at).toLocaleString('en-ZA', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : 'Unknown'}
+              </div>
+            </div>
+          </div>
+
+          <div className="order-card">
+            <h2 className="card-title">
+              <FileText className="w-5 h-5" />
+              Student Information
+            </h2>
+            <div className="customer-info">
+              <div className="customer-label">Name</div>
+              <div className="customer-value">{order.buyer_name || order.customer_name || '-'}</div>
+            </div>
+            <div className="customer-info">
+              <div className="customer-label">Email</div>
+              <div className="customer-value">{order.buyer_email || order.customer_email || '-'}</div>
+            </div>
+            <div className="customer-info">
+              <div className="customer-label">Phone</div>
+              <div className="customer-value">{order.contact_phone || order.customer_phone || '-'}</div>
+            </div>
+          </div>
+
+          <div className="order-card">
+            <h2 className="card-title">
+              <Package className="w-5 h-5" />
+              Receipt
+            </h2>
+            <div className="table-scroll-wrapper">
+              <table className="items-table">
+                <thead>
+                  <tr>
+                    <th>Course</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderItems.map(item => (
+                    <tr key={item.id}>
+                      <td style={{ fontWeight: 600 }}>{item.name}</td>
+                      <td>{item.qty}</td>
+                      <td>{moneyZAR(item.unit_price_cents)}</td>
+                      <td style={{ fontWeight: 700 }}>{moneyZAR(item.line_total_cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="totals-table">
+              <div className="total-row">
+                <span style={{ color: 'var(--text-muted)' }}>Subtotal:</span>
+                <span>{moneyZAR(order.subtotal_cents || 0)}</span>
+              </div>
+              {order.discount_cents > 0 && (
+                <div className="total-row">
+                  <span style={{ color: 'var(--text-muted)' }}>Discount:</span>
+                  <span style={{ color: '#10b981' }}>-{moneyZAR(order.discount_cents)}</span>
+                </div>
+              )}
+              <div className="total-row final">
+                <span>Total:</span>
+                <span style={{ color: 'var(--accent)' }}>{moneyZAR(order.total_cents)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="order-card">
+            <h2 className="card-title">
+              <FileText className="w-5 h-5" />
+              Notes
+            </h2>
+            <textarea
+              className="notes-textarea"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add internal notes about this enrollment..."
+              disabled
+            />
+            <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+              Note: Notes functionality requires Netlify function implementation
+            </div>
+          </div>
+        </div>
+      ) : (
+        // Regular order view
+        <div className="order-grid">
+          <div className="order-card">
+            <h2 className="card-title">
+              <Package className="w-5 h-5" />
+              Order Items
+            </h2>
           <div className="table-scroll-wrapper">
             <table className="items-table">
               <thead>
@@ -614,10 +824,10 @@ export default function OrderDetail() {
                 ) : (
                   orderItems.map(item => (
                     <tr key={item.id}>
-                      <td style={{ fontWeight: 600 }}>{item.product_name}</td>
-                      <td>{item.quantity}</td>
-                      <td>{moneyZAR(item.price)}</td>
-                      <td style={{ fontWeight: 700 }}>{moneyZAR(item.total)}</td>
+                      <td style={{ fontWeight: 600 }}>{item.name}</td>
+                      <td>{item.qty}</td>
+                      <td>{moneyZAR(item.unit_price_cents)}</td>
+                      <td style={{ fontWeight: 700 }}>{moneyZAR(item.line_total_cents)}</td>
                     </tr>
                   ))
                 )}
@@ -628,29 +838,29 @@ export default function OrderDetail() {
           <div className="totals-table">
             <div className="total-row">
               <span style={{ color: 'var(--text-muted)' }}>Subtotal:</span>
-              <span>{moneyZAR(order.subtotal || 0)}</span>
+              <span>{moneyZAR(order.subtotal_cents || 0)}</span>
             </div>
-            {order.discount > 0 && (
+            {order.discount_cents > 0 && (
               <div className="total-row">
                 <span style={{ color: 'var(--text-muted)' }}>Discount:</span>
-                <span style={{ color: '#10b981' }}>-{moneyZAR(order.discount)}</span>
+                <span style={{ color: '#10b981' }}>-{moneyZAR(order.discount_cents)}</span>
               </div>
             )}
-            {order.shipping > 0 && (
+            {order.shipping_cents > 0 && (
               <div className="total-row">
                 <span style={{ color: 'var(--text-muted)' }}>Shipping:</span>
-                <span>{moneyZAR(order.shipping)}</span>
+                <span>{moneyZAR(order.shipping_cents)}</span>
               </div>
             )}
-            {order.tax > 0 && (
+            {order.tax_cents > 0 && (
               <div className="total-row">
                 <span style={{ color: 'var(--text-muted)' }}>Tax:</span>
-                <span>{moneyZAR(order.tax)}</span>
+                <span>{moneyZAR(order.tax_cents)}</span>
               </div>
             )}
             <div className="total-row final">
               <span>Total:</span>
-              <span style={{ color: 'var(--accent)' }}>{moneyZAR(order.total)}</span>
+              <span style={{ color: 'var(--accent)' }}>{moneyZAR(order.total_cents)}</span>
             </div>
           </div>
         </div>
@@ -739,7 +949,8 @@ export default function OrderDetail() {
             Note: Notes functionality requires Netlify function implementation
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </>
   );
 }
