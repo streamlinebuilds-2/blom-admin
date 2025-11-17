@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
@@ -30,7 +31,6 @@ const initialFormState = {
   short_description: '',
   overview: '',
   thumbnail_url: '',
-  hover_url: '',
   features: [''],
   how_to_use: [''],
   status: 'active',
@@ -590,7 +590,30 @@ export default function BundleNew() {
       `}</style>
       <div className="flex h-full flex-col">
         <div className="topbar">
-          <div className="font-bold text-lg">New Bundle</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/bundles')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'var(--bg)',
+                boxShadow: '2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light)',
+                cursor: 'pointer',
+                transition: 'transform 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--text)' }} />
+            </button>
+            <div className="font-bold text-lg">New Bundle</div>
+          </div>
           <div className="text-sm text-[var(--text-muted)]">Create a new bundle and preview the merchandising experience.</div>
         </div>
 
@@ -826,42 +849,6 @@ export default function BundleNew() {
                 </div>
                 <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
                 {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
-                  Hover Image URL (optional)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="hover_url"
-                    type="url"
-                    className="product-form-input flex-1"
-                    value={form.hover_url}
-                    onChange={(event) => update("hover_url", event.target.value)}
-                    placeholder="https://example.com/hover.jpg"
-                  />
-                  <label className="product-btn-secondary cursor-pointer">
-                    Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        try {
-                          showToast('info', 'Uploading...');
-                          const url = await uploadToCloudinary(file);
-                          update("hover_url", url);
-                          showToast('success', 'Image uploaded');
-                        } catch (err) {
-                          showToast('error', 'Upload failed');
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                <small className="text-xs text-[var(--text-muted)]">Shows when customer hovers over product</small>
               </div>
             </div>
           </section>

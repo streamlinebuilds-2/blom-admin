@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
@@ -726,7 +727,30 @@ export default function ProductNew() {
       `}</style>
       <div className="flex h-full flex-col">
         <div className="topbar">
-          <div className="font-bold text-lg">New Product</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/products')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'var(--bg)',
+                boxShadow: '2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light)',
+                cursor: 'pointer',
+                transition: 'transform 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--text)' }} />
+            </button>
+            <div className="font-bold text-lg">New Product</div>
+          </div>
           <div className="text-sm text-[var(--text-muted)]">Create a new product and preview the merchandising experience.</div>
         </div>
 
