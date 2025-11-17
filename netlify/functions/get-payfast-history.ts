@@ -13,30 +13,48 @@ const createMd5Hash = (str: string) => {
   return crypto.createHash('md5').update(str).digest('hex');
 };
 
-// Helper to parse CSV string into JSON
+// Robust CSV Parser for PayFast format
+// PayFast returns strictly quoted CSV: "Header1","Header2"
 const csvToJson = (csv: string) => {
   if (!csv || typeof csv !== 'string') return [];
 
-  const lines = csv.trim().split('\n');
+  // 1. Split into lines
+  const lines = csv.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
-  // Clean header: remove quotes and spaces
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  // 2. Parse Headers
+  // Remove leading/trailing quotes and split by ","
+  const headerLine = lines[0];
+  // Remove the very first " and very last "
+  const cleanHeaderLine = headerLine.replace(/^"|"$/g, '');
+  const headers = cleanHeaderLine.split('","');
 
   const result = [];
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    // Regex to split by comma, ignoring commas inside quotes
-    const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
 
+  // 3. Parse Rows
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // PayFast rows are also strictly quoted: "Val1","Val2"
+    // Remove first/last quote and split
+    const cleanLine = line.replace(/^"|"$/g, '');
+    const values = cleanLine.split('","');
+
+    // Only process if valid row
     if (values.length > 0) {
       const obj: any = {};
+
       headers.forEach((header, index) => {
-        // Clean value: remove quotes
-        let val = values[index] ? values[index].trim() : '';
-        val = val.replace(/^"|"$/g, '');
+        let val = values[index] || '';
+
+        // Map keys to match your Frontend expectations if needed
+        // But currently your frontend uses the raw CSV headers like 'M Payment ID'
+
+        // Clean up any residual formatting if needed
         obj[header] = val;
       });
+
       result.push(obj);
     }
   }
@@ -61,7 +79,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 1. Prepare Data for Signature
-    // Fix: Remove milliseconds from ISO string (.123Z) -> YYYY-MM-DDTHH:MM:SS
+    // Strip milliseconds from ISO string (.123Z) -> YYYY-MM-DDTHH:MM:SS
     const timestamp = new Date().toISOString().slice(0, 19);
     const version = 'v1';
 
@@ -88,7 +106,7 @@ export const handler: Handler = async (event) => {
       'version': version,
       'timestamp': timestamp,
       'signature': signature,
-      'content-type': 'application/json'
+      // Note: We do NOT send Content-Type for GET requests
     };
 
     // 5. Call PayFast API
@@ -97,40 +115,31 @@ export const handler: Handler = async (event) => {
       headers: apiHeaders,
     });
 
-    // 🚨 CRITICAL FIX: Get response as text, NOT json
-    // PayFast returns raw CSV text on success, or JSON on error
+    // Get response as text to handle both JSON (error) and CSV (success)
     const responseText = await response.text();
 
     if (!response.ok) {
-      console.error('PayFast API Error Status:', response.status);
-      console.error('PayFast API Error Body:', responseText);
+      console.error('PayFast API Error:', response.status, responseText);
       throw new Error(`PayFast API Error: ${response.status} ${responseText}`);
     }
 
     let csvData = '';
 
-    // 6. Check if it's actually JSON (an error disguised as 200 OK) or just CSV
+    // 6. Determine if it's JSON or CSV
     if (responseText.trim().startsWith('{')) {
-        try {
-            const json = JSON.parse(responseText);
-            // If it has a 'response' key, use that (some older API versions did this)
-            if (json.response) {
-                csvData = json.response;
-            } else {
-                // It's JSON but not what we expected? Treat as empty or error
-                console.warn('Received JSON without "response" key:', json);
-                csvData = '';
-            }
-        } catch (e) {
-            // JSON parse failed? Then it must be the CSV we wanted!
-            csvData = responseText;
-        }
-    } else {
-        // It doesn't start with {, so it's the raw CSV string
+      try {
+        const json = JSON.parse(responseText);
+        csvData = json.response || '';
+      } catch (e) {
+        // Parse failed? It must be raw CSV starting with a "
         csvData = responseText;
+      }
+    } else {
+      // Definitely CSV
+      csvData = responseText;
     }
 
-    // 7. Convert CSV to JSON for our frontend
+    // 7. Convert to JSON
     const jsonData = csvToJson(csvData);
 
     return {
