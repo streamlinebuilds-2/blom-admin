@@ -139,7 +139,7 @@ export default function Specials() {
           console.warn('Webhook call failed:', err);
         }
       }
-      return await base44.entities.Special.create(payload);
+      return await api.upsertSpecial(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['specials'] });
