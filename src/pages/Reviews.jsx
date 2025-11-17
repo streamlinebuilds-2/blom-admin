@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star, Check, X } from "lucide-react";
+import { Star, Check, X, Trash2 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 
@@ -50,6 +50,37 @@ export default function Reviews() {
       showToast('error', error.message || 'Failed to update review');
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const response = await fetch('/.netlify/functions/delete-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.error || 'Failed to delete review');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      showToast('success', 'Review permanently deleted');
+    },
+    onError: (error) => {
+      console.error('Delete error:', error);
+      showToast('error', error.message || 'Failed to delete review');
+    },
+  });
+
+  const handleDelete = (review) => {
+    if (window.confirm(`Are you sure you want to permanently delete this review by ${review.name || review.reviewer_name}? This action cannot be undone.`)) {
+      deleteMutation.mutate(review.id);
+    }
+  };
 
   const renderStars = (rating) => {
     return (
@@ -253,6 +284,11 @@ export default function Reviews() {
           color: #ef4444;
         }
 
+        .btn-delete {
+          background: #dc262620;
+          color: #dc2626;
+        }
+
         .btn-action:hover {
           transform: translateY(-1px);
         }
@@ -364,7 +400,7 @@ export default function Reviews() {
                           <button
                             className="btn-action btn-approve"
                             onClick={() => updateMutation.mutate({ id: review.id, status: 'approved' })}
-                            disabled={updateMutation.isPending}
+                            disabled={updateMutation.isPending || deleteMutation.isPending}
                           >
                             <Check className="w-4 h-4" />
                             Approve
@@ -374,10 +410,20 @@ export default function Reviews() {
                           <button
                             className="btn-action btn-reject"
                             onClick={() => updateMutation.mutate({ id: review.id, status: 'rejected' })}
-                            disabled={updateMutation.isPending}
+                            disabled={updateMutation.isPending || deleteMutation.isPending}
                           >
                             <X className="w-4 h-4" />
                             Reject
+                          </button>
+                        )}
+                        {review.status === 'rejected' && (
+                          <button
+                            className="btn-action btn-delete"
+                            onClick={() => handleDelete(review)}
+                            disabled={updateMutation.isPending || deleteMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
                           </button>
                         )}
                       </div>
