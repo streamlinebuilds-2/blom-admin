@@ -31,6 +31,7 @@ const initialFormState = {
   short_description: '',
   overview: '',
   thumbnail_url: '',
+  hover_url: '',
   features: [''],
   how_to_use: [''],
   status: 'active',
@@ -351,9 +352,9 @@ export default function BundleNew() {
       const createdId = result?.bundle?.id || null;
 
       if (createdId) {
-        navigate(`/bundles/${createdId}`);
+        navigate(`/bundles`);
       } else {
-        navigate("/products");
+        navigate("/bundles");
       }
     } catch (error) {
       const message = error?.message || "Failed to create bundle";
@@ -872,7 +873,7 @@ export default function BundleNew() {
             <button
               type="button"
               className="product-btn-secondary"
-              onClick={() => navigate("/products")}
+              onClick={() => navigate("/bundles")}
               disabled={isSubmitting}
             >
               Cancel
