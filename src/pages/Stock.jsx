@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../components/supabaseClient';
-import { History, Infinity, Hammer } from 'lucide-react';
+import { History } from 'lucide-react';
 import { useToast } from '../components/ui/ToastProvider';
 
 // Helper function to determine stock type based on category or explicit stock_type field
@@ -289,29 +289,6 @@ export default function Stock() {
           color: var(--text-muted);
         }
 
-        .stock-type-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .stock-type-unlimited {
-          background: #8b5cf620;
-          color: #8b5cf6;
-        }
-
-        .stock-type-made-on-demand {
-          background: #f59e0b20;
-          color: #f59e0b;
-        }
-
-        .stock-type-icon {
-          font-size: 14px;
-        }
       `}</style>
 
       <div className="stock-page">
@@ -340,42 +317,24 @@ export default function Stock() {
               </thead>
               <tbody>
                 {isLoadingProducts && <tr><td colSpan="4" className="loading-text">Loading...</td></tr>}
-                {products?.map(product => {
-                  const stockType = getStockType(product);
-                  return (
+                {products?.filter(product => getStockType(product) === 'tracked').map(product => (
                     <tr key={product.id}>
                       <td>{product.name}</td>
                       <td className="font-mono">{product.sku || '—'}</td>
                       <td className="font-bold">
-                        {stockType === 'unlimited' ? (
-                          <span className="stock-type-badge stock-type-unlimited">
-                            <Infinity size={14} className="stock-type-icon" />
-                            Unlimited
-                          </span>
-                        ) : stockType === 'made_on_demand' ? (
-                          <span className="stock-type-badge stock-type-made-on-demand">
-                            <Hammer size={14} className="stock-type-icon" />
-                            Made on Demand
-                          </span>
-                        ) : (
-                          product.stock ?? 0
-                        )}
+                        {product.stock ?? 0}
                       </td>
                       <td>
-                        {stockType === 'tracked' ? (
-                          <button
-                            onClick={() => handleOpenAdjust(product)}
-                            className="btn-secondary"
-                          >
-                            Adjust Stock
-                          </button>
-                        ) : (
-                          <span className="text-text-muted text-sm">N/A</span>
-                        )}
+                        <button
+                          onClick={() => handleOpenAdjust(product)}
+                          className="btn-secondary"
+                        >
+                          Adjust Stock
+                        </button>
                       </td>
                     </tr>
-                  );
-                })}
+                  )
+                )}
               </tbody>
             </table>
           </div>
