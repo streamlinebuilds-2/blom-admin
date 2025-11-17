@@ -33,6 +33,17 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    // Normalize and validate coupon type
+    const normalizedType = String(body.type).toLowerCase().trim();
+    const validTypes = ['percentage', 'fixed'];
+    if (!validTypes.includes(normalizedType)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ ok: false, error: `Invalid coupon type: ${body.type}. Must be 'percentage' or 'fixed'` })
+      };
+    }
+
     const supabase = getSupabaseAdmin();
 
     // Prepare data for Supabase, mapping to YOUR schema
@@ -41,7 +52,7 @@ export const handler: Handler = async (event) => {
       notes: body.description, // Map description -> notes
       is_active: body.is_active ?? true,
 
-      type: body.type, // 'percentage' or 'fixed'
+      type: normalizedType, // 'percentage' or 'fixed' (normalized)
       value: parseFloat(body.value), // The % or R value
 
       // Limitations (convert Rands from form to Cents for DB)
