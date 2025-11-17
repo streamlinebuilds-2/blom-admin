@@ -1,205 +1,85 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
+const getSupabaseAdmin = () => {
+  const supabaseUrl = process.env.SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+};
+
 const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*'
 };
 
+// Helper to create a slug from a name
+const slugify = (text: string) => {
+  return text.toString().toLowerCase().trim()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-');        // Replace multiple - with single -
+};
+
 export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
+
   try {
-    if (event.httpMethod !== 'POST') {
-      return {
-        statusCode: 405,
-        headers,
-        body: JSON.stringify({ ok: false, error: 'Method Not Allowed' })
-      };
-    }
+    const body = JSON.parse(event.body || '{}');
+    const payload = body.payload || body; // Handle wrapped payload or direct body
 
-    if (!event.body) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ ok: false, error: 'Empty body' })
-      };
-    }
+    console.log('Saving bundle:', payload.name);
 
-    let body: any;
-    try {
-      body = typeof event.body === 'string'
-        ? JSON.parse(event.body)
-        : event.body;
-    } catch (e) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ ok: false, error: 'Invalid JSON' })
-      };
-    }
+    const supabase = getSupabaseAdmin();
 
-    const payload = body.payload || body;
+    // FORCE these values to ensure it appears in the Bundle List
+    const bundleData = {
+      // ID handling (update if exists, create new if not)
+      ...(payload.id ? { id: payload.id } : {}),
 
-    const supabaseUrl = process.env.SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      name: payload.name,
+      // Generate slug if missing, otherwise use existing
+      slug: payload.slug || slugify(payload.name),
+      sku: payload.sku || `BND-${Date.now()}`,
 
-    if (!supabaseUrl || !serviceKey) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ ok: false, error: 'Missing env vars' })
-      };
-    }
-
-    const supabase = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false }
-    });
-
-    // Auto-generate fields
-    const generateSKU = () => {
-      const prefix = 'BUNDLE';
-      const timestamp = Date.now().toString().slice(-6);
-      return `${prefix}-${timestamp}`;
-    };
-
-    const slugify = (text: string) => {
-      return text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-    };
-
-    // Validate required fields
-    const name = String(payload.name || '').trim();
-    if (!name) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ ok: false, error: 'Bundle name is required' })
-      };
-    }
-
-    const price = parseFloat(payload.price) || 0;
-    if (price <= 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ ok: false, error: 'Price must be greater than 0' })
-      };
-    }
-
-    const compareAtPrice = payload.compare_at_price
-      ? parseFloat(payload.compare_at_price)
-      : null;
-
-    // Validate status
-    const validStatuses = ['draft', 'active', 'published', 'archived'];
-    const status = validStatuses.includes(payload.status) ? payload.status : 'active';
-
-    const bundleData: any = {
-      id: payload.id || undefined,
-      name: name,
-      slug: slugify(name),
-      sku: payload.sku || generateSKU(),
-      category: 'Bundle Deals', // Force bundle category
+      // CRITICAL: This tags it so the Admin Bundles page can find it
       product_type: 'bundle',
-      status: status,
+      category: 'Bundle Deals',
 
-      // Pricing - save both formats for compatibility
-      price: price,
-      price_cents: Math.round(price * 100),
-      compare_at_price: compareAtPrice,
-      compare_at_price_cents: compareAtPrice
-        ? Math.round(compareAtPrice * 100)
-        : null,
+      price: payload.price,
+      compare_at_price: payload.compare_at_price,
 
-      // Descriptions
-      short_description: payload.short_description || null,
-      overview: payload.overview || null,
+      // Bundles don't have their own stock count (calculated from components)
+      // We set it to 0 or null to avoid confusion
+      stock: 0,
+      track_inventory: false,
 
-      // Images
-      thumbnail_url: payload.thumbnail_url || null,
-      gallery_urls: Array.isArray(payload.gallery_urls) ? payload.gallery_urls : [],
+      short_description: payload.short_description,
+      overview: payload.overview,
+      thumbnail_url: payload.thumbnail_url,
+      hover_url: payload.hover_url,
 
-      // Arrays
-      features: Array.isArray(payload.features) ? payload.features : [],
-      how_to_use: Array.isArray(payload.how_to_use) ? payload.how_to_use : [],
-      inci_ingredients: Array.isArray(payload.inci_ingredients) ? payload.inci_ingredients : [],
-      key_ingredients: Array.isArray(payload.key_ingredients) ? payload.key_ingredients : [],
-      claims: Array.isArray(payload.claims) ? payload.claims : [],
-      variants: Array.isArray(payload.variants) ? payload.variants : [],
+      // Store the components (array of objects { product_id, quantity })
+      bundle_products: payload.bundle_products || [],
 
-      // Bundle-specific
-      bundle_products: Array.isArray(payload.bundle_products) ? payload.bundle_products : [],
-
-      // Details
-      size: payload.size || null,
-      shelf_life: payload.shelf_life || null,
-      weight: payload.weight || null,
-
-      // Meta
-      meta_title: name,
-      meta_description: payload.short_description
-        ? `${payload.short_description.substring(0, 150)}...`
-        : `Buy ${name} bundle at BLOM Cosmetics`,
-
-      is_active: status === 'active' || status === 'published',
-      is_featured: payload.is_featured || false,
+      // Status (default to active if not sent)
+      status: payload.status || 'active',
+      is_active: payload.status === 'active' || payload.is_active === true,
 
       updated_at: new Date().toISOString(),
     };
 
-    let data, error;
-
-    if (payload.id) {
-      // Update existing bundle
-      const { data: updated, error: updateError } = await supabase
-        .from('products') // Bundles stored in products table
-        .update(bundleData)
-        .eq('id', payload.id)
-        .select()
-        .single();
-
-      data = updated;
-      error = updateError;
-    } else {
-      // Check if bundle with this slug exists
-      const { data: existing } = await supabase
-        .from('products')
-        .select('id')
-        .eq('slug', bundleData.slug)
-        .maybeSingle();
-
-      if (existing) {
-        // Update existing by slug
-        const { data: updated, error: updateError } = await supabase
-          .from('products')
-          .update(bundleData)
-          .eq('id', existing.id)
-          .select()
-          .single();
-        data = updated;
-        error = updateError;
-      } else {
-        // Create new bundle
-        delete bundleData.id;
-        const { data: created, error: createError } = await supabase
-          .from('products')
-          .insert(bundleData)
-          .select()
-          .single();
-
-        data = created;
-        error = createError;
-      }
-    }
+    // Upsert: Update if ID exists, Insert if not
+    const { data, error } = await supabase
+      .from('products')
+      .upsert(bundleData)
+      .select()
+      .single();
 
     if (error) {
-      console.error('DB error:', error);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ ok: false, error: error.message })
-      };
+      console.error('Database Error:', error);
+      throw error;
     }
 
     return {
@@ -209,11 +89,11 @@ export const handler: Handler = async (event) => {
     };
 
   } catch (e: any) {
-    console.error('Save bundle error:', e);
+    console.error('Save Bundle Error:', e);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ ok: false, error: e.message || 'Server error' })
+      body: JSON.stringify({ ok: false, error: e.message })
     };
   }
 };
