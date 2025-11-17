@@ -22,6 +22,46 @@ export const handler = async (event) => {
     const m_payment_id = randomUUID();
     const order_number = generateOrderNumber();
 
+    // 1. Verify Products & Stock
+    if (orderData.items && orderData.items.length > 0) {
+      const productIds = orderData.items
+        .filter(item => item.product_id)
+        .map(item => item.product_id);
+
+      if (productIds.length > 0) {
+        const { data: products, error: productsError } = await supabase
+          .from('products')
+          .select('id, name, price, inventory_quantity, track_inventory, status')
+          .in('id', productIds);
+
+        if (productsError) {
+          console.error("Error fetching products:", productsError);
+          throw new Error('Failed to validate products');
+        }
+
+        // Check stock for each item
+        for (const item of orderData.items) {
+          if (!item.product_id) continue;
+
+          const product = products?.find(p => p.id === item.product_id);
+
+          if (!product) {
+            throw new Error(`Product not found: ${item.product_id}`);
+          }
+
+          // Block archived or draft products
+          if (product.status === 'archived' || product.status === 'draft') {
+            throw new Error(`Product "${product.name}" is no longer available.`);
+          }
+
+          // STOCK CHECK: Only check if track_inventory is TRUE
+          if (product.track_inventory && product.inventory_quantity < item.qty) {
+            throw new Error(`Insufficient stock for ${product.name}. Available: ${product.inventory_quantity}`);
+          }
+        }
+      }
+    }
+
     // Calculate totals (all in cents)
     const subtotal_cents = orderData.items?.reduce((sum, item) => {
       return sum + (item.unit_price_cents * item.qty);
