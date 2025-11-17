@@ -20,7 +20,6 @@ import {
   Users,
   DollarSign,
   Mail,
-  Megaphone, // Kept for Campaigns
   Tag,
   BarChart3,
   Settings,
@@ -72,8 +71,7 @@ const navigationGroups = [
     items: [
       { name: "Reviews", url: "Reviews", icon: Star },
       { name: "Messages", url: "Messages", icon: MessageSquare },
-      { name: "Contacts", url: "Contacts", icon: Users },
-      { name: "Campaigns", url: "Campaigns", icon: Megaphone }
+      { name: "Contacts", url: "Contacts", icon: Users }
     ]
   },
   {
