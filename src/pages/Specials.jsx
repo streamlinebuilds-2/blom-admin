@@ -1034,20 +1034,20 @@ export default function Specials() {
               </h3>
               <div className="preview-grid">
                 {selectedTargets.map(target => {
-                  const oldPrice = (target.price_cents || 0) / 100;
-                  const newPrice = calcSpecialPrice(
-                    oldPrice,
+                  const oldPriceCents = target.price_cents || 0;
+                  const newPriceCents = calcSpecialPrice(
+                    oldPriceCents,
                     formData.discount_type,
                     parseFloat(formData.discount_value)
                   );
-                  const savings = oldPrice > 0 ? Math.round(((oldPrice - newPrice) / oldPrice) * 100) : 0;
+                  const savings = oldPriceCents > 0 ? Math.round(((oldPriceCents - newPriceCents) / oldPriceCents) * 100) : 0;
 
                   return (
                     <div key={target.id} className="preview-item">
                       <div className="preview-item-name">{target.name}</div>
                       <div className="preview-prices">
-                        <div className="preview-old-price">{moneyZAR(oldPrice)}</div>
-                        <div className="preview-new-price">{moneyZAR(newPrice)}</div>
+                        <div className="preview-old-price">{moneyZAR(oldPriceCents)}</div>
+                        <div className="preview-new-price">{moneyZAR(newPriceCents)}</div>
                         {savings > 0 && (
                           <div className="preview-savings">Save {savings}%</div>
                         )}
