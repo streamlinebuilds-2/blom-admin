@@ -2,7 +2,6 @@ import type { Handler } from "@netlify/functions";
 import crypto from 'crypto';
 
 // Helper to encode exactly like PHP's urlencode
-// PayFast requires spaces to be '+' and special chars to be encoded
 const phpUrlEncode = (str: string) => {
   return encodeURIComponent(str)
     .replace(/%20/g, '+')
@@ -16,17 +15,18 @@ const createMd5Hash = (str: string) => {
 
 // Helper to parse CSV string into JSON
 const csvToJson = (csv: string) => {
+  if (!csv || typeof csv !== 'string') return [];
+
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return [];
 
   // Clean header: remove quotes and spaces
-  // PayFast CSV headers are quoted: "Date","Type",...
   const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
 
   const result = [];
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
-    // Split by comma, ignoring commas inside quotes
+    // Regex to split by comma, ignoring commas inside quotes
     const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
 
     if (values.length > 0) {
@@ -61,11 +61,10 @@ export const handler: Handler = async (event) => {
     }
 
     // 1. Prepare Data for Signature
-    // CRITICAL FIX: Remove milliseconds from ISO string (.123Z) -> YYYY-MM-DDTHH:MM:SS
+    // Fix: Remove milliseconds from ISO string (.123Z) -> YYYY-MM-DDTHH:MM:SS
     const timestamp = new Date().toISOString().slice(0, 19);
     const version = 'v1';
 
-    // We must include ALL parameters we are sending
     const dataToSign: { [key: string]: string } = {
       'merchant-id': PAYFAST_MERCHANT_ID,
       'passphrase': PAYFAST_PASSPHRASE.trim(),
@@ -73,25 +72,17 @@ export const handler: Handler = async (event) => {
       'version': version,
     };
 
-    // If we had query params like 'from' or 'to', we'd add them here too
-    // For this example, let's keep it simple and default (current month)
-    // If you add 'limit', you MUST add it to dataToSign
-
     // 2. Sort keys alphabetically
     const sortedKeys = Object.keys(dataToSign).sort();
 
     // 3. Create the signature string
-    // Format: key=value&key=value...
     const signatureString = sortedKeys
       .map(key => `${key}=${phpUrlEncode(dataToSign[key])}`)
       .join('&');
 
-    console.log('Signature String (Debug):', signatureString); // Check logs if it fails
-
     const signature = createMd5Hash(signatureString);
 
     // 4. Build API Headers
-    // Note: We DO NOT send the passphrase in the header
     const apiHeaders = {
       'merchant-id': PAYFAST_MERCHANT_ID,
       'version': version,
@@ -100,30 +91,46 @@ export const handler: Handler = async (event) => {
       'content-type': 'application/json'
     };
 
-    console.log('Calling PayFast API with headers:', JSON.stringify(apiHeaders));
-
     // 5. Call PayFast API
-    // Using the 'production' URL. Use 'api.payfast.co.za' for live.
-    // If testing in Sandbox, use 'api.payfast.co.za' but with Sandbox credentials?
-    // Actually, Sandbox API URL is usually different or same with test creds.
-    // Docs say: https://api.payfast.co.za/transactions/history
-
     const response = await fetch('https://api.payfast.co.za/transactions/history', {
       method: 'GET',
       headers: apiHeaders,
     });
 
+    // 🚨 CRITICAL FIX: Get response as text, NOT json
+    // PayFast returns raw CSV text on success, or JSON on error
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('PayFast API Error:', response.status, errorText);
-      throw new Error(`PayFast API Error: ${response.status} ${errorText}`);
+      console.error('PayFast API Error Status:', response.status);
+      console.error('PayFast API Error Body:', responseText);
+      throw new Error(`PayFast API Error: ${response.status} ${responseText}`);
     }
 
-    const jsonResponse = await response.json();
+    let csvData = '';
 
-    // 6. Parse the CSV response
-    // The API returns { "response": "CSV_STRING..." }
-    const csvData = jsonResponse.response || '';
+    // 6. Check if it's actually JSON (an error disguised as 200 OK) or just CSV
+    if (responseText.trim().startsWith('{')) {
+        try {
+            const json = JSON.parse(responseText);
+            // If it has a 'response' key, use that (some older API versions did this)
+            if (json.response) {
+                csvData = json.response;
+            } else {
+                // It's JSON but not what we expected? Treat as empty or error
+                console.warn('Received JSON without "response" key:', json);
+                csvData = '';
+            }
+        } catch (e) {
+            // JSON parse failed? Then it must be the CSV we wanted!
+            csvData = responseText;
+        }
+    } else {
+        // It doesn't start with {, so it's the raw CSV string
+        csvData = responseText;
+    }
+
+    // 7. Convert CSV to JSON for our frontend
     const jsonData = csvToJson(csvData);
 
     return {
