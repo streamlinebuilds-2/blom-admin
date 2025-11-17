@@ -21,6 +21,7 @@ export default function Coupons() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [couponFilter, setCouponFilter] = useState('all'); // 'all', 'signup', 'created'
+  const [selectedIds, setSelectedIds] = useState(new Set()); // For bulk operations
 
   // --- Data Fetching ---
   const { data: coupons, isLoading } = useQuery({
@@ -73,6 +74,46 @@ export default function Coupons() {
     queryClient.invalidateQueries({ queryKey: ['coupons'] });
   };
 
+  // Bulk selection handlers
+  const toggleCouponSelection = (couponId) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(couponId)) {
+        newSet.delete(couponId);
+      } else {
+        newSet.add(couponId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredCoupons.length) {
+      // Deselect all
+      setSelectedIds(new Set());
+    } else {
+      // Select all
+      setSelectedIds(new Set(filteredCoupons.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    const count = selectedIds.size;
+    if (!confirm(`Are you sure you want to deactivate ${count} coupon${count > 1 ? 's' : ''}?`)) {
+      return;
+    }
+
+    // Deactivate all selected coupons
+    const idsArray = Array.from(selectedIds);
+    await supabase.from('coupons').update({ is_active: false }).in('id', idsArray);
+
+    // Clear selection and refresh
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['coupons'] });
+  };
+
   // Filter coupons based on selected filter
   const filteredCoupons = useMemo(() => {
     if (!coupons) return [];
@@ -106,13 +147,27 @@ export default function Coupons() {
 
       <div className="section-card mt-8">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Active Coupons</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-semibold">Active Coupons</h2>
+            {selectedIds.size > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 text-red-400 rounded-md hover:bg-red-500/20 transition-colors"
+              >
+                <Trash2 size={16} />
+                <span>Delete {selectedIds.size} selected</span>
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <label htmlFor="coupon-filter" className="text-sm text-text-muted">Filter:</label>
             <select
               id="coupon-filter"
               value={couponFilter}
-              onChange={(e) => setCouponFilter(e.target.value)}
+              onChange={(e) => {
+                setCouponFilter(e.target.value);
+                setSelectedIds(new Set()); // Clear selection when filter changes
+              }}
               className="select text-sm py-1 px-2"
             >
               <option value="all">All Coupons</option>
@@ -125,6 +180,15 @@ export default function Coupons() {
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border text-left text-text-muted">
+                <th className="p-3 w-12">
+                  <input
+                    type="checkbox"
+                    checked={filteredCoupons.length > 0 && selectedIds.size === filteredCoupons.length}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 rounded"
+                    title="Select all"
+                  />
+                </th>
                 <th className="p-3">Code</th>
                 <th className="p-3">Type</th>
                 <th className="p-3">Value</th>
@@ -139,10 +203,18 @@ export default function Coupons() {
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan="10" className="p-4 text-center">Loading coupons...</td></tr>
+                <tr><td colSpan="11" className="p-4 text-center">Loading coupons...</td></tr>
               )}
               {filteredCoupons && filteredCoupons.map((coupon) => (
-                <tr key={coupon.id} className="border-b border-border hover:bg-white/5">
+                <tr key={coupon.id} className={`border-b border-border hover:bg-white/5 ${selectedIds.has(coupon.id) ? 'bg-accent/5' : ''}`}>
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(coupon.id)}
+                      onChange={() => toggleCouponSelection(coupon.id)}
+                      className="h-4 w-4 rounded"
+                    />
+                  </td>
                   <td className="p-3 font-mono">{coupon.code}</td>
                   <td className="p-3">{coupon.type}</td>
                   <td className="p-3">
