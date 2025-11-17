@@ -24,13 +24,14 @@ export default function Analytics() {
   const contacts = []; // Contacts not yet implemented in adapter
 
   const metrics = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => {
-      const total = o.total_cents ? o.total_cents / 100 : (o.total || 0);
-      return sum + total;
+    const totalRevenueCents = orders.reduce((sum, o) => {
+      // Keep everything in cents for consistency
+      const totalCents = o.total_cents || (o.total ? o.total * 100 : 0);
+      return sum + totalCents;
     }, 0);
     const totalOrders = orders.length;
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-    
+    const avgOrderValueCents = totalOrders > 0 ? totalRevenueCents / totalOrders : 0;
+
     const now = new Date();
     const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const ordersLast30 = orders.filter(o => {
@@ -38,9 +39,9 @@ export default function Analytics() {
       if (!orderDate) return false;
       return new Date(orderDate) >= last30Days;
     });
-    const revenueLast30 = ordersLast30.reduce((sum, o) => {
-      const total = o.total_cents ? o.total_cents / 100 : (o.total || 0);
-      return sum + total;
+    const revenueLast30Cents = ordersLast30.reduce((sum, o) => {
+      const totalCents = o.total_cents || (o.total ? o.total * 100 : 0);
+      return sum + totalCents;
     }, 0);
     
     const activeProducts = products.filter(p => p.status === 'active').length;
@@ -50,10 +51,10 @@ export default function Analytics() {
     }).length;
 
     return {
-      totalRevenue,
+      totalRevenue: totalRevenueCents,
       totalOrders,
-      avgOrderValue,
-      revenueLast30,
+      avgOrderValue: avgOrderValueCents,
+      revenueLast30: revenueLast30Cents,
       ordersLast30: ordersLast30.length,
       activeProducts,
       lowStockProducts,

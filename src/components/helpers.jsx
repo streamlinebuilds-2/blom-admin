@@ -7,14 +7,17 @@ export function slugify(text) {
     .replace(/^-+|-+$/g, '');
 }
 
-export function calcSpecialPrice(price, type, value) {
+export function calcSpecialPrice(priceCents, type, value) {
+  // All prices should be in cents
   if (type === 'percent') {
-    return Math.max(1, Math.floor(price * (1 - value / 100)));
+    return Math.max(100, Math.floor(priceCents * (1 - value / 100)));
   }
   if (type === 'amount_off') {
-    return Math.max(1, price - Math.floor(value * 100));
+    // value is in rands, convert to cents for subtraction
+    return Math.max(100, priceCents - Math.floor(value * 100));
   }
-  return Math.max(1, Math.floor(value * 100));
+  // fixed_price: value is in rands, convert to cents
+  return Math.max(100, Math.floor(value * 100));
 }
 
 export function safeParseInt(value, defaultValue = 0) {
