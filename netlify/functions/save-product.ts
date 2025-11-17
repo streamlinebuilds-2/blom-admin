@@ -75,7 +75,8 @@ export const handler: Handler = async (event) => {
     }
 
     // Handle archive/partial update (status change only) - when id is provided but no name/slug
-    if (body?.id && body?.status && !body?.name && !body?.slug) {
+    // IMPORTANT: Skip this path if price is provided (for price-only updates)
+    if (body?.id && body?.status && !body?.name && !body?.slug && body?.price === undefined) {
       const supabaseUrl = process.env.SUPABASE_URL!;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
       if (!supabaseUrl || !serviceKey) {
