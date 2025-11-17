@@ -24,7 +24,7 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -48,22 +48,31 @@ export const handler: Handler = async (e) => {
     const { data: rows, error, count } = await query;
     if (error) throw error;
 
-    // item counts
+    // item counts and workshop detection
     const ids = rows.map(r => r.id);
     let byOrder: Record<string, number> = {};
+    let workshopOrders: Set<string> = new Set();
     if (ids.length) {
       const { data: items, error: iErr } = await s.from("order_items")
-        .select("order_id, quantity")
+        .select("order_id, qty, name, sku")
         .in("order_id", ids);
       if (iErr) throw iErr;
       for (const it of items || []) {
-        byOrder[it.order_id] = (byOrder[it.order_id] || 0) + (it.quantity || 0);
+        byOrder[it.order_id] = (byOrder[it.order_id] || 0) + (it.qty || 0);
+        // Detect workshop/course orders
+        const nameLower = (it.name || '').toLowerCase();
+        const skuLower = (it.sku || '').toLowerCase();
+        if (nameLower.includes('workshop') || nameLower.includes('course') ||
+            skuLower.includes('workshop') || skuLower.includes('course')) {
+          workshopOrders.add(it.order_id);
+        }
       }
     }
 
     const data = rows.map(r => ({
       ...r,
       item_count: byOrder[r.id] || 0,
+      is_workshop: workshopOrders.has(r.id),
       short_code: "BL-" + (r.m_payment_id || "").replace(/[^A-Za-z0-9]/g,"").slice(-8).toUpperCase(),
       // Normalize field names (use buyer_* or fallback to customer_*)
       buyer_name: r.buyer_name || r.customer_name,
