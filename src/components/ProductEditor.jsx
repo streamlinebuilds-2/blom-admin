@@ -997,7 +997,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                     <ImageUploader
                       slug={formData.slug || 'temp'}
                       label="Upload thumbnail"
-                      onAdd={(img) => updateField('image_url', formData.image_url || img.thumb)}
+                      onAdd={(img) => updateField('image_url', img.thumb)}
                     />
                     {formData.image_url && (
                       <div className="image-preview" style={{ maxWidth: '80px' }}>
