@@ -1,159 +1,166 @@
 import type { Handler } from "@netlify/functions";
 import crypto from 'crypto';
 
-// Helper to encode exactly like PHP's urlencode
-const phpUrlEncode = (str: string) => {
-  return encodeURIComponent(str)
-    .replace(/%20/g, '+')
-    .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
-    .replace(/~/g, '%7E');
+const headers = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*'
 };
 
-const createMd5Hash = (str: string) => {
-  return crypto.createHash('md5').update(str).digest('hex');
-};
+// Generate PayFast API signature (MD5 hash)
+const generateSignature = (data: Record<string, string>) => {
+  // Sort keys alphabetically
+  const sortedKeys = Object.keys(data).sort();
 
-// ROBUST PARSER: Specifically for PayFast's "Quoted CSV" format
-const csvToJson = (csv: string) => {
-  if (!csv || typeof csv !== 'string') return [];
+  // Build parameter string
+  const paramString = sortedKeys
+    .map(key => `${key}=${encodeURIComponent(data[key]).replace(/%20/g, '+')}`)
+    .join('&');
 
-  const lines = csv.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-
-  // 1. Clean Headers
-  // Remove the very first quote and very last quote, then split by ","
-  // Raw: "Date","Type","Sign"...
-  // Cleaned: Date","Type","Sign
-  // Split: [Date, Type, Sign]
-  const headerLine = lines[0].trim();
-  const headers = headerLine.substring(1, headerLine.length - 1).split('","');
-
-  const result = [];
-
-  // 2. Process Rows
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    // Same logic for rows: remove outer quotes, split by ","
-    const cleanLine = line.substring(1, line.length - 1);
-    // Use a special placeholder for split if needed, but PayFast essentially guarantees ","
-    const values = cleanLine.split('","');
-
-    if (values.length > 0) {
-      const obj: any = {};
-
-      headers.forEach((header, index) => {
-        // Map to simpler keys if needed, or keep original
-        // PayFast headers are usually capitalized: "M Payment ID"
-        let value = values[index] || '';
-
-        // Clean up any remaining quotes if they exist inside the value
-        value = value.replace(/"/g, '');
-
-        obj[header] = value;
-      });
-
-      result.push(obj);
-    }
-  }
-  return result;
+  // Generate MD5 hash
+  return crypto.createHash('md5').update(paramString).digest('hex');
 };
 
 export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  };
+  if (event.httpMethod !== 'GET') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ ok: false, error: 'Method Not Allowed' })
+    };
+  }
 
   try {
-    const { PAYFAST_MERCHANT_ID, PAYFAST_PASSPHRASE } = process.env;
     const { from, to } = event.queryStringParameters || {};
 
-    if (!PAYFAST_MERCHANT_ID || !PAYFAST_PASSPHRASE) {
-      throw new Error('Missing PayFast environment variables');
+    const merchantId = process.env.PAYFAST_MERCHANT_ID;
+    const passphrase = process.env.PAYFAST_PASSPHRASE;
+
+    if (!merchantId || !passphrase) {
+      throw new Error('Missing PayFast credentials');
     }
 
-    // 1. Signature Data
-    const timestamp = new Date().toISOString().slice(0, 19);
-    const version = 'v1';
+    // Generate ISO-8601 timestamp with timezone
+    const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, '+02:00');
 
-    const dataToSign: { [key: string]: string } = {
-      'merchant-id': PAYFAST_MERCHANT_ID,
-      'passphrase': PAYFAST_PASSPHRASE.trim(),
+    // Build signature data (ALL parameters sorted alphabetically)
+    const signatureData: Record<string, string> = {
+      'merchant-id': merchantId,
+      'passphrase': passphrase,
       'timestamp': timestamp,
-      'version': version,
+      'version': 'v1'
     };
 
-    if (from) dataToSign['from'] = from;
-    if (to) dataToSign['to'] = to;
+    // Add query params to signature if present
+    if (from) signatureData['from'] = from;
+    if (to) signatureData['to'] = to;
 
-    // 2. Generate Signature
-    const sortedKeys = Object.keys(dataToSign).sort();
-    const signatureString = sortedKeys
-      .map(key => `${key}=${phpUrlEncode(dataToSign[key])}`)
-      .join('&');
+    // Generate signature
+    const signature = generateSignature(signatureData);
 
-    const signature = createMd5Hash(signatureString);
+    // Build request URL
+    const baseUrl = 'https://api.payfast.co.za/transactions/history';
+    const queryParams = new URLSearchParams();
+    if (from) queryParams.append('from', from);
+    if (to) queryParams.append('to', to);
 
-    // 3. Headers & URL
-    const apiHeaders: any = {
-      'merchant-id': PAYFAST_MERCHANT_ID,
-      'version': version,
-      'timestamp': timestamp,
-      'signature': signature
-    };
+    const url = queryParams.toString()
+      ? `${baseUrl}?${queryParams.toString()}`
+      : baseUrl;
 
-    const url = new URL('https://api.payfast.co.za/transactions/history');
-    if (from) url.searchParams.append('from', from);
-    if (to) url.searchParams.append('to', to);
+    console.log('PayFast Request:', {
+      url,
+      headers: {
+        'merchant-id': merchantId,
+        'version': 'v1',
+        'timestamp': timestamp,
+        'signature': signature.substring(0, 8) + '...' // Log first 8 chars only
+      }
+    });
 
-    console.log(`Fetching PayFast: ${url.toString()}`);
-
-    const response = await fetch(url.toString(), {
+    // Make API request
+    const response = await fetch(url, {
       method: 'GET',
-      headers: apiHeaders,
+      headers: {
+        'merchant-id': merchantId,
+        'version': 'v1',
+        'timestamp': timestamp,
+        'signature': signature
+      }
     });
 
     const responseText = await response.text();
 
     if (!response.ok) {
-      console.error('PayFast Error:', responseText);
+      console.error('PayFast API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText
+      });
+
       return {
-        statusCode: 500,
+        statusCode: response.status,
         headers,
-        body: JSON.stringify({ ok: false, error: `PayFast API Error: ${responseText}` })
+        body: JSON.stringify({
+          ok: false,
+          error: `PayFast API Error: ${response.status} - ${responseText}`
+        })
       };
     }
 
-    // 4. Parse Response
-    // If response starts with {, it's likely a JSON error message disguised as 200 OK
-    // Otherwise, it's our CSV
-    let csvData = responseText;
-    if (responseText.trim().startsWith('{')) {
-        try {
-            const json = JSON.parse(responseText);
-            // PayFast sometimes wraps CSV in a JSON object
-            if (json.response) csvData = json.response;
-        } catch(e) { /* ignore */ }
-    }
-
-    const jsonData = csvToJson(csvData);
+    // Parse CSV response
+    const transactions = parsePayFastCSV(responseText);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, data: jsonData }),
+      body: JSON.stringify({ ok: true, data: transactions })
     };
 
-  } catch (e: any) {
-    console.error('Server Error:', e);
+  } catch (error: any) {
+    console.error('Server error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ ok: false, error: e.message })
+      body: JSON.stringify({ ok: false, error: error.message })
     };
   }
 };
+
+// Parse PayFast CSV response
+function parsePayFastCSV(csv: string): any[] {
+  if (!csv || typeof csv !== 'string' || csv.trim().length === 0) {
+    return [];
+  }
+
+  const lines = csv.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+
+  // Parse header line (remove quotes and split)
+  const headerLine = lines[0].replace(/^"|"$/g, '');
+  const headers = headerLine.split('","');
+
+  const result: any[] = [];
+
+  // Parse data lines
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line === '""') continue;
+
+    // Remove outer quotes and split by ","
+    const cleanLine = line.replace(/^"|"$/g, '');
+    const values = cleanLine.split('","');
+
+    if (values.length > 0) {
+      const transaction: any = {};
+
+      headers.forEach((header, index) => {
+        const value = (values[index] || '').replace(/"/g, '');
+        transaction[header.trim()] = value;
+      });
+
+      result.push(transaction);
+    }
+  }
+
+  return result;
+}

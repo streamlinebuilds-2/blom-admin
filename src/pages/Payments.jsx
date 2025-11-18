@@ -45,14 +45,20 @@ function LivePayFastHistory() {
       const fromStr = fromDate.toISOString().slice(0, 10);
       const toStr = toDate.toISOString().slice(0, 10);
 
-      console.log(`Fetching PayFast history for: ${fromStr} to ${toStr}`);
+      console.log(`Fetching PayFast: ${fromStr} to ${toStr}`);
 
-      const response = await fetch(`/.netlify/functions/get-payfast-history?from=${fromStr}&to=${toStr}`);
+      const response = await fetch(
+        `/.netlify/functions/get-payfast-history?from=${fromStr}&to=${toStr}`
+      );
+
       const result = await response.json();
 
+      console.log('PayFast Response:', result); // Debug log
+
       if (!response.ok || !result.ok) {
-        throw new Error(result.error || 'Failed to fetch history');
+        throw new Error(result.error || 'Failed to fetch PayFast history');
       }
+
       return result.data || [];
     },
   });
@@ -77,6 +83,29 @@ function LivePayFastHistory() {
         </div>
       </div>
 
+      {/* Show detailed error */}
+      {error && (
+        <div style={{
+          padding: '20px',
+          background: '#ef444420',
+          color: '#ef4444',
+          borderRadius: '12px',
+          marginBottom: '16px'
+        }}>
+          <strong>Error loading PayFast data:</strong><br/>
+          {error.message}
+          <br/><br/>
+          <small>
+            Possible causes:<br/>
+            • IP not whitelisted in PayFast settings<br/>
+            • Incorrect merchant credentials<br/>
+            • PayFast API down<br/>
+            <br/>
+            Check Netlify function logs for details.
+          </small>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -92,21 +121,40 @@ function LivePayFastHistory() {
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">Loading PayFast data...</td></tr>
-            ) : error ? (
-              <tr><td colSpan="7" className="p-8 text-center text-red-400">Connection Error: {error.message}</td></tr>
+              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">
+                Loading PayFast data...
+              </td></tr>
             ) : data?.length === 0 ? (
-              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">No transactions in this period.</td></tr>
+              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">
+                No transactions in this period.
+                <br/>
+                <small style={{ color: 'var(--text-muted)', marginTop: '8px', display: 'block' }}>
+                  If you expect transactions, check:<br/>
+                  • Date range is correct<br/>
+                  • IP whitelisting in PayFast<br/>
+                  • Netlify function logs
+                </small>
+              </td></tr>
             ) : (
               data?.map((tx, index) => (
                 <tr key={index} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
                   <td className="p-4 text-sm whitespace-nowrap">{tx.Date}</td>
                   <td className="p-4 text-sm font-medium">{tx.Name || tx.Party}</td>
-                  <td className="p-4 text-sm text-[var(--text-muted)] truncate max-w-[200px]">{tx.Description}</td>
-                  <td className="p-4 text-sm text-right font-medium">{formatRands(tx.Gross, false)}</td>
-                  <td className="p-4 text-sm text-right text-red-400">{formatRands(tx.Fee, false)}</td>
-                  <td className="p-4 text-sm text-right font-bold text-green-400">{formatRands(tx.Net, false)}</td>
-                  <td className="p-4 text-xs font-mono text-[var(--text-muted)] text-right">{tx['M Payment ID'] || tx['PF Payment ID']}</td>
+                  <td className="p-4 text-sm text-[var(--text-muted)] truncate max-w-[200px]">
+                    {tx.Description}
+                  </td>
+                  <td className="p-4 text-sm text-right font-medium">
+                    {formatRands(tx.Gross, false)}
+                  </td>
+                  <td className="p-4 text-sm text-right text-red-400">
+                    {formatRands(tx.Fee, false)}
+                  </td>
+                  <td className="p-4 text-sm text-right font-bold text-green-400">
+                    {formatRands(tx.Net, false)}
+                  </td>
+                  <td className="p-4 text-xs font-mono text-[var(--text-muted)] text-right">
+                    {tx['M Payment ID'] || tx['PF Payment ID']}
+                  </td>
                 </tr>
               ))
             )}
