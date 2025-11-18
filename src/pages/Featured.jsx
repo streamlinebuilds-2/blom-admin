@@ -36,28 +36,113 @@ export default function Featured() {
   });
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Featured Products</h1>
-        <p className="text-[var(--text-muted)]">Select 3 products to highlight on the homepage. You can set a custom image for each.</p>
-      </div>
+    <>
+      <style>{`
+        .featured-section-card {
+          background: var(--card);
+          border-radius: 20px;
+          padding: 24px;
+          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+        }
+        .featured-form-select {
+          width: 100%;
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 15px;
+          font-family: inherit;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          transition: box-shadow .2s;
+        }
+        .featured-form-select:focus {
+          outline: none;
+          box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+        }
+        .featured-btn-primary {
+          padding: 12px 28px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          transition: transform 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+        }
+        .featured-btn-primary:disabled {
+          opacity: .6;
+          cursor: not-allowed;
+        }
+        .featured-btn-primary:not(:disabled):hover {
+          transform: translateY(-2px);
+        }
+        .featured-image-preview {
+          aspect-ratio: 4/5;
+          background: var(--bg);
+          border-radius: 12px;
+          overflow: hidden;
+          position: relative;
+          border: 1px solid var(--border);
+        }
+        .featured-custom-badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          font-size: 11px;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-weight: 500;
+        }
+        .featured-upload-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.5);
+          opacity: 0;
+          transition: opacity 0.2s;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: white;
+        }
+        .featured-image-preview:hover .featured-upload-overlay {
+          opacity: 1;
+        }
+      `}</style>
+      <div className="p-4 md:p-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--text)' }}>Featured Products</h1>
+          <p className="text-[var(--text-muted)]">Select 3 products to highlight on the homepage. You can set a custom image for each.</p>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[1, 2, 3].map(slotNum => {
-          const item = featuredItems?.find(f => f.slot_number === slotNum) || {};
-          return (
-            <FeaturedSlotCard
-              key={slotNum}
-              slotNumber={slotNum}
-              item={item}
-              allProducts={allProducts}
-              onSave={() => queryClient.invalidateQueries(['featuredItems'])}
-              showToast={showToast}
-            />
-          );
-        })}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map(slotNum => {
+            const item = featuredItems?.find(f => f.slot_number === slotNum) || {};
+            return (
+              <FeaturedSlotCard
+                key={slotNum}
+                slotNumber={slotNum}
+                item={item}
+                allProducts={allProducts}
+                onSave={() => queryClient.invalidateQueries(['featuredItems'])}
+                showToast={showToast}
+              />
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -116,13 +201,16 @@ function FeaturedSlotCard({ slotNumber, item, allProducts, onSave, showToast }) 
   };
 
   return (
-    <div className="section-card flex flex-col h-full">
-      <div className="font-bold text-lg mb-4 border-b border-[var(--border)] pb-2">
+    <div className="featured-section-card flex flex-col h-full">
+      <div className="font-bold text-lg mb-4 pb-3" style={{
+        borderBottom: '1px solid var(--border)',
+        color: 'var(--text)'
+      }}>
         Position #{slotNumber}
       </div>
 
       {/* Image Preview */}
-      <div className="aspect-[4/5] bg-[var(--bg)] rounded-xl mb-4 overflow-hidden relative group border border-[var(--border)]">
+      <div className="featured-image-preview mb-4">
         {previewImage ? (
           <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
         ) : (
@@ -133,14 +221,14 @@ function FeaturedSlotCard({ slotNumber, item, allProducts, onSave, showToast }) 
         )}
 
         {/* Overlay for Upload */}
-        <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white">
+        <label className="featured-upload-overlay">
           <Upload size={24} className="mb-2" />
           <span className="text-sm font-medium">Change Featured Image</span>
           <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
         </label>
 
         {customImage && (
-           <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">
+           <div className="featured-custom-badge">
              Custom Image Active
            </div>
         )}
@@ -148,10 +236,12 @@ function FeaturedSlotCard({ slotNumber, item, allProducts, onSave, showToast }) 
 
       {/* Controls */}
       <div className="space-y-4 flex-1">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-[var(--text-muted)] uppercase">Select Product</label>
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+            Select Product
+          </label>
           <select
-            className="select w-full"
+            className="featured-form-select"
             value={productId}
             onChange={(e) => setProductId(e.target.value)}
           >
@@ -165,18 +255,25 @@ function FeaturedSlotCard({ slotNumber, item, allProducts, onSave, showToast }) 
         {customImage && (
           <button
             onClick={() => setCustomImage('')}
-            className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+            className="text-xs flex items-center gap-1"
+            style={{
+              color: '#ef4444',
+              background: 'transparent',
+              border: 'none',
+              padding: '4px 0',
+              cursor: 'pointer'
+            }}
           >
             <X size={12} /> Remove custom image (use product default)
           </button>
         )}
       </div>
 
-      <div className="mt-6 pt-4 border-t border-[var(--border)]">
+      <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="btn-primary w-full flex items-center justify-center gap-2"
+          className="featured-btn-primary"
         >
           {isSaving ? 'Saving...' : <><Save size={16} /> Save Slot</>}
         </button>
