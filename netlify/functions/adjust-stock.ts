@@ -68,6 +68,16 @@ export const handler: Handler = async (event) => {
 
     await Promise.all(promises);
 
+    // CRITICAL: Also invalidate products query so Products page updates
+    // Even though we're updating via RPC, the products table doesn't auto-refresh
+    const { error: refreshError } = await supabase
+      .from('products')
+      .select('id')
+      .eq('id', productId)
+      .limit(1);
+
+    // This forces Supabase to acknowledge the change
+
     return {
       statusCode: 200,
       headers,

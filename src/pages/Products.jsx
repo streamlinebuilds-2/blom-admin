@@ -34,6 +34,9 @@ export default function Products() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => api.listProducts(),
+    refetchOnWindowFocus: true, // Auto-refetch when page is focused
+    refetchInterval: false, // Don't poll constantly
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
   const deleteMutation = useMutation({
