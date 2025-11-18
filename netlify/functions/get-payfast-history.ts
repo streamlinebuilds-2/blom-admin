@@ -13,21 +13,19 @@ const createMd5Hash = (str: string) => {
   return crypto.createHash('md5').update(str).digest('hex');
 };
 
-// Robust CSV Parser for PayFast format
-// PayFast returns strictly quoted CSV: "Header1","Header2"
+// ROBUST CSV PARSER for PayFast
+// PayFast returns lines like: "Date","Type","Gross"
 const csvToJson = (csv: string) => {
   if (!csv || typeof csv !== 'string') return [];
 
-  // 1. Split into lines
+  // 1. Split lines (handle Windows/Unix line endings)
   const lines = csv.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
-  // 2. Parse Headers
-  // Remove leading/trailing quotes and split by ","
-  const headerLine = lines[0];
-  // Remove the very first " and very last "
-  const cleanHeaderLine = headerLine.replace(/^"|"$/g, '');
-  const headers = cleanHeaderLine.split('","');
+  // 2. Parse Header
+  // Remove the very first " and very last " then split by ","
+  const headerLine = lines[0].trim().replace(/^"|"$/g, '');
+  const headers = headerLine.split('","');
 
   const result = [];
 
@@ -36,25 +34,18 @@ const csvToJson = (csv: string) => {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // PayFast rows are also strictly quoted: "Val1","Val2"
-    // Remove first/last quote and split
+    // Strict format: Remove first/last quote, then split by separator
     const cleanLine = line.replace(/^"|"$/g, '');
     const values = cleanLine.split('","');
 
-    // Only process if valid row
+    // Map values to headers
     if (values.length > 0) {
       const obj: any = {};
-
       headers.forEach((header, index) => {
-        let val = values[index] || '';
-
-        // Map keys to match your Frontend expectations if needed
-        // But currently your frontend uses the raw CSV headers like 'M Payment ID'
-
-        // Clean up any residual formatting if needed
-        obj[header] = val;
+        // PayFast headers can have weird spaces/chars, let's keep them raw for now
+        // or map them if needed. Frontend uses ["M Payment ID"] etc.
+        obj[header] = values[index] || '';
       });
-
       result.push(obj);
     }
   }
@@ -66,6 +57,7 @@ export const handler: Handler = async (event) => {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
+  // Simple CORS headers
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*'
@@ -73,14 +65,14 @@ export const handler: Handler = async (event) => {
 
   try {
     const { PAYFAST_MERCHANT_ID, PAYFAST_PASSPHRASE } = process.env;
+    const { from, to } = event.queryStringParameters || {};
 
     if (!PAYFAST_MERCHANT_ID || !PAYFAST_PASSPHRASE) {
       throw new Error('Missing PayFast environment variables');
     }
 
-    // 1. Prepare Data for Signature
-    // Strip milliseconds from ISO string (.123Z) -> YYYY-MM-DDTHH:MM:SS
-    const timestamp = new Date().toISOString().slice(0, 19);
+    // 1. Signature Setup
+    const timestamp = new Date().toISOString().slice(0, 19); // Remove milliseconds
     const version = 'v1';
 
     const dataToSign: { [key: string]: string } = {
@@ -90,57 +82,60 @@ export const handler: Handler = async (event) => {
       'version': version,
     };
 
-    // 2. Sort keys alphabetically
-    const sortedKeys = Object.keys(dataToSign).sort();
+    // 2. Add 'from'/'to' to signature if they exist (CRITICAL for filters)
+    if (from) dataToSign['from'] = from;
+    if (to) dataToSign['to'] = to;
 
-    // 3. Create the signature string
+    const sortedKeys = Object.keys(dataToSign).sort();
     const signatureString = sortedKeys
       .map(key => `${key}=${phpUrlEncode(dataToSign[key])}`)
       .join('&');
 
     const signature = createMd5Hash(signatureString);
 
-    // 4. Build API Headers
-    const apiHeaders = {
+    // 3. API Headers
+    const apiHeaders: any = {
       'merchant-id': PAYFAST_MERCHANT_ID,
       'version': version,
       'timestamp': timestamp,
-      'signature': signature,
-      // Note: We do NOT send Content-Type for GET requests
+      'signature': signature
     };
 
-    // 5. Call PayFast API
-    const response = await fetch('https://api.payfast.co.za/transactions/history', {
+    // 4. Construct URL
+    const url = new URL('https://api.payfast.co.za/transactions/history');
+    if (from) url.searchParams.append('from', from);
+    if (to) url.searchParams.append('to', to);
+
+    console.log('Fetching PayFast History:', url.toString());
+
+    const response = await fetch(url.toString(), {
       method: 'GET',
       headers: apiHeaders,
     });
 
-    // Get response as text to handle both JSON (error) and CSV (success)
     const responseText = await response.text();
 
     if (!response.ok) {
-      console.error('PayFast API Error:', response.status, responseText);
-      throw new Error(`PayFast API Error: ${response.status} ${responseText}`);
+      console.error('PayFast Error:', responseText);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: `PayFast API Error: ${responseText}` })
+      };
     }
 
-    let csvData = '';
-
-    // 6. Determine if it's JSON or CSV
+    // 5. Parse
+    let csvData = responseText;
+    // Check if it's JSON error wrapped in 200 OK (rare but possible)
     if (responseText.trim().startsWith('{')) {
-      try {
-        const json = JSON.parse(responseText);
-        csvData = json.response || '';
-      } catch (e) {
-        // Parse failed? It must be raw CSV starting with a "
-        csvData = responseText;
-      }
-    } else {
-      // Definitely CSV
-      csvData = responseText;
+        try {
+            const json = JSON.parse(responseText);
+            if (json.response) csvData = json.response;
+        } catch(e) { /* Not JSON, ignore */ }
     }
 
-    // 7. Convert to JSON
     const jsonData = csvToJson(csvData);
+    console.log(`Parsed ${jsonData.length} transactions`);
 
     return {
       statusCode: 200,
@@ -149,7 +144,7 @@ export const handler: Handler = async (event) => {
     };
 
   } catch (e: any) {
-    console.error('Server error:', e);
+    console.error('Server Error:', e);
     return {
       statusCode: 500,
       headers,
