@@ -5,47 +5,55 @@ import crypto from 'crypto';
 const phpUrlEncode = (str: string) => {
   return encodeURIComponent(str)
     .replace(/%20/g, '+')
-    .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/~/g, '%7E');
 };
 
-// Helper to create the MD5 hash
 const createMd5Hash = (str: string) => {
   return crypto.createHash('md5').update(str).digest('hex');
 };
 
-// ROBUST CSV PARSER for PayFast
-// PayFast returns lines like: "Date","Type","Gross"
+// ROBUST PARSER: Specifically for PayFast's "Quoted CSV" format
 const csvToJson = (csv: string) => {
   if (!csv || typeof csv !== 'string') return [];
 
-  // 1. Split lines (handle Windows/Unix line endings)
   const lines = csv.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
-  // 2. Parse Header
-  // Remove the very first " and very last " then split by ","
-  const headerLine = lines[0].trim().replace(/^"|"$/g, '');
-  const headers = headerLine.split('","');
+  // 1. Clean Headers
+  // Remove the very first quote and very last quote, then split by ","
+  // Raw: "Date","Type","Sign"...
+  // Cleaned: Date","Type","Sign
+  // Split: [Date, Type, Sign]
+  const headerLine = lines[0].trim();
+  const headers = headerLine.substring(1, headerLine.length - 1).split('","');
 
   const result = [];
 
-  // 3. Parse Rows
+  // 2. Process Rows
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Strict format: Remove first/last quote, then split by separator
-    const cleanLine = line.replace(/^"|"$/g, '');
+    // Same logic for rows: remove outer quotes, split by ","
+    const cleanLine = line.substring(1, line.length - 1);
+    // Use a special placeholder for split if needed, but PayFast essentially guarantees ","
     const values = cleanLine.split('","');
 
-    // Map values to headers
     if (values.length > 0) {
       const obj: any = {};
+
       headers.forEach((header, index) => {
-        // PayFast headers can have weird spaces/chars, let's keep them raw for now
-        // or map them if needed. Frontend uses ["M Payment ID"] etc.
-        obj[header] = values[index] || '';
+        // Map to simpler keys if needed, or keep original
+        // PayFast headers are usually capitalized: "M Payment ID"
+        let value = values[index] || '';
+
+        // Clean up any remaining quotes if they exist inside the value
+        value = value.replace(/"/g, '');
+
+        obj[header] = value;
       });
+
       result.push(obj);
     }
   }
@@ -53,11 +61,8 @@ const csvToJson = (csv: string) => {
 };
 
 export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'GET') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
+  if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
 
-  // Simple CORS headers
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*'
@@ -71,8 +76,8 @@ export const handler: Handler = async (event) => {
       throw new Error('Missing PayFast environment variables');
     }
 
-    // 1. Signature Setup
-    const timestamp = new Date().toISOString().slice(0, 19); // Remove milliseconds
+    // 1. Signature Data
+    const timestamp = new Date().toISOString().slice(0, 19);
     const version = 'v1';
 
     const dataToSign: { [key: string]: string } = {
@@ -82,10 +87,10 @@ export const handler: Handler = async (event) => {
       'version': version,
     };
 
-    // 2. Add 'from'/'to' to signature if they exist (CRITICAL for filters)
     if (from) dataToSign['from'] = from;
     if (to) dataToSign['to'] = to;
 
+    // 2. Generate Signature
     const sortedKeys = Object.keys(dataToSign).sort();
     const signatureString = sortedKeys
       .map(key => `${key}=${phpUrlEncode(dataToSign[key])}`)
@@ -93,7 +98,7 @@ export const handler: Handler = async (event) => {
 
     const signature = createMd5Hash(signatureString);
 
-    // 3. API Headers
+    // 3. Headers & URL
     const apiHeaders: any = {
       'merchant-id': PAYFAST_MERCHANT_ID,
       'version': version,
@@ -101,12 +106,11 @@ export const handler: Handler = async (event) => {
       'signature': signature
     };
 
-    // 4. Construct URL
     const url = new URL('https://api.payfast.co.za/transactions/history');
     if (from) url.searchParams.append('from', from);
     if (to) url.searchParams.append('to', to);
 
-    console.log('Fetching PayFast History:', url.toString());
+    console.log(`Fetching PayFast: ${url.toString()}`);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -124,18 +128,19 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // 5. Parse
+    // 4. Parse Response
+    // If response starts with {, it's likely a JSON error message disguised as 200 OK
+    // Otherwise, it's our CSV
     let csvData = responseText;
-    // Check if it's JSON error wrapped in 200 OK (rare but possible)
     if (responseText.trim().startsWith('{')) {
         try {
             const json = JSON.parse(responseText);
+            // PayFast sometimes wraps CSV in a JSON object
             if (json.response) csvData = json.response;
-        } catch(e) { /* Not JSON, ignore */ }
+        } catch(e) { /* ignore */ }
     }
 
     const jsonData = csvToJson(csvData);
-    console.log(`Parsed ${jsonData.length} transactions`);
 
     return {
       statusCode: 200,

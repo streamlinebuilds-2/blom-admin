@@ -6,11 +6,10 @@ import { Database, Zap, Calendar } from 'lucide-react';
 // Helper to format currency
 const formatRands = (value, isCents = true) => {
   if (value == null || value === '') return '-';
-  // PayFast API returns strings like "100.00", so we parse float
   const num = parseFloat(value);
   if (isNaN(num)) return '-';
 
-  // If isCents is true, divide by 100 (for our DB), else use raw (for PayFast API)
+  // PayFast API returns Rands directly (e.g., "31.41"), so we set isCents=false for it
   const amount = isCents ? num / 100 : num;
   return `R${amount.toFixed(2)}`;
 };
@@ -18,42 +17,43 @@ const formatRands = (value, isCents = true) => {
 export default function Payments() {
   return (
     <div className="p-4 md:p-8 space-y-8">
-      <h1 className="text-3xl font-bold">Payments</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Payments</h1>
+      </div>
 
-      {/* Live history first (what you asked for) */}
+      {/* Live PayFast History (External API) */}
       <LivePayFastHistory />
 
-      {/* Internal Database History */}
+      {/* Internal Database Records */}
       <ProcessedPayments />
     </div>
   );
 }
 
-// --- Live PayFast History Component ---
 function LivePayFastHistory() {
-  // Default to current month
+  // Default to current month (YYYY-MM format)
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return now.toISOString().slice(0, 7); // "YYYY-MM"
+    return new Date().toISOString().slice(0, 7);
   });
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['payfastHistory', selectedMonth],
     queryFn: async () => {
-      // Calculate start/end dates for the selected month
+      // Calculate first and last day of the selected month
       const date = new Date(selectedMonth);
       const fromDate = new Date(date.getFullYear(), date.getMonth(), 1);
-      const toDate = new Date(date.getFullYear(), date.getMonth() + 1, 0); // Last day of month
+      const toDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-      // Format as YYYY-MM-DD
       const fromStr = fromDate.toISOString().slice(0, 10);
       const toStr = toDate.toISOString().slice(0, 10);
+
+      console.log(`Fetching PayFast history for: ${fromStr} to ${toStr}`);
 
       const response = await fetch(`/.netlify/functions/get-payfast-history?from=${fromStr}&to=${toStr}`);
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        throw new Error(result.error || 'Failed to fetch PayFast history');
+        throw new Error(result.error || 'Failed to fetch history');
       }
       return result.data || [];
     },
@@ -63,18 +63,18 @@ function LivePayFastHistory() {
     <div className="section-card">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
-          <Zap size={20} className="text-accent" />
+          <Zap size={20} className="text-[var(--accent)]" />
           Live PayFast History
         </h2>
 
         {/* Month Filter */}
-        <div className="flex items-center gap-2 bg-white/5 p-1 rounded-lg border border-border">
-          <Calendar size={16} className="text-text-muted ml-2" />
+        <div className="flex items-center gap-2 bg-[var(--bg)] px-3 py-2 rounded-lg border border-[var(--border)]">
+          <Calendar size={16} className="text-[var(--text-muted)]" />
           <input
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-transparent border-none text-sm focus:ring-0 py-1 px-2"
+            className="bg-transparent border-none text-sm focus:ring-0 text-[var(--text)] outline-none"
           />
         </div>
       </div>
@@ -82,35 +82,36 @@ function LivePayFastHistory() {
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-border text-left text-text-muted text-xs uppercase tracking-wider">
+            <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
               <th className="p-3">Date</th>
               <th className="p-3">Name / Party</th>
               <th className="p-3">Description</th>
               <th className="p-3 text-right">Gross</th>
               <th className="p-3 text-right">Fee</th>
               <th className="p-3 text-right">Net</th>
-              <th className="p-3">Reference</th>
+              <th className="p-3">Ref</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan="7" className="p-8 text-center text-text-muted">Loading from PayFast...</td></tr>
+              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">Connecting to PayFast...</td></tr>
             )}
             {error && (
               <tr><td colSpan="7" className="p-8 text-center text-red-400">Error: {error.message}</td></tr>
             )}
             {!isLoading && data?.length === 0 && (
-              <tr><td colSpan="7" className="p-8 text-center text-text-muted">No transactions found for this month.</td></tr>
+              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">No transactions found in {selectedMonth}.</td></tr>
             )}
             {data?.map((tx, index) => (
-              <tr key={index} className="border-b border-border hover:bg-white/5 transition-colors">
+              <tr key={index} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-colors">
                 <td className="p-3 text-sm whitespace-nowrap">{tx.Date}</td>
-                <td className="p-3 text-sm font-medium">{tx.Name || tx.Party}</td>
-                <td className="p-3 text-sm text-text-muted">{tx.Description}</td>
+                <td className="p-3 text-sm font-medium">{tx.Name || tx.Party || 'Unknown'}</td>
+                <td className="p-3 text-sm text-[var(--text-muted)] truncate max-w-[200px]">{tx.Description}</td>
+                {/* Pass isCents=false because PayFast gives us "31.41" */}
                 <td className="p-3 text-sm text-right">{formatRands(tx.Gross, false)}</td>
                 <td className="p-3 text-sm text-right text-red-400">{formatRands(tx.Fee, false)}</td>
                 <td className="p-3 text-sm text-right font-bold text-green-400">{formatRands(tx.Net, false)}</td>
-                <td className="p-3 text-xs font-mono text-text-muted">{tx['M Payment ID']}</td>
+                <td className="p-3 text-xs font-mono text-[var(--text-muted)]">{tx['M Payment ID'] || tx['PF Payment ID']}</td>
               </tr>
             ))}
           </tbody>
@@ -120,48 +121,44 @@ function LivePayFastHistory() {
   );
 }
 
-// --- Internal Database History Component ---
 function ProcessedPayments() {
-  const { data: payments, isLoading, error } = useQuery({
+  const { data: payments } = useQuery({
     queryKey: ['payments'],
     queryFn: async () => {
       const response = await fetch('/.netlify/functions/admin-payments');
       const result = await response.json();
-      if (!response.ok || !result.ok) return [];
-      return result.data;
+      return result.ok ? result.data : [];
     },
   });
 
-  if (isLoading) return null; // Hide while loading to reduce clutter, or show spinner
-  if (!payments || payments.length === 0) return null; // Hide if empty
+  if (!payments || payments.length === 0) return null;
 
   return (
-    <div className="section-card opacity-75">
-      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-text-muted">
+    <div className="section-card opacity-80">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-[var(--text-muted)]">
         <Database size={20} />
-        Synced Database Records
+        Database Sync Record
       </h2>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-border text-left text-text-muted text-xs uppercase tracking-wider">
+            <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
               <th className="p-3">Date</th>
               <th className="p-3">Customer</th>
               <th className="p-3">Status</th>
               <th className="p-3 text-right">Net</th>
-              <th className="p-3">Link</th>
+              <th className="p-3 text-right">PayFast ID</th>
             </tr>
           </thead>
           <tbody>
             {payments.map((payment) => (
-              <tr key={payment.id} className="border-b border-border hover:bg-white/5">
+              <tr key={payment.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)]">
                 <td className="p-3 text-sm">{new Date(payment.created_at).toLocaleDateString()}</td>
                 <td className="p-3 text-sm">{payment.orders?.customer_name}</td>
-                <td className="p-3"><span className="status-badge status-active">{payment.payment_status}</span></td>
+                <td className="p-3"><span className="inline-block px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-800">{payment.payment_status}</span></td>
+                {/* Pass isCents=true because DB stores cents */}
                 <td className="p-3 text-sm text-right">{formatRands(payment.amount_net_cents, true)}</td>
-                <td className="p-3 text-sm">
-                  <Link to={`/orders/${payment.order_id}`} className="text-accent hover:underline">View Order</Link>
-                </td>
+                <td className="p-3 text-xs font-mono text-right">{payment.payfast_payment_id}</td>
               </tr>
             ))}
           </tbody>
