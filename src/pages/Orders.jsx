@@ -35,15 +35,16 @@ export default function Orders() {
                 <th className="p-4">Date</th>
                 <th className="p-4">Customer</th>
                 <th className="p-4">Status</th>
+                <th className="p-4">Items</th>
                 <th className="p-4 text-right">Total</th>
                 <th className="p-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">Loading orders...</td></tr>
+                <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">Loading orders...</td></tr>
               ) : orders?.length === 0 ? (
-                <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">No orders found.</td></tr>
+                <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">No orders found.</td></tr>
               ) : (
                 orders.map((order) => (
                   <tr key={order.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
@@ -63,6 +64,9 @@ export default function Orders() {
                       }`}>
                         {order.status?.toUpperCase()}
                       </span>
+                    </td>
+                    <td className="p-4 text-sm text-[var(--text-muted)]">
+                      {order.items_count || '—'} item(s)
                     </td>
                     <td className="p-4 text-sm text-right font-bold">
                       R{(order.total_cents / 100).toFixed(2)}

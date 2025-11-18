@@ -751,7 +751,10 @@ export default function OrderDetail() {
                 <tbody>
                   {orderItems.map(item => (
                     <tr key={item.id}>
-                      <td style={{ fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {item.name}
+                        {item.variant && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> - {item.variant}</span>}
+                      </td>
                       <td>{item.qty}</td>
                       <td>{moneyZAR(item.unit_price_cents)}</td>
                       <td style={{ fontWeight: 700 }}>{moneyZAR(item.line_total_cents)}</td>
@@ -824,7 +827,10 @@ export default function OrderDetail() {
                 ) : (
                   orderItems.map(item => (
                     <tr key={item.id}>
-                      <td style={{ fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {item.name}
+                        {item.variant && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> - {item.variant}</span>}
+                      </td>
                       <td>{item.qty}</td>
                       <td>{moneyZAR(item.unit_price_cents)}</td>
                       <td style={{ fontWeight: 700 }}>{moneyZAR(item.line_total_cents)}</td>
