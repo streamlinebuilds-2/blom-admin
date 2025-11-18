@@ -54,6 +54,7 @@ const navigationGroups = [
     items: [
       { name: "Products", url: "Products", icon: Package },
       { name: "Bundles", url: "Bundles", icon: Layers },
+      { name: "Featured", url: "featured", icon: Sparkles },
       { name: "Specials", url: "Specials", icon: Tag },
       { name: "Price Updates", url: "PriceUpdates", icon: TrendingUp }
     ]
@@ -113,7 +114,7 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
           {group.items.map(item => (
             <Link
               key={item.url}
-              to={item.url === "Orders" ? "/orders" : item.url === "finance" ? "/finance" : createPageUrl(item.url)}
+              to={item.url === "Orders" ? "/orders" : item.url === "finance" ? "/finance" : item.url === "featured" ? "/featured" : createPageUrl(item.url)}
               className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
               onClick={onNavClick}
             >

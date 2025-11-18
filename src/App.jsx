@@ -31,6 +31,7 @@ import Orders from '@/pages/Orders'
 import OrderDetail from '@/pages/OrderDetail'
 import PriceUpdates from '@/pages/PriceUpdates'
 import Specials from '@/pages/Specials'
+import Featured from '@/pages/Featured'
 
 // Initialize Supabase adapter for real database access
 try {
@@ -104,6 +105,9 @@ const AuthenticatedApp = () => {
         <Route path="/specials/new" element={<Specials />} />
         <Route path="/specials/:id" element={<Specials />} />
 
+        {/* Featured - Canonical Routes */}
+        <Route path="/featured" element={<Featured />} />
+
         {/* Orders - Canonical Routes */}
         <Route path="/orders" element={<Orders/>} />
         <Route path="/orders/:id" element={<OrderDetail/>} />
@@ -131,7 +135,7 @@ const AuthenticatedApp = () => {
         {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
         {Object.entries(Pages).map(([path, Page]) => {
           // Skip conflicts
-          const skip = ['orders', 'products', 'bundles', 'specials', 'reviews', 'messages', 'finance', 'settings', 'dashboard'];
+          const skip = ['orders', 'products', 'bundles', 'specials', 'reviews', 'messages', 'finance', 'settings', 'dashboard', 'featured'];
           if (skip.includes(path.toLowerCase())) return null;
           return <Route key={path} path={`/${path}`} element={<Page />} />;
         })}
