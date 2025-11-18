@@ -6,20 +6,28 @@ export const handler: Handler = async (e) => {
   try {
     const id = new URL(e.rawUrl).searchParams.get("id");
     if (!id) {
-      return {
-        statusCode: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ ok: false, error: "Missing id" })
-      };
+      return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing id" }) };
     }
 
+    // 1. Get Order with specific columns
     const { data: order, error: oErr } = await s.from("orders")
-      .select("*, shipping_address, shipping_method, contact_phone, placed_at, fulfilled_at, paid_at, order_packed_at, order_collected_at, order_out_for_delivery_at, order_delivered_at")
+      .select(`
+        *,
+        shipping_address,
+        fulfillment_type,
+        buyer_name, buyer_email, buyer_phone,
+        customer_name, customer_email, customer_phone
+      `)
       .eq("id", id).single();
+
     if (oErr) throw oErr;
 
+    // 2. Get Items
     const { data: items, error: iErr } = await s.from("order_items")
-      .select("*").eq("order_id", id).order("name", { ascending: true });
+      .select("*")
+      .eq("order_id", id)
+      .order("name", { ascending: true });
+
     if (iErr) throw iErr;
 
     return {
