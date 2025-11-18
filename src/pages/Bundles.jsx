@@ -29,8 +29,18 @@ export default function Bundles() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      if (!api?.deleteBundle) throw new Error('API not available');
-      await api.deleteBundle(id);
+      // Use Netlify function to bypass client write restrictions
+      const response = await fetch('/.netlify/functions/delete-bundle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to delete bundle');
+      }
+      return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bundles'] });
@@ -369,7 +379,7 @@ export default function Bundles() {
                     <td>{dateShort(bundle.updated_at)}</td>
                     <td>
                       <div className="action-buttons">
-                        <Link to={createPageUrl(`BundleEdit?id=${bundle.id}`)}>
+                        <Link to={`/bundles/${bundle.id}`}>
                           <button className="btn-icon">
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -377,7 +387,7 @@ export default function Bundles() {
                         <button
                           className="btn-icon btn-icon-danger"
                           onClick={() => handleDelete(bundle.id, bundle.name)}
-                          disabled={deleteMutation.isPending} // Disable button during deletion
+                          disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
