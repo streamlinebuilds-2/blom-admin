@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Database, Zap, Calendar } from 'lucide-react';
+import { Database, Zap, Calendar, ArrowUpRight } from 'lucide-react';
 
 // Helper to format currency
 const formatRands = (value, isCents = true) => {
@@ -17,14 +17,12 @@ const formatRands = (value, isCents = true) => {
 export default function Payments() {
   return (
     <div className="p-4 md:p-8 space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Payments</h1>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-[var(--text)]">Payments</h1>
+        <p className="text-[var(--text-muted)]">View live PayFast transactions and processed order records.</p>
       </div>
 
-      {/* Live PayFast History (External API) */}
       <LivePayFastHistory />
-
-      {/* Internal Database Records */}
       <ProcessedPayments />
     </div>
   );
@@ -62,7 +60,7 @@ function LivePayFastHistory() {
   return (
     <div className="section-card">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
+        <h2 className="text-xl font-bold flex items-center gap-2">
           <Zap size={20} className="text-[var(--accent)]" />
           Live PayFast History
         </h2>
@@ -83,37 +81,35 @@ function LivePayFastHistory() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
-              <th className="p-3">Date</th>
-              <th className="p-3">Name / Party</th>
-              <th className="p-3">Description</th>
-              <th className="p-3 text-right">Gross</th>
-              <th className="p-3 text-right">Fee</th>
-              <th className="p-3 text-right">Net</th>
-              <th className="p-3">Ref</th>
+              <th className="p-4">Date</th>
+              <th className="p-4">Name / Party</th>
+              <th className="p-4">Description</th>
+              <th className="p-4 text-right">Gross</th>
+              <th className="p-4 text-right">Fee</th>
+              <th className="p-4 text-right">Net</th>
+              <th className="p-4 text-right">Ref</th>
             </tr>
           </thead>
           <tbody>
-            {isLoading && (
-              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">Connecting to PayFast...</td></tr>
+            {isLoading ? (
+              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">Loading PayFast data...</td></tr>
+            ) : error ? (
+              <tr><td colSpan="7" className="p-8 text-center text-red-400">Connection Error: {error.message}</td></tr>
+            ) : data?.length === 0 ? (
+              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">No transactions in this period.</td></tr>
+            ) : (
+              data?.map((tx, index) => (
+                <tr key={index} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
+                  <td className="p-4 text-sm whitespace-nowrap">{tx.Date}</td>
+                  <td className="p-4 text-sm font-medium">{tx.Name || tx.Party}</td>
+                  <td className="p-4 text-sm text-[var(--text-muted)] truncate max-w-[200px]">{tx.Description}</td>
+                  <td className="p-4 text-sm text-right font-medium">{formatRands(tx.Gross, false)}</td>
+                  <td className="p-4 text-sm text-right text-red-400">{formatRands(tx.Fee, false)}</td>
+                  <td className="p-4 text-sm text-right font-bold text-green-400">{formatRands(tx.Net, false)}</td>
+                  <td className="p-4 text-xs font-mono text-[var(--text-muted)] text-right">{tx['M Payment ID'] || tx['PF Payment ID']}</td>
+                </tr>
+              ))
             )}
-            {error && (
-              <tr><td colSpan="7" className="p-8 text-center text-red-400">Error: {error.message}</td></tr>
-            )}
-            {!isLoading && data?.length === 0 && (
-              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">No transactions found in {selectedMonth}.</td></tr>
-            )}
-            {data?.map((tx, index) => (
-              <tr key={index} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-colors">
-                <td className="p-3 text-sm whitespace-nowrap">{tx.Date}</td>
-                <td className="p-3 text-sm font-medium">{tx.Name || tx.Party || 'Unknown'}</td>
-                <td className="p-3 text-sm text-[var(--text-muted)] truncate max-w-[200px]">{tx.Description}</td>
-                {/* Pass isCents=false because PayFast gives us "31.41" */}
-                <td className="p-3 text-sm text-right">{formatRands(tx.Gross, false)}</td>
-                <td className="p-3 text-sm text-right text-red-400">{formatRands(tx.Fee, false)}</td>
-                <td className="p-3 text-sm text-right font-bold text-green-400">{formatRands(tx.Net, false)}</td>
-                <td className="p-3 text-xs font-mono text-[var(--text-muted)]">{tx['M Payment ID'] || tx['PF Payment ID']}</td>
-              </tr>
-            ))}
           </tbody>
         </table>
       </div>
@@ -135,30 +131,37 @@ function ProcessedPayments() {
 
   return (
     <div className="section-card opacity-80">
-      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-[var(--text-muted)]">
+      <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-[var(--text-muted)]">
         <Database size={20} />
-        Database Sync Record
+        Processed Order Records
       </h2>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
-              <th className="p-3">Date</th>
-              <th className="p-3">Customer</th>
-              <th className="p-3">Status</th>
-              <th className="p-3 text-right">Net</th>
-              <th className="p-3 text-right">PayFast ID</th>
+              <th className="p-4">Date</th>
+              <th className="p-4">Customer</th>
+              <th className="p-4">Status</th>
+              <th className="p-4 text-right">Net</th>
+              <th className="p-4 text-right">Link</th>
             </tr>
           </thead>
           <tbody>
             {payments.map((payment) => (
-              <tr key={payment.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)]">
-                <td className="p-3 text-sm">{new Date(payment.created_at).toLocaleDateString()}</td>
-                <td className="p-3 text-sm">{payment.orders?.customer_name}</td>
-                <td className="p-3"><span className="inline-block px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-800">{payment.payment_status}</span></td>
-                {/* Pass isCents=true because DB stores cents */}
-                <td className="p-3 text-sm text-right">{formatRands(payment.amount_net_cents, true)}</td>
-                <td className="p-3 text-xs font-mono text-right">{payment.payfast_payment_id}</td>
+              <tr key={payment.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)]">
+                <td className="p-4 text-sm">{new Date(payment.created_at).toLocaleDateString()}</td>
+                <td className="p-4 text-sm font-medium">{payment.orders?.customer_name}</td>
+                <td className="p-4">
+                  <span className="inline-block px-2 py-1 rounded text-xs font-bold bg-green-500/20 text-green-500 border border-green-500/20">
+                    {payment.payment_status}
+                  </span>
+                </td>
+                <td className="p-4 text-sm text-right font-mono">{formatRands(payment.amount_net_cents, true)}</td>
+                <td className="p-4 text-right">
+                  <Link to={`/orders/${payment.order_id}`} className="text-[var(--accent)] hover:text-white flex items-center justify-end gap-1 text-sm">
+                    View <ArrowUpRight size={14} />
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>
