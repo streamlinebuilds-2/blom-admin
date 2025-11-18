@@ -68,86 +68,247 @@ export default function Stock() {
   };
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[var(--text)]">Stock Management</h1>
-          <p className="text-[var(--text-muted)]">Track inventory levels and product costs.</p>
+    <>
+      <style>{`
+        .stock-header {
+          margin-bottom: 32px;
+        }
+
+        .header-title {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 8px;
+        }
+
+        .header-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          margin-top: 16px;
+        }
+
+        .search-box {
+          position: relative;
+          flex: 1;
+          max-width: 400px;
+        }
+
+        .search-input {
+          width: 100%;
+          padding: 12px 16px 12px 44px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .search-input:focus {
+          outline: none;
+        }
+
+        .search-icon {
+          position: absolute;
+          left: 14px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-muted);
+        }
+
+        .section-card {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 0;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          overflow: hidden;
+          margin-bottom: 24px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        th {
+          text-align: left;
+          padding: 16px 24px;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          background: var(--card);
+          border-bottom: 1px solid var(--border);
+        }
+
+        td {
+          padding: 16px 24px;
+          color: var(--text);
+          border-bottom: 1px solid var(--border);
+        }
+
+        tr:last-child td {
+          border-bottom: none;
+        }
+
+        tbody tr:hover {
+          background: rgba(110, 193, 255, 0.05);
+        }
+
+        .btn-secondary {
+          padding: 8px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .btn-primary {
+          padding: 12px 24px;
+          border-radius: 10px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .btn-primary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        /* Modal Styling */
+        .input, .select {
+          width: 100%;
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 15px;
+          font-family: inherit;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+        }
+
+        .input:focus, .select:focus {
+          outline: none;
+        }
+
+        @media (max-width: 768px) {
+          .header-actions {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .search-box {
+            max-width: 100%;
+          }
+        }
+      `}</style>
+
+      <div className="p-4 md:p-8">
+        <div className="stock-header">
+          <h1 className="header-title">Stock Management</h1>
+          <p className="header-subtitle">Track inventory levels and product costs.</p>
+
+          <div className="header-actions">
+            <div className="search-box">
+              <Search className="search-icon w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search inventory..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
-          <input
-            type="text"
-            placeholder="Search inventory..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10"
+        {showAdjustModal && (
+          <AdjustStockModal
+            product={selectedProduct}
+            onClose={() => {
+              setShowAdjustModal(false);
+              setSelectedProduct(null);
+            }}
+            showToast={showToast}
           />
+        )}
+
+        <div className="section-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
+                  <th className="p-4">Product</th>
+                  <th className="p-4">SKU</th>
+                  <th className="p-4">Cost Price</th>
+                  <th className="p-4">Stock Level</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
+                ) : (
+                  filteredProducts.map(product => (
+                    <tr key={product.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
+                      <td className="p-4 font-medium text-[var(--text)]">{product.name}</td>
+                      <td className="p-4 font-mono text-xs text-[var(--text-muted)]">{product.sku || '-'}</td>
+                      <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          (product.stock || 0) > 10
+                            ? 'bg-green-500/10 text-green-500'
+                            : (product.stock || 0) > 0
+                              ? 'bg-yellow-500/10 text-yellow-500'
+                              : 'bg-red-500/10 text-red-500'
+                        }`}>
+                          {product.stock || 0} Units
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <button onClick={() => handleOpenAdjust(product)} className="btn-secondary text-xs py-1 px-3 h-auto">
+                          Adjust
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* History Section */}
+        <StockHistory />
       </div>
-
-      {showAdjustModal && (
-        <AdjustStockModal
-          product={selectedProduct}
-          onClose={() => {
-            setShowAdjustModal(false);
-            setSelectedProduct(null);
-          }}
-          showToast={showToast}
-        />
-      )}
-
-      <div className="section-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
-                <th className="p-4">Product</th>
-                <th className="p-4">SKU</th>
-                <th className="p-4">Cost Price</th>
-                <th className="p-4">Stock Level</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
-              ) : filteredProducts.length === 0 ? (
-                <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
-              ) : (
-                filteredProducts.map(product => (
-                  <tr key={product.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
-                    <td className="p-4 font-medium text-[var(--text)]">{product.name}</td>
-                    <td className="p-4 font-mono text-xs text-[var(--text-muted)]">{product.sku || '-'}</td>
-                    <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        (product.stock || 0) > 10
-                          ? 'bg-green-500/10 text-green-500'
-                          : (product.stock || 0) > 0
-                            ? 'bg-yellow-500/10 text-yellow-500'
-                            : 'bg-red-500/10 text-red-500'
-                      }`}>
-                        {product.stock || 0} Units
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button onClick={() => handleOpenAdjust(product)} className="btn-secondary text-xs py-1 px-3 h-auto">
-                        Adjust
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* History Section */}
-      <StockHistory />
-    </div>
+    </>
   );
 }
 
@@ -181,8 +342,12 @@ function AdjustStockModal({ product, onClose, showToast }) {
       if (!response.ok || !result.ok) throw new Error(result.error || 'Update failed');
 
       showToast('success', 'Stock updated successfully');
+
+      // CRITICAL: Invalidate BOTH queries
       queryClient.invalidateQueries({ queryKey: ['products-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] }); // ← Products page update
       queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
+
       onClose();
 
     } catch (error) {
