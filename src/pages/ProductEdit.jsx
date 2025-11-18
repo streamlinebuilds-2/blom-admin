@@ -108,6 +108,11 @@ export default function ProductEdit() {
     );
 
     const data = await response.json();
+
+    if (!response.ok || data.error || !data.secure_url) {
+      throw new Error(data.error?.message || 'Upload failed');
+    }
+
     return data.secure_url;
   };
 
@@ -117,6 +122,10 @@ export default function ProductEdit() {
     try {
       showToast('info', 'Uploading variant image...');
       const url = await uploadToCloudinary(file);
+
+      if (!url) {
+        throw new Error('Upload returned no URL');
+      }
 
       const current = form.variants[index];
       const updated = typeof current === "string"
@@ -1173,7 +1182,7 @@ export default function ProductEdit() {
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
                         style={{ flex: 2 }}
-                        value={variant?.name || variant}
+                        value={typeof variant === 'string' ? variant : (variant?.name || '')}
                         onChange={(e) => {
                           const current = form.variants[index];
                           const updated = typeof current === "string"
