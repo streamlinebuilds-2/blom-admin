@@ -181,7 +181,7 @@ export const handler: Handler = async (event) => {
       if (body.thumbnail_url !== undefined) updateData.thumbnail_url = body.thumbnail_url;
       if (body.gallery_urls !== undefined) updateData.gallery_urls = Array.isArray(body.gallery_urls) ? body.gallery_urls : [];
       if (body.hover_url !== undefined || body.hover_image !== undefined) {
-        updateData.hover_image = body.hover_url || body.hover_image || null;
+        updateData.hover_url = body.hover_url || body.hover_image || null;
       }
 
       // Product details arrays
@@ -285,7 +285,7 @@ export const handler: Handler = async (event) => {
       // Images (use modern names)
       thumbnail_url: body.thumbnail_url ?? null,
       gallery_urls: Array.isArray(body.gallery_urls) ? body.gallery_urls : [],
-      hover_image: body.hover_url || body.hover_image || null,
+      hover_url: body.hover_url || body.hover_image || null,
 
       // Product details arrays
       features: Array.isArray(body.features) ? body.features : [],
