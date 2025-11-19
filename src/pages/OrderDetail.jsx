@@ -54,9 +54,19 @@ export default function OrderDetail() {
       if (!json.ok) throw new Error(json.error);
       return json;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['order', id]);
-      showToast('success', 'Order status updated');
+    onSuccess: async (result) => {
+      // Force immediate refetch of order data
+      await queryClient.refetchQueries({ queryKey: ['order', id] });
+      await queryClient.refetchQueries({ queryKey: ['orders'] });
+
+      // Show appropriate message
+      if (result.webhookCalled && result.webhookOk) {
+        showToast('success', 'Status updated & notification sent');
+      } else if (result.webhookCalled && !result.webhookOk) {
+        showToast('warning', `Status updated but notification failed: ${result.webhookError || 'Unknown error'}`);
+      } else {
+        showToast('success', 'Order status updated successfully');
+      }
     },
     onError: (err) => {
       showToast('error', err.message);

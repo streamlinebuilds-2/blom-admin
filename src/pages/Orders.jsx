@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Eye, RefreshCw, ShoppingBag } from 'lucide-react';
+import { Eye, RefreshCw, Truck, Package } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Orders() {
@@ -12,120 +12,65 @@ export default function Orders() {
       if (!res.ok) throw new Error('Failed to fetch orders');
       const json = await res.json();
 
-      // Extract the data array from the response
       if (!json.ok) throw new Error(json.error || 'Failed to load orders');
-      return json.data || []; // Return the data array
+      return json.data || [];
     }
   });
 
-  // Use ordersResponse as the orders array
   const orders = ordersResponse || [];
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-[var(--text)]">Orders</h1>
-          <p className="text-[var(--text-muted)]">Manage customer orders and fulfillment.</p>
-        </div>
-        <button onClick={() => refetch()} className="btn-secondary flex items-center gap-2">
-          <RefreshCw size={16} /> Reload
-        </button>
-      </div>
-
-      <div className="section-card">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
-                <th className="p-4">Order #</th>
-                <th className="p-4">Date</th>
-                <th className="p-4">Customer</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Items</th>
-                <th className="p-4 text-right">Total</th>
-                <th className="p-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">Loading orders...</td></tr>
-              ) : error ? (
-                <tr><td colSpan="7" className="p-8 text-center text-red-400">Error: {error.message}</td></tr>
-              ) : orders.length === 0 ? (
-                <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">No orders found.</td></tr>
-              ) : (
-                orders.map((order) => (
-                  <tr key={order.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
-                    <td className="p-4 font-mono text-sm font-bold text-[var(--text)]">
-                      {order.short_code || order.m_payment_id || order.id?.slice(0, 8)}
-                    </td>
-                    <td className="p-4 text-sm text-[var(--text-muted)]">
-                      {order.placed_at
-                        ? format(new Date(order.placed_at), 'MMM d, yyyy')
-                        : format(new Date(order.created_at), 'MMM d, yyyy')
-                      }
-                    </td>
-                    <td className="p-4 text-sm font-medium">
-                      {order.buyer_name || order.customer_name || '-'}
-                      <div className="text-xs text-[var(--text-muted)]">
-                        {order.buyer_email || order.customer_email || '-'}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-bold border ${
-                        order.status === 'paid' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                        order.status === 'delivered' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                        order.status === 'packed' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                        'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                      }`}>
-                        {order.status?.toUpperCase() || 'UNKNOWN'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-sm text-[var(--text-muted)]">
-                      {order.item_count || 0} item(s)
-                    </td>
-                    <td className="p-4 text-sm text-right font-bold">
-                      R{(order.total_cents / 100).toFixed(2)}
-                    </td>
-                    <td className="p-4 text-right">
-                      <Link to={`/orders/${order.id}`} className="btn-secondary inline-flex items-center gap-2 text-xs py-1.5 px-3 h-auto">
-                        <Eye size={14} /> View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+    <>
       <style>{`
+        .orders-header {
+          margin-bottom: 32px;
+        }
+
+        .header-title {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 8px;
+        }
+
+        .header-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+
+        .header-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+        }
+
+        .btn-secondary {
+          padding: 10px 20px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .btn-secondary:hover {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
         .section-card {
           background: var(--card);
           border-radius: 16px;
           padding: 0;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           overflow: hidden;
-        }
-
-        .btn-secondary {
-          padding: 8px 16px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-          transition: all 0.2s ease;
-          text-decoration: none;
-        }
-
-        .btn-secondary:hover {
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
         table {
@@ -135,7 +80,7 @@ export default function Orders() {
 
         th {
           text-align: left;
-          padding: 16px;
+          padding: 16px 24px;
           font-size: 12px;
           font-weight: 700;
           color: var(--text-muted);
@@ -146,7 +91,7 @@ export default function Orders() {
         }
 
         td {
-          padding: 16px;
+          padding: 16px 24px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
         }
@@ -158,7 +103,165 @@ export default function Orders() {
         tbody tr:hover {
           background: rgba(110, 193, 255, 0.05);
         }
+
+        .fulfillment-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .fulfillment-delivery {
+          background: #3b82f620;
+          color: #3b82f6;
+        }
+
+        .fulfillment-collection {
+          background: #8b5cf620;
+          color: #8b5cf6;
+        }
+
+        .status-badge {
+          display: inline-flex;
+          padding: 6px 14px;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 600;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .status-paid {
+          background: #3b82f620;
+          color: #3b82f6;
+        }
+
+        .status-packed {
+          background: #8b5cf620;
+          color: #8b5cf6;
+        }
+
+        .status-delivered, .status-collected {
+          background: #10b98120;
+          color: #10b981;
+        }
+
+        .status-out_for_delivery {
+          background: #f59e0b20;
+          color: #f59e0b;
+        }
+
+        .btn-view {
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+        }
+
+        .btn-view:hover {
+          transform: translateY(-1px);
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
       `}</style>
-    </div>
+
+      <div className="orders-header">
+        <h1 className="header-title">Orders</h1>
+        <p className="header-subtitle">Manage customer orders and fulfillment</p>
+      </div>
+
+      <div className="header-actions">
+        <div></div>
+        <button onClick={() => refetch()} className="btn-secondary">
+          <RefreshCw size={16} /> Reload
+        </button>
+      </div>
+
+      <div className="section-card">
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Items</th>
+                <th style={{ textAlign: 'right' }}>Total</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading orders...</td></tr>
+              ) : error ? (
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: '#ef4444' }}>Error: {error.message}</td></tr>
+              ) : orders.length === 0 ? (
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>No orders found.</td></tr>
+              ) : (
+                orders.map((order) => (
+                  <tr key={order.id}>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                      {order.short_code || order.m_payment_id?.slice(0, 12) || order.id?.slice(0, 8)}
+                    </td>
+                    <td style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                      {order.placed_at
+                        ? format(new Date(order.placed_at), 'MMM d, yyyy')
+                        : format(new Date(order.created_at), 'MMM d, yyyy')
+                      }
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{order.buyer_name || order.customer_name || '-'}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                        {order.buyer_email || order.customer_email || '-'}
+                      </div>
+                    </td>
+                    <td>
+                      {order.fulfillment_type === 'collection' ? (
+                        <span className="fulfillment-badge fulfillment-collection">
+                          <Package size={14} /> Collection
+                        </span>
+                      ) : (
+                        <span className="fulfillment-badge fulfillment-delivery">
+                          <Truck size={14} /> Delivery
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-badge status-${order.status}`}>
+                        {order.status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN'}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>
+                      {order.item_count || 0}
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                      R{(order.total_cents / 100).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Link to={`/orders/${order.id}`} className="btn-view">
+                        <Eye size={14} /> View
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }
