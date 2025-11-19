@@ -108,12 +108,13 @@ export const handler = async (event) => {
     if (orderData.items && orderData.items.length > 0) {
       const itemsToInsert = orderData.items.map((item) => ({
         order_id: order.id,
-        sku: item.sku,
-        name: item.name,
-        variant: item.variant,
-        qty: item.qty,
-        unit_price_cents: item.unit_price_cents,
-        line_total_cents: item.unit_price_cents * item.qty,
+        sku: item.sku || null,
+        name: item.name || item.product_name || 'Unknown Product',
+        variant: item.variant || null,
+        qty: item.qty || item.quantity || 1,
+        unit_price_cents: item.unit_price_cents || Math.round(item.price * 100) || 0,
+        line_total_cents: (item.unit_price_cents || Math.round(item.price * 100)) * (item.qty || item.quantity || 1),
+        product_id: item.product_id || null
       }));
 
       const { error: itemsError } = await supabase
