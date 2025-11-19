@@ -6,20 +6,6 @@ const headers = {
   'Access-Control-Allow-Origin': '*'
 };
 
-// Generate PayFast API signature (MD5 hash)
-const generateSignature = (data: Record<string, string>) => {
-  // Sort keys alphabetically
-  const sortedKeys = Object.keys(data).sort();
-
-  // Build parameter string
-  const paramString = sortedKeys
-    .map(key => `${key}=${encodeURIComponent(data[key]).replace(/%20/g, '+')}`)
-    .join('&');
-
-  // Generate MD5 hash
-  return crypto.createHash('md5').update(paramString).digest('hex');
-};
-
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'GET') {
     return {
@@ -39,45 +25,45 @@ export const handler: Handler = async (event) => {
       throw new Error('Missing PayFast credentials');
     }
 
-    // Generate ISO-8601 timestamp with timezone
-    const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, '+02:00');
+    // 1. Generate timestamp (ISO-8601 with +02:00 timezone)
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/\.\d{3}Z$/, '+02:00');
 
-    // Build signature data (ALL parameters sorted alphabetically)
-    const signatureData: Record<string, string> = {
+    // 2. Build signature data (alphabetically sorted)
+    const signatureObj: any = {
       'merchant-id': merchantId,
       'passphrase': passphrase,
       'timestamp': timestamp,
       'version': 'v1'
     };
 
-    // Add query params to signature if present
-    if (from) signatureData['from'] = from;
-    if (to) signatureData['to'] = to;
+    // Add query params if present
+    if (from) signatureObj['from'] = from;
+    if (to) signatureObj['to'] = to;
 
-    // Generate signature
-    const signature = generateSignature(signatureData);
+    // 3. Sort alphabetically and build string
+    const sortedKeys = Object.keys(signatureObj).sort();
+    const paramString = sortedKeys
+      .map(key => `${key}=${encodeURIComponent(signatureObj[key])}`)
+      .join('&');
 
-    // Build request URL
-    const baseUrl = 'https://api.payfast.co.za/transactions/history';
-    const queryParams = new URLSearchParams();
-    if (from) queryParams.append('from', from);
-    if (to) queryParams.append('to', to);
+    // 4. Generate MD5 signature
+    const signature = crypto.createHash('md5').update(paramString).digest('hex');
 
-    const url = queryParams.toString()
-      ? `${baseUrl}?${queryParams.toString()}`
-      : baseUrl;
+    // 5. Build URL
+    let url = 'https://api.payfast.co.za/transactions/history';
+    if (from && to) {
+      url += `?from=${from}&to=${to}`;
+    }
 
     console.log('PayFast Request:', {
       url,
-      headers: {
-        'merchant-id': merchantId,
-        'version': 'v1',
-        'timestamp': timestamp,
-        'signature': signature.substring(0, 8) + '...' // Log first 8 chars only
-      }
+      merchantId,
+      timestamp,
+      signature: signature.substring(0, 10) + '...'
     });
 
-    // Make API request
+    // 6. Make request with headers
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -90,25 +76,23 @@ export const handler: Handler = async (event) => {
 
     const responseText = await response.text();
 
-    if (!response.ok) {
-      console.error('PayFast API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: responseText
-      });
+    console.log('PayFast Response Status:', response.status);
+    console.log('PayFast Response:', responseText.substring(0, 200));
 
+    if (!response.ok) {
+      console.error('PayFast Error:', responseText);
       return {
         statusCode: response.status,
         headers,
         body: JSON.stringify({
           ok: false,
-          error: `PayFast API Error: ${response.status} - ${responseText}`
+          error: `PayFast API Error (${response.status}): ${responseText}`
         })
       };
     }
 
-    // Parse CSV response
-    const transactions = parsePayFastCSV(responseText);
+    // 7. Parse CSV
+    const transactions = parseCSV(responseText);
 
     return {
       statusCode: 200,
@@ -117,7 +101,7 @@ export const handler: Handler = async (event) => {
     };
 
   } catch (error: any) {
-    console.error('Server error:', error);
+    console.error('Function error:', error);
     return {
       statusCode: 500,
       headers,
@@ -126,40 +110,34 @@ export const handler: Handler = async (event) => {
   }
 };
 
-// Parse PayFast CSV response
-function parsePayFastCSV(csv: string): any[] {
-  if (!csv || typeof csv !== 'string' || csv.trim().length === 0) {
-    return [];
-  }
+// Simple CSV parser
+function parseCSV(csv: string): any[] {
+  if (!csv || csv.trim().length === 0) return [];
 
-  const lines = csv.trim().split(/\r?\n/);
+  const lines = csv.trim().split('\n');
   if (lines.length < 2) return [];
 
-  // Parse header line (remove quotes and split)
+  // Get headers (first line, remove quotes)
   const headerLine = lines[0].replace(/^"|"$/g, '');
-  const headers = headerLine.split('","');
+  const headers = headerLine.split('","').map(h => h.trim());
 
   const result: any[] = [];
 
-  // Parse data lines
+  // Parse each data line
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line || line === '""') continue;
+    if (!line) continue;
 
-    // Remove outer quotes and split by ","
+    // Remove outer quotes and split
     const cleanLine = line.replace(/^"|"$/g, '');
     const values = cleanLine.split('","');
 
-    if (values.length > 0) {
-      const transaction: any = {};
+    const row: any = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
 
-      headers.forEach((header, index) => {
-        const value = (values[index] || '').replace(/"/g, '');
-        transaction[header.trim()] = value;
-      });
-
-      result.push(transaction);
-    }
+    result.push(row);
   }
 
   return result;
