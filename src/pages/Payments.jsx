@@ -29,31 +29,23 @@ export default function Payments() {
 }
 
 function LivePayFastHistory() {
-  // Default to current month (YYYY-MM format)
+  // Default to CURRENT month (not future!)
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    return new Date().toISOString().slice(0, 7);
+    return new Date().toISOString().slice(0, 7); // e.g., "2025-01"
   });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['payfastHistory', selectedMonth],
     queryFn: async () => {
-      // Calculate first and last day of the selected month
-      const date = new Date(selectedMonth);
-      const fromDate = new Date(date.getFullYear(), date.getMonth(), 1);
-      const toDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-      const fromStr = fromDate.toISOString().slice(0, 10);
-      const toStr = toDate.toISOString().slice(0, 10);
-
-      console.log(`Fetching PayFast: ${fromStr} to ${toStr}`);
+      console.log(`Fetching PayFast for month: ${selectedMonth}`);
 
       const response = await fetch(
-        `/.netlify/functions/get-payfast-history?from=${fromStr}&to=${toStr}`
+        `/.netlify/functions/get-payfast-history?method=monthly&date=${selectedMonth}`
       );
 
       const result = await response.json();
 
-      console.log('PayFast Response:', result); // Debug log
+      console.log('PayFast Response:', result);
 
       if (!response.ok || !result.ok) {
         throw new Error(result.error || 'Failed to fetch PayFast history');
@@ -71,19 +63,18 @@ function LivePayFastHistory() {
           Live PayFast History
         </h2>
 
-        {/* Month Filter */}
         <div className="flex items-center gap-2 bg-[var(--bg)] px-3 py-2 rounded-lg border border-[var(--border)]">
           <Calendar size={16} className="text-[var(--text-muted)]" />
           <input
             type="month"
             value={selectedMonth}
+            max={new Date().toISOString().slice(0, 7)} // Can't select future months
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="bg-transparent border-none text-sm focus:ring-0 text-[var(--text)] outline-none"
           />
         </div>
       </div>
 
-      {/* Show detailed error */}
       {error && (
         <div style={{
           padding: '20px',
@@ -95,14 +86,7 @@ function LivePayFastHistory() {
           <strong>Error loading PayFast data:</strong><br/>
           {error.message}
           <br/><br/>
-          <small>
-            Possible causes:<br/>
-            • IP not whitelisted in PayFast settings<br/>
-            • Incorrect merchant credentials<br/>
-            • PayFast API down<br/>
-            <br/>
-            Check Netlify function logs for details.
-          </small>
+          <small>Check console for details</small>
         </div>
       )}
 
@@ -111,7 +95,7 @@ function LivePayFastHistory() {
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
               <th className="p-4">Date</th>
-              <th className="p-4">Name / Party</th>
+              <th className="p-4">Name</th>
               <th className="p-4">Description</th>
               <th className="p-4 text-right">Gross</th>
               <th className="p-4 text-right">Fee</th>
@@ -122,17 +106,14 @@ function LivePayFastHistory() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">
-                Loading PayFast data...
+                Loading PayFast data for {selectedMonth}...
               </td></tr>
             ) : data?.length === 0 ? (
               <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">
-                No transactions in this period.
+                No transactions found for {selectedMonth}
                 <br/>
-                <small style={{ color: 'var(--text-muted)', marginTop: '8px', display: 'block' }}>
-                  If you expect transactions, check:<br/>
-                  • Date range is correct<br/>
-                  • IP whitelisting in PayFast<br/>
-                  • Netlify function logs
+                <small style={{ marginTop: '8px', display: 'block' }}>
+                  Try a different month or check Netlify function logs
                 </small>
               </td></tr>
             ) : (
@@ -144,13 +125,13 @@ function LivePayFastHistory() {
                     {tx.Description}
                   </td>
                   <td className="p-4 text-sm text-right font-medium">
-                    {formatRands(tx.Gross, false)}
+                    R{tx.Gross}
                   </td>
                   <td className="p-4 text-sm text-right text-red-400">
-                    {formatRands(tx.Fee, false)}
+                    R{tx.Fee}
                   </td>
                   <td className="p-4 text-sm text-right font-bold text-green-400">
-                    {formatRands(tx.Net, false)}
+                    R{tx.Net}
                   </td>
                   <td className="p-4 text-xs font-mono text-[var(--text-muted)] text-right">
                     {tx['M Payment ID'] || tx['PF Payment ID']}
