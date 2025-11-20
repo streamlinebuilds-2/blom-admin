@@ -245,7 +245,7 @@ export default function Orders() {
                       </span>
                     </td>
                     <td style={{ fontWeight: 600 }}>
-                      {order.item_count || 0}
+                      {order.item_count !== undefined ? order.item_count : 0}
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: 700 }}>
                       R{(order.total_cents / 100).toFixed(2)}
