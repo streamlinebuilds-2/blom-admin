@@ -54,11 +54,11 @@ export const handler: Handler = async (e) => {
     let workshopOrders: Set<string> = new Set();
     if (ids.length) {
       const { data: items, error: iErr } = await s.from("order_items")
-        .select("order_id, qty, name, sku")
+        .select("order_id, quantity, name, sku")
         .in("order_id", ids);
       if (iErr) throw iErr;
       for (const it of items || []) {
-        byOrder[it.order_id] = (byOrder[it.order_id] || 0) + (it.qty || 0);
+        byOrder[it.order_id] = (byOrder[it.order_id] || 0) + (it.quantity || 0);
         // Detect workshop/course orders
         const nameLower = (it.name || '').toLowerCase();
         const skuLower = (it.sku || '').toLowerCase();

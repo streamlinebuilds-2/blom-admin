@@ -656,11 +656,10 @@ export default function OrderDetail() {
                 </thead>
                 <tbody>
                   {items.map((item, i) => {
-                    // CRITICAL FIX: Check multiple fields for price
-                    // Backend 'create-order' usually saves as 'price' (Rands) or 'unit_price_cents' (Cents)
-                    // We normalize to CENTS here for the formatter
-                    const unitPriceCents = item.unit_price_cents || Math.round((item.price || 0) * 100);
-                    const totalCents = item.line_total_cents || (unitPriceCents * item.qty);
+                    // CRITICAL FIX: Use correct field names from OrderItem entity
+                    // The entity defines: price (cents), total (cents), quantity (integer)
+                    const unitPriceCents = item.price || 0;
+                    const totalCents = item.total || (unitPriceCents * (item.quantity || 0));
 
                     return (
                       <tr key={i} className="item-row">
@@ -668,7 +667,7 @@ export default function OrderDetail() {
                           <div className="item-title">{item.name || item.product_name || 'Unknown Item'}</div>
                           {item.variant && <div className="item-variant">{item.variant}</div>}
                         </td>
-                        <td className="item-qty text-center">{item.quantity || item.qty}</td>
+                        <td className="item-qty text-center">{item.quantity || 0}</td>
                         <td className="item-price text-right">{formatMoney(unitPriceCents)}</td>
                         <td className="item-total text-right font-bold">{formatMoney(totalCents)}</td>
                       </tr>
