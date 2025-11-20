@@ -812,16 +812,7 @@ export default function OrderDetail() {
                  <div>
                    <div className="text-[var(--text-muted)] text-xs uppercase font-bold">Shipping Address</div>
                    <div className="whitespace-pre-wrap mt-1 leading-relaxed">
-                     {order.shipping_address ||
-                      [
-                        order.address_line_1,
-                        order.address_line_2,
-                        order.address_city,
-                        order.address_province,
-                        order.address_postal_code
-                      ].filter(Boolean).join('\n') ||
-                      'No delivery address provided'
-                     }
+                     {order.shipping_address || 'No delivery address provided'}
                    </div>
                  </div>
               ) : (
