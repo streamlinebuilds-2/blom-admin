@@ -57,15 +57,33 @@ export default function Payments() {
     const totalOrders = periodOrders.length;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-    // Calculate unique products sold
-    const productsSold = new Set();
+    // Calculate total quantity of products sold (not unique products)
+    let totalProductsSold = 0;
+    const productSales = {};
     periodOrders.forEach(order => {
       if (order.items) {
         order.items.forEach(item => {
-          if (item.product_id) {
-            productsSold.add(item.product_id);
+          if (item.product_id && item.quantity) {
+            totalProductsSold += item.quantity;
+            
+            // Track for top selling product
+            const productName = item.name || item.product_name || 'Unknown Product';
+            if (!productSales[productName]) {
+              productSales[productName] = 0;
+            }
+            productSales[productName] += item.quantity;
           }
         });
+      }
+    });
+
+    // Find top selling product
+    let topSellingProduct = 'No sales';
+    let topSellingCount = 0;
+    Object.entries(productSales).forEach(([product, count]) => {
+      if (count > topSellingCount) {
+        topSellingCount = count;
+        topSellingProduct = product;
       }
     });
 
@@ -73,7 +91,9 @@ export default function Payments() {
       totalRevenue,
       totalOrders,
       avgOrderValue,
-      productsSold: productsSold.size,
+      totalProductsSold,
+      topSellingProduct,
+      topSellingCount,
       periodLabel: getPeriodLabel(selectedPeriod)
     };
   }, [orders, selectedPeriod]);
@@ -329,9 +349,9 @@ export default function Payments() {
                 <Package className="w-6 h-6" />
               </div>
               <div className="metric-info">
-                <div className="metric-label">Products Sold</div>
-                <div className="metric-value">{formatNumber(salesMetrics.productsSold)}</div>
-                <div className="metric-subtitle">Unique products</div>
+                <div className="metric-label">Items Sold</div>
+                <div className="metric-value">{formatNumber(salesMetrics.totalProductsSold)}</div>
+                <div className="metric-subtitle">Total quantity</div>
               </div>
             </div>
           </div>
@@ -344,7 +364,7 @@ export default function Payments() {
               <div className="metric-info">
                 <div className="metric-label">Net Profit</div>
                 <div className={`metric-value ${stats.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
-                  {moneyZAR(stats.profit)}
+                  {moneyZAR(stats.revenue - stats.cogs - stats.expenses)}
                 </div>
                 <div className="metric-subtitle">Last 30 days</div>
               </div>
@@ -354,12 +374,17 @@ export default function Payments() {
           <div className="metric-card">
             <div className="metric-header">
               <div className="metric-icon">
-                <Calendar className="w-6 h-6" />
+                <Target className="w-6 h-6" />
               </div>
               <div className="metric-info">
-                <div className="metric-label">Revenue Growth</div>
-                <div className="metric-value">+{((stats.revenue / 10000) * 100).toFixed(1)}%</div>
-                <div className="metric-subtitle">vs. previous period</div>
+                <div className="metric-label">Top Selling</div>
+                <div className="metric-value" style={{ fontSize: '20px' }}>
+                  {salesMetrics.topSellingProduct.length > 20 
+                    ? salesMetrics.topSellingProduct.substring(0, 20) + '...'
+                    : salesMetrics.topSellingProduct
+                  }
+                </div>
+                <div className="metric-subtitle">{formatNumber(salesMetrics.topSellingCount)} sold</div>
               </div>
             </div>
           </div>
