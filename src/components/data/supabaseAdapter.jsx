@@ -557,6 +557,15 @@ export function createSupabaseAdapter() {
         .single();
       return ensure(data, error);
     },
+    // ===== FINANCE =====
+    async createOperatingCost(cost) {
+      const { data, error } = await supabase
+        .from('operating_costs')
+        .insert([{ ...cost, created_at: new Date().toISOString() }])
+        .select()
+        .single();
+      return ensure(data, error);
+    },
   };
 }
 

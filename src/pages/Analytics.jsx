@@ -2,8 +2,19 @@ import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Users, Package } from "lucide-react";
 import { moneyZAR } from "../components/formatUtils";
-import { Banner } from "../components/ui/Banner";
 import { api } from "@/components/data/api";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Legend
+} from "recharts";
 
 export default function Analytics() {
   const { data: ordersData = [] } = useQuery({
@@ -62,6 +73,32 @@ export default function Analytics() {
     };
   }, [orders, products, contacts]);
 
+  const chartData = useMemo(() => {
+    // Group orders by date (last 30 days)
+    const days = {};
+    const now = new Date();
+    
+    // Initialize last 30 days with 0
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split('T')[0]; // YYYY-MM-DD
+      days[key] = { date: key, revenue: 0, orders: 0 };
+    }
+
+    orders.forEach(o => {
+      const orderDate = o.placed_at || o.created_at || o.created_date;
+      if (!orderDate) return;
+      const key = new Date(orderDate).toISOString().split('T')[0];
+      if (days[key]) {
+        const totalCents = o.total_cents || (o.total ? o.total * 100 : 0);
+        days[key].revenue += totalCents / 100; // Convert to Rands for chart
+        days[key].orders += 1;
+      }
+    });
+
+    return Object.values(days).sort((a, b) => a.date.localeCompare(b.date));
+  }, [orders]);
+
   return (
     <>
       <style>{`
@@ -89,7 +126,7 @@ export default function Analytics() {
           background: var(--card);
           border-radius: 16px;
           padding: 24px;
-          box-shadow: 6px  زیست6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           position: relative;
           overflow: hidden;
         }
@@ -146,8 +183,36 @@ export default function Analytics() {
           margin-top: 8px;
         }
 
+        .charts-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 24px;
+          margin-bottom: 32px;
+        }
+
+        @media (min-width: 1024px) {
+          .charts-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        .chart-card {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 24px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          min-height: 400px;
+        }
+
+        .chart-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 20px;
+        }
+
         .insights-section {
-          background君主: var(--card);
+          background: var(--card);
           border-radius: 16px;
           padding: 24px;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
@@ -253,7 +318,7 @@ export default function Analytics() {
               <div className="metric-value">{metrics.totalContacts}</div>
             </div>
           </div>
-          <div className="metric-subtitleлю">Total subscribers</div>
+          <div className="metric-subtitle">Total subscribers</div>
         </div>
 
         <div className="metric-card">
@@ -270,7 +335,55 @@ export default function Analytics() {
         </div>
       </div>
 
-      PAS <div className="insights-section">
+      <div className="charts-grid">
+        <div className="chart-card">
+          <h3 className="chart-title">Sales Volume (Last 30 Days)</h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="date"
+                  stroke="var(--text-muted)"
+                  tickFormatter={(value) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                />
+                <YAxis stroke="var(--text-muted)" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  formatter={(value) => [`R${value.toFixed(2)}`, 'Revenue']}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                />
+                <Bar dataKey="revenue" fill="var(--accent)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <h3 className="chart-title">Orders Count (Last 30 Days)</h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="date"
+                  stroke="var(--text-muted)"
+                  tickFormatter={(value) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                />
+                <YAxis stroke="var(--text-muted)" allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  formatter={(value) => [value, 'Orders']}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                />
+                <Line type="monotone" dataKey="orders" stroke="var(--accent-2)" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="insights-section">
         <h2 className="section-title">Quick Insights</h2>
         <div className="insight-row">
           <span className="insight-label">Conversion Rate</span>

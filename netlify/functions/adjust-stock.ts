@@ -42,7 +42,7 @@ export const handler: Handler = async (event) => {
         // Log movement
         const { error: logError } = await supabase.from('stock_movements').insert({
           product_id: productId,
-          quantity_change: quantityChange,
+          delta: quantityChange,
           reason: reason || 'manual_adjustment',
           product_name: 'Manual Update' // Will be filled by trigger or ignored, mostly for ref
         });

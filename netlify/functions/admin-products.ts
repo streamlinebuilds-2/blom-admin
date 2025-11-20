@@ -14,7 +14,7 @@ export const handler: Handler = async (event) => {
 
     let query = supabase
       .from("products")
-      .select("id, name, slug, sku, price, product_type, active, created_at, updated_at")
+      .select("id, name, slug, sku, price, cost_price_cents, product_type, active, created_at, updated_at")
       .order("created_at", { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
 
