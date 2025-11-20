@@ -39,23 +39,33 @@ export const handler: Handler = async (event) => {
       (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
     // Build bundle data for the bundles table
-    const status = payload.status || 'active';
     const bundleData: any = {
       name: payload.name,
       slug: payload.slug || slugify(payload.name),
-      status: status,
-      is_active: status === 'active' || status === 'published',
-      category: payload.category || 'Bundles',
-      product_type: 'bundle',
-      track_inventory: payload.track_inventory ?? false,
-      pricing_mode: payload.pricing_mode || 'manual',
-      discount_value: payload.discount_value || null,
+      sku: payload.sku || `BND-${Date.now()}`,
+      
+      // CRITICAL: Force these for visibility
+      product_type: 'bundle', 
+      category: 'Bundle Deals', 
+      status: 'active',
+      is_active: true, 
+      
       price_cents: priceCents,
       compare_at_price_cents: compareAtPriceCents,
+      stock: 0, // Bundles don't hold stock
+      track_inventory: false,
+      
+      pricing_mode: payload.pricing_mode || 'manual',
+      discount_value: payload.discount_value || null,
+      
       short_desc: payload.short_description || payload.short_desc || '',
       long_desc: payload.overview || payload.long_desc || '',
       images: payload.gallery_urls || payload.images || [],
       hover_image: payload.hover_url || payload.hover_image || null,
+      
+      // The components - saved as JSONB array in bundles table as well for easier access
+      bundle_products: payload.bundle_products || [],
+      
       updated_at: new Date().toISOString(),
     };
 
