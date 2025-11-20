@@ -39,10 +39,15 @@ export const handler: Handler = async (event) => {
       (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
     // Build bundle data for the bundles table
+    const status = payload.status || 'active';
     const bundleData: any = {
       name: payload.name,
       slug: payload.slug || slugify(payload.name),
-      status: payload.status || 'active',
+      status: status,
+      is_active: status === 'active' || status === 'published',
+      category: payload.category || 'Bundles',
+      product_type: 'bundle',
+      track_inventory: payload.track_inventory ?? false,
       pricing_mode: payload.pricing_mode || 'manual',
       discount_value: payload.discount_value || null,
       price_cents: priceCents,
