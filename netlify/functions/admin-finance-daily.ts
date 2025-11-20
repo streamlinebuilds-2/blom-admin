@@ -19,11 +19,11 @@ export const handler: Handler = async () => {
       const fromIso = today.toISOString();
       const { data: orders, error: oErr } = await s
         .from("orders")
-        .select("created_at,total,status")
+        .select("created_at,total_cents,status,payment_status")
         .gte("created_at", fromIso)
-        .in("status", ["paid","packed","out_for_delivery","delivered"]); // paid-ish statuses
+        .in("payment_status", ["paid"]); // Only count paid orders
       if (oErr) throw oErr;
-      const revenue = (orders || []).reduce((sum, o:any) => sum + Number(o.total || 0), 0);
+      const revenue = (orders || []).reduce((sum, o:any) => sum + Number(o.total_cents || 0) / 100, 0);
       rows = [{ day: fromIso, revenue, orders: (orders||[]).length }];
     }
     return {
