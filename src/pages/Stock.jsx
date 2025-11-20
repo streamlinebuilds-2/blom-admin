@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../components/supabaseClient';
 import { History, Search, DollarSign, Package, Save, X } from 'lucide-react';
 import { useToast } from '../components/ui/ToastProvider';
+import { api } from '../components/data/api';
 
 // Helper to format currency
 const formatRands = (cents) => {
@@ -36,7 +37,7 @@ export default function Stock() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock, category, stock_type, cost_price_cents')
+        .select('id, name, sku, stock, category, stock_type, cost_price_cents, variants')
         .eq('is_active', true) // Only active products
         .order('name');
 
@@ -264,6 +265,7 @@ export default function Stock() {
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
                   <th className="p-4">Product</th>
+                  <th className="p-4">Variant</th>
                   <th className="p-4">SKU</th>
                   <th className="p-4">Cost Price</th>
                   <th className="p-4">Stock Level</th>
@@ -272,13 +274,18 @@ export default function Stock() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
+                  <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
                 ) : filteredProducts.length === 0 ? (
-                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
+                  <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
                 ) : (
                   filteredProducts.map(product => (
                     <tr key={product.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
                       <td className="p-4 font-medium text-[var(--text)]">{product.name}</td>
+                      <td className="p-4 text-sm text-[var(--text-muted)]">
+                        {product.variants && product.variants.length > 0 
+                          ? product.variants.map(v => (typeof v === 'string' ? v : v.name)).join(', ')
+                          : '-'}
+                      </td>
                       <td className="p-4 font-mono text-xs text-[var(--text-muted)]">{product.sku || '-'}</td>
                       <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
                       <td className="p-4">
@@ -327,19 +334,13 @@ function AdjustStockModal({ product, onClose, showToast }) {
     try {
       const qtyChange = parseInt(quantity) || 0;
 
-      // Use our new Netlify function instead of direct RPC
-      const response = await fetch('/.netlify/functions/adjust-stock', {
-        method: 'POST',
-        body: JSON.stringify({
-          productId: product.id,
-          quantityChange: qtyChange,
-          costPrice: costPrice,
-          reason: reason
-        })
+      // Use api.adjustStock
+      await api.adjustStock({
+        productId: product.id,
+        quantityChange: qtyChange,
+        costPrice: costPrice,
+        reason: reason
       });
-
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.error || 'Update failed');
 
       showToast('success', 'Stock updated successfully');
 
@@ -438,18 +439,12 @@ function AdjustStockModal({ product, onClose, showToast }) {
 function StockHistory() {
   const { data: movements, isLoading } = useQuery({
     queryKey: ['stock_movements'],
-    queryFn: async () => {
-      // We have to use a proxy function or allowed table if RLS blocks this
-      // Assuming admin-stock-movements function exists or RLS allows read for authenticated
-      const response = await fetch('/.netlify/functions/admin-stock-movements');
-      const result = await response.json();
-      return result.ok ? result.data : [];
-    },
+    queryFn: api.getStockMovements,
   });
 
   return (
     <div className="section-card mt-8">
-      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+      <h2 className="text-xl font-bold mb-4 flex items-center gap-2 p-6 pb-0">
         <History size={20} className="text-[var(--accent)]" />
         Movement History
       </h2>
@@ -473,7 +468,7 @@ function StockHistory() {
               movements?.map(move => (
                 <tr key={move.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)]">
                   <td className="p-4 text-sm text-[var(--text-muted)]">{new Date(move.created_at).toLocaleString()}</td>
-                  <td className="p-4 font-medium">{move.product_name}</td>
+                  <td className="p-4 font-medium">{move.product?.name || move.product_name || 'Unknown Product'}</td>
                   <td className={`p-4 font-bold ${move.quantity_change > 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {move.quantity_change > 0 ? `+${move.quantity_change}` : move.quantity_change}
                   </td>

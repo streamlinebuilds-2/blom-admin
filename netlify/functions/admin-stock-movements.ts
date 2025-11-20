@@ -12,8 +12,8 @@ export const handler: Handler = async (e) => {
       .select("*, product:products(id,name,slug)")
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (error) return { statusCode: 500, body: error.message };
-    return { statusCode: 200, body: JSON.stringify({ data }) };
+    if (error) return { statusCode: 500, body: JSON.stringify({ ok: false, error: error.message }) };
+    return { statusCode: 200, body: JSON.stringify({ ok: true, data }) };
   } catch (err: any) {
     return { statusCode: 500, body: err.message || "admin-stock-movements failed" };
   }

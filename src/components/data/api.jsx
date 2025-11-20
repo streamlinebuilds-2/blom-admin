@@ -16,6 +16,25 @@ export let api = {
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch customer history.");
       return response.json();
+  },
+
+  // 3. Adjust Stock
+  async adjustStock(payload) {
+    const response = await fetch('/.netlify/functions/adjust-stock', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || 'Update failed');
+    return result;
+  },
+
+  // 4. Get Stock Movements
+  async getStockMovements() {
+    const response = await fetch('/.netlify/functions/admin-stock-movements');
+    const result = await response.json();
+    if (!response.ok) throw new Error("Failed to fetch stock movements.");
+    return result.data || [];
   }
 };
 
