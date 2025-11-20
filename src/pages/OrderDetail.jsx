@@ -656,10 +656,11 @@ export default function OrderDetail() {
                 </thead>
                 <tbody>
                   {items.map((item, i) => {
-                    // CRITICAL FIX: Use correct field names from OrderItem entity
-                    // The entity defines: price (cents), total (cents), quantity (integer)
+                    // FIX: Calculate line total manually since 'total' column doesn't exist
+                    // Database has: price (cents), quantity (integer)
                     const unitPriceCents = item.price || 0;
-                    const totalCents = item.total || (unitPriceCents * (item.quantity || 0));
+                    const quantity = item.quantity || 0;
+                    const totalCents = unitPriceCents * quantity;
 
                     return (
                       <tr key={i} className="item-row">
@@ -667,7 +668,7 @@ export default function OrderDetail() {
                           <div className="item-title">{item.name || item.product_name || 'Unknown Item'}</div>
                           {item.variant && <div className="item-variant">{item.variant}</div>}
                         </td>
-                        <td className="item-qty text-center">{item.quantity || 0}</td>
+                        <td className="item-qty text-center">{quantity}</td>
                         <td className="item-price text-right">{formatMoney(unitPriceCents)}</td>
                         <td className="item-total text-right font-bold">{formatMoney(totalCents)}</td>
                       </tr>

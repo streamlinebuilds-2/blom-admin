@@ -24,7 +24,7 @@ export const handler: Handler = async (e) => {
 
     // 2. Get Items
     const { data: items, error: iErr } = await s.from("order_items")
-      .select("name, product_name, quantity, price, total, variant")
+      .select("name, product_name, quantity, price, variant")
       .eq("order_id", id)
       .order("name", { ascending: true });
 
