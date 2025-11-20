@@ -526,7 +526,7 @@ function AdjustStockModal({ product, onClose, showToast }) {
 function StockHistory() {
   const { data: movements, isLoading } = useQuery({
     queryKey: ['stock_movements'],
-    queryFn: api.getStockMovements,
+    queryFn: api.listStockMovements,
   });
 
   return (

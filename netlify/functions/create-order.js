@@ -112,7 +112,7 @@ export const handler = async (event) => {
         sku: item.sku,
         name: item.name,
         variant: item.variant,
-        qty: item.qty,
+        quantity: item.qty,
         unit_price_cents: item.unit_price_cents,
         line_total_cents: item.unit_price_cents * item.qty,
       }));
