@@ -96,6 +96,14 @@ export const handler = async (event) => {
       // Order is already marked paid, so just log the error
     }
 
+    // 7. Adjust Stock
+    const { error: rpcError } = await supabase.rpc('adjust_stock_for_order', {
+      p_order_id: orderId
+    });
+    if (rpcError) {
+      console.error(`Error triggering stock adjustment RPC for ${orderId}:`, rpcError.message);
+    }
+
     console.log(`✓ Order ${orderId} marked paid via PayFast`);
     return { statusCode: 200, body: "OK" };
   } catch (e) {

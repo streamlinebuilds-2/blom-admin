@@ -108,6 +108,7 @@ export const handler = async (event) => {
     if (orderData.items && orderData.items.length > 0) {
       const itemsToInsert = orderData.items.map((item) => ({
         order_id: order.id,
+        product_id: item.product_id,
         sku: item.sku,
         name: item.name,
         variant: item.variant,

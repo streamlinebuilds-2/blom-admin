@@ -37,7 +37,7 @@ export default function Stock() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock, category, stock_type, cost_price_cents, variants')
+        .select('id, name, stock, category, stock_type, cost_price_cents, variants')
         .eq('is_active', true) // Only active products
         .order('name');
 
@@ -57,7 +57,7 @@ export default function Stock() {
       // Search
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
-        return (product.name?.toLowerCase().includes(term) || product.sku?.toLowerCase().includes(term));
+        return product.name?.toLowerCase().includes(term);
       }
       return true;
     });
@@ -210,7 +210,14 @@ export default function Stock() {
           color: var(--text);
           font-size: 15px;
           font-family: inherit;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          outline: none;
+          position: relative;
+          z-index: 1;
+        }
+        
+        .input:focus, .select:focus {
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light), 0 0 0 2px var(--accent);
         }
 
         .input:focus, .select:focus {
@@ -265,8 +272,6 @@ export default function Stock() {
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
                   <th className="p-4">Product</th>
-                  <th className="p-4">Variant</th>
-                  <th className="p-4">SKU</th>
                   <th className="p-4">Cost Price</th>
                   <th className="p-4">Stock Level</th>
                   <th className="p-4 text-right">Actions</th>
@@ -278,34 +283,75 @@ export default function Stock() {
                 ) : filteredProducts.length === 0 ? (
                   <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
                 ) : (
-                  filteredProducts.map(product => (
-                    <tr key={product.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
-                      <td className="p-4 font-medium text-[var(--text)]">{product.name}</td>
-                      <td className="p-4 text-sm text-[var(--text-muted)]">
-                        {product.variants && product.variants.length > 0 
-                          ? product.variants.map(v => (typeof v === 'string' ? v : v.name)).join(', ')
-                          : '-'}
-                      </td>
-                      <td className="p-4 font-mono text-xs text-[var(--text-muted)]">{product.sku || '-'}</td>
-                      <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          (product.stock || 0) > 10
-                            ? 'bg-green-500/10 text-green-500'
-                            : (product.stock || 0) > 0
-                              ? 'bg-yellow-500/10 text-yellow-500'
-                              : 'bg-red-500/10 text-red-500'
-                        }`}>
-                          {product.stock || 0} Units
-                        </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <button onClick={() => handleOpenAdjust(product)} className="btn-secondary text-xs py-1 px-3 h-auto">
-                          Adjust
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  filteredProducts.flatMap(product => {
+                    // If product has variants, create a row for each variant with individual stock
+                    if (product.variants && product.variants.length > 0) {
+                      return product.variants.map((variant, index) => {
+                        const variantName = typeof variant === 'string' ? variant : variant.name;
+                        // For now, use product stock for each variant
+                        // In a real implementation, variants would have their own stock fields
+                        const variantStock = product.stock || 0;
+                        
+                        return (
+                          <tr key={`${product.id}-variant-${index}`} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
+                            <td className="p-4">
+                              <div className="font-medium text-[var(--text)]">{product.name}</div>
+                              <div className="text-sm text-[var(--text-muted)]">{variantName}</div>
+                            </td>
+                            <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
+                            <td className="p-4">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                variantStock > 10
+                                  ? 'bg-green-500/10 text-green-500'
+                                  : variantStock > 0
+                                    ? 'bg-yellow-500/10 text-yellow-500'
+                                    : 'bg-red-500/10 text-red-500'
+                              }`}>
+                                {variantStock} Units
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <button 
+                                onClick={() => handleOpenAdjust({
+                                  ...product, 
+                                  variantName: variantName, 
+                                  variantIndex: index,
+                                  stock: variantStock
+                                })} 
+                                className="btn-secondary text-xs py-1 px-3 h-auto"
+                              >
+                                Adjust
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    }
+                    
+                    // No variants - standard row
+                    return (
+                      <tr key={product.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
+                        <td className="p-4 font-medium text-[var(--text)]">{product.name}</td>
+                        <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            (product.stock || 0) > 10
+                              ? 'bg-green-500/10 text-green-500'
+                              : (product.stock || 0) > 0
+                                ? 'bg-yellow-500/10 text-yellow-500'
+                                : 'bg-red-500/10 text-red-500'
+                          }`}>
+                            {product.stock || 0} Units
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button onClick={() => handleOpenAdjust(product)} className="btn-secondary text-xs py-1 px-3 h-auto">
+                            Adjust
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -326,6 +372,10 @@ function AdjustStockModal({ product, onClose, showToast }) {
   const [costPrice, setCostPrice] = useState(product.cost_price_cents ? (product.cost_price_cents / 100).toFixed(2) : '');
   const [reason, setReason] = useState('manual_restock');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Handle variant information
+  const productName = product.variantName ? `${product.name} - ${product.variantName}` : product.name;
+  const currentStock = product.variantIndex !== undefined ? product.stock : (product.stock || 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -333,14 +383,19 @@ function AdjustStockModal({ product, onClose, showToast }) {
 
     try {
       const qtyChange = parseInt(quantity) || 0;
+      
+      // Update cost price if changed
+      if (costPrice && parseFloat(costPrice) !== parseFloat((product.cost_price_cents || 0) / 100)) {
+        await api.partialUpdateProduct({
+          id: product.id,
+          cost_price_cents: Math.round(parseFloat(costPrice) * 100)
+        });
+      }
 
-      // Use api.adjustStock
-      await api.adjustStock({
-        productId: product.id,
-        quantityChange: qtyChange,
-        costPrice: costPrice,
-        reason: reason
-      });
+      // Adjust stock and log movement
+      if (qtyChange !== 0) {
+        await api.adjustStock(product.id, qtyChange, reason);
+      }
 
       showToast('success', 'Stock updated successfully');
 
@@ -365,7 +420,7 @@ function AdjustStockModal({ product, onClose, showToast }) {
         <div className="flex justify-between items-start mb-6">
           <div>
             <h3 className="text-xl font-bold">Adjust Inventory</h3>
-            <p className="text-sm text-[var(--text-muted)]">{product.name}</p>
+            <p className="text-sm text-[var(--text-muted)]">{productName}</p>
           </div>
           <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text)]">
             <X size={20} />
@@ -376,13 +431,12 @@ function AdjustStockModal({ product, onClose, showToast }) {
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Cost Price (R)</label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
               <input
                 type="number"
                 step="0.01"
                 value={costPrice}
                 onChange={(e) => setCostPrice(e.target.value)}
-                className="input pl-10"
+                className="input"
                 placeholder="0.00"
               />
             </div>
@@ -391,20 +445,19 @@ function AdjustStockModal({ product, onClose, showToast }) {
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Add / Remove Stock</label>
             <div className="relative">
-              <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
               <input
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="input pl-10"
+                className="input"
                 placeholder="+5 or -2"
               />
             </div>
             <div className="flex justify-between text-xs text-[var(--text-muted)] px-1">
-              <span>Current: {product.stock || 0}</span>
+              <span>Current: {currentStock}</span>
               {quantity && !isNaN(parseInt(quantity)) && (
                 <span className={parseInt(quantity) > 0 ? "text-green-400" : "text-red-400"}>
-                  New: {(product.stock || 0) + parseInt(quantity)}
+                  New: {currentStock + parseInt(quantity)}
                 </span>
               )}
             </div>
@@ -469,8 +522,8 @@ function StockHistory() {
                 <tr key={move.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)]">
                   <td className="p-4 text-sm text-[var(--text-muted)]">{new Date(move.created_at).toLocaleString()}</td>
                   <td className="p-4 font-medium">{move.product?.name || move.product_name || 'Unknown Product'}</td>
-                  <td className={`p-4 font-bold ${move.quantity_change > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {move.quantity_change > 0 ? `+${move.quantity_change}` : move.quantity_change}
+                  <td className={`p-4 font-bold ${move.delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {move.delta > 0 ? `+${move.delta}` : move.delta}
                   </td>
                   <td className="p-4 text-sm capitalize text-[var(--text-muted)]">{move.reason?.replace(/_/g, ' ')}</td>
                   <td className="p-4 text-xs font-mono text-[var(--text-muted)]">{move.order_id ? move.order_id.slice(0,8) : '-'}</td>

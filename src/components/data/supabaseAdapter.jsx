@@ -174,7 +174,7 @@ export function createSupabaseAdapter() {
     async listStockMovements(limit = 50) {
       const { data, error } = await supabase
         .from('stock_movements')
-        .select('*')
+        .select('*, products(name)')
         .order('created_at', { ascending: false })
         .limit(limit);
       return ensure(data || [], error);
