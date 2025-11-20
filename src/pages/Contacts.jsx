@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Plus, Mail, Phone, Download, ArrowUpDown } from "lucide-react";
+import { Users, Plus, Mail, Phone, Download, ArrowUpDown, Trash2 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 import { api } from "@/components/data/api";
@@ -12,6 +12,7 @@ export default function Contacts() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [searchQuery, setSearchQuery] = useState("");
+  const [hiddenContacts, setHiddenContacts] = useState(new Set()); // Local state for hidden contacts
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -24,6 +25,9 @@ export default function Contacts() {
 
   const contacts = useMemo(() => {
     let data = Array.isArray(contactsData.data) ? contactsData.data : (Array.isArray(contactsData) ? contactsData : []);
+     
+    // Filter out hidden contacts
+    data = data.filter(c => !hiddenContacts.has(c.id));
     
     // Filter
     if (sourceFilter !== "all") {
@@ -56,7 +60,7 @@ export default function Contacts() {
       }
       return 0;
     });
-  }, [contactsData, sourceFilter, sortConfig, searchQuery]);
+  }, [contactsData, sourceFilter, sortConfig, searchQuery, hiddenContacts]);
 
   const handleSort = (key) => {
     setSortConfig(current => ({
@@ -93,6 +97,15 @@ export default function Contacts() {
       return;
     }
     createMutation.mutate(formData);
+  };
+
+  const handleDeleteContact = (contactId, contactName) => {
+    if (!confirm(`Are you sure you want to remove "${contactName || 'this contact'}" from the list? This will only hide them from the display - they won't be removed from the database.`)) {
+      return;
+    }
+    
+    setHiddenContacts(prev => new Set([...prev, contactId]));
+    showToast('success', 'Contact removed from list');
   };
 
   const handleExportCSV = () => {
@@ -438,6 +451,36 @@ export default function Contacts() {
         .contact-row:hover {
           background-color: rgba(255,255,255,0.05);
         }
+
+        .btn-delete {
+          padding: 8px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          color: white;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+          transition: all 0.2s ease;
+        }
+
+        .btn-delete:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+
+        .btn-delete:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .delete-cell {
+          text-align: right;
+        }
       `}</style>
 
       <div className="contacts-header">
@@ -485,23 +528,24 @@ export default function Contacts() {
                     Signed Up <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </th>
+                <th className="delete-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="4" className="empty-state">Loading...</td>
+                  <td colSpan="5" className="empty-state">Loading...</td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan="4" className="empty-state">
+                  <td colSpan="5" className="empty-state">
                     <div className="empty-state-title">Error loading contacts</div>
                     <div>{error.message || 'Please try again'}</div>
                   </td>
                 </tr>
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="empty-state">
+                  <td colSpan="5" className="empty-state">
                     <div className="empty-state-title">No contacts found</div>
                   </td>
                 </tr>
@@ -529,6 +573,15 @@ export default function Contacts() {
                       <div className="contact-date">
                         {new Date(contact.created_at).toLocaleDateString()}
                       </div>
+                    </td>
+                    <td className="delete-cell">
+                      <button
+                        onClick={() => handleDeleteContact(contact.id, contact.full_name)}
+                        className="btn-delete"
+                        title="Remove from list"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
