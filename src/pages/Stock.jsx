@@ -31,14 +31,13 @@ export default function Stock() {
   const [searchTerm, setSearchTerm] = useState('');
   const { showToast } = useToast();
 
-  // Fetch ONLY Active products that are relevant
+  // Fetch ALL products including draft and archived for management
   const { data: products, isLoading } = useQuery({
     queryKey: ['products-stock'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, stock, category, stock_type, cost_price_cents, variants')
-        .eq('is_active', true) // Only active products
+        .select('id, name, stock, category, stock_type, cost_price_cents, variants, status')
         .order('name');
 
       if (error) throw error;
@@ -283,14 +282,15 @@ export default function Stock() {
                   <th className="p-4">Product</th>
                   <th className="p-4">Cost Price</th>
                   <th className="p-4">Stock Level</th>
+                  <th className="p-4">Status</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
+                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
                 ) : filteredProducts.length === 0 ? (
-                  <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
+                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
                 ) : (
                   filteredProducts.flatMap(product => {
                     // If product has variants, create a row for each variant with individual stock
@@ -318,6 +318,17 @@ export default function Stock() {
                               }`}>
                                 {variantStock} Units
                               </span>
+                            </td>
+                            <td className="p-4">
+                              {index === 0 && (
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  product.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                                  product.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
+                                  'bg-red-500/10 text-red-500'
+                                }`}>
+                                  {product.status}
+                                </span>
+                              )}
                             </td>
                             <td className="p-4 text-right">
                               <button 
@@ -351,6 +362,15 @@ export default function Stock() {
                                 : 'bg-red-500/10 text-red-500'
                           }`}>
                             {product.stock || 0} Units
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            product.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                            product.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
+                            'bg-red-500/10 text-red-500'
+                          }`}>
+                            {product.status}
                           </span>
                         </td>
                         <td className="p-4 text-right">
