@@ -194,7 +194,7 @@ export default function ProductEdit() {
             id: product.id,
             name: product.name || '',
             category: product.category || '',
-            status: product.status === 'published' ? 'active' : (product.status || 'active'),
+            status: product.status || 'active',
             price: product.price?.toString() || (product.price_cents ? (product.price_cents / 100).toString() : ''),
             compare_at_price: product.compare_at_price?.toString() || (product.compare_at_price_cents ? (product.compare_at_price_cents / 100).toString() : ''),
             cost_price: product.cost_price_cents ? (product.cost_price_cents / 100).toFixed(2) : '',
@@ -245,6 +245,38 @@ export default function ProductEdit() {
 
   const update = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }));
+    
+    // If status is being changed, immediately save it
+    if (field === 'status' && id) {
+      handleStatusChange(value);
+    }
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    try {
+      const response = await fetch("/.netlify/functions/update-product-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: id, status: newStatus }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        const message = data?.error || "Failed to update status";
+        showToast("error", message);
+        // Revert the status change in the form
+        setForm(prev => ({ ...prev, status: prev.status }));
+        return;
+      }
+
+      showToast("success", `Product status updated to ${newStatus}`);
+    } catch (error) {
+      const message = error?.message || "Failed to update status";
+      showToast("error", message);
+      // Revert the status change in the form
+      setForm(prev => ({ ...prev, status: prev.status }));
+    }
   };
 
   const getArrayFromPrevious = (previous, field) => {
@@ -458,6 +490,14 @@ export default function ProductEdit() {
 
   const validate = () => {
     const nextErrors = {};
+    
+    // Skip validation for archived or draft products - just save them as-is
+    if (form.status === 'archived' || form.status === 'draft') {
+      setErrors({});
+      return true;
+    }
+    
+    // Only validate for active products
     if (!form.name.trim()) nextErrors.name = "Name is required";
     if (!form.category.trim()) nextErrors.category = "Category is required";
 

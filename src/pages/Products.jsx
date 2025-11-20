@@ -41,7 +41,7 @@ export default function Products() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      // Permanently delete product from database
+      // Permanently delete product from database (or archive if it has orders)
       // Use Netlify function to bypass client write restrictions
       const response = await fetch('/.netlify/functions/delete-product', {
         method: 'POST',
@@ -53,11 +53,15 @@ export default function Products() {
       if (!result.ok) {
         throw new Error(result.error || 'Failed to delete product');
       }
-      return id;
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      showToast('success', 'Product deleted successfully');
+      if (result.archived) {
+        showToast('info', result.message || 'Product archived (has existing orders)');
+      } else {
+        showToast('success', 'Product deleted successfully');
+      }
     },
     onError: (error) => {
       showToast('error', error.message || 'Failed to delete product');
