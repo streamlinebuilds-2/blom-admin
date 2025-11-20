@@ -6,11 +6,10 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 export const handler: Handler = async (e) => {
   const url = new URL(e.rawUrl);
-  const status = url.searchParams.get("status"); // new/handled/spam or null
-
-  let q = s.from("contact_messages").select("id,created_at,status,name,email,phone,subject,source").order("created_at",{ascending:false});
-
-  if (status) q = q.eq("status", status);
+  // We can support basic filtering if needed, but instructions say frontend handles sort/search
+  // However, we might want to support 'source' filter if the UI sends it.
+  
+  let q = s.from("contacts").select("*").order("created_at", { ascending: false });
 
   const { data, error } = await q;
 
@@ -18,6 +17,3 @@ export const handler: Handler = async (e) => {
 
   return { statusCode: 200, body: JSON.stringify({ data }) };
 };
-
-
-

@@ -1,33 +1,69 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Plus, Mail, Phone, Tag, Calendar, Download } from "lucide-react";
+import { Users, Plus, Mail, Phone, Download, ArrowUpDown } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 import { api } from "@/components/data/api";
+import { Link } from "react-router-dom";
 
 export default function Contacts() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+  const [searchQuery, setSearchQuery] = useState("");
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: contactsData = [], isLoading, error } = useQuery({
-    queryKey: ['contacts', sourceFilter],
+    queryKey: ['contacts'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (sourceFilter !== "all") {
-        params.set("source", sourceFilter);
-      }
-      const url = `/.netlify/functions/contacts-list${params.toString() ? `?${params}` : ""}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      return json.data || [];
+      return await api.listContacts();
     },
   });
 
-  const contacts = Array.isArray(contactsData) ? contactsData : [];
+  const contacts = useMemo(() => {
+    let data = Array.isArray(contactsData.data) ? contactsData.data : (Array.isArray(contactsData) ? contactsData : []);
+    
+    // Filter
+    if (sourceFilter !== "all") {
+      // Note: source might not be populated in all records yet, adjust as needed
+      // data = data.filter(c => c.source === sourceFilter);
+    }
+
+    if (searchQuery) {
+      const lower = searchQuery.toLowerCase();
+      data = data.filter(c =>
+        (c.full_name && c.full_name.toLowerCase().includes(lower)) ||
+        (c.email && c.email.toLowerCase().includes(lower)) ||
+        (c.phone && c.phone.includes(lower))
+      );
+    }
+
+    // Sort
+    return [...data].sort((a, b) => {
+      if (sortConfig.key === 'full_name') {
+        const nameA = a.full_name || "";
+        const nameB = b.full_name || "";
+        return sortConfig.direction === 'asc'
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      }
+      if (sortConfig.key === 'created_at') {
+        return sortConfig.direction === 'asc'
+          ? new Date(a.created_at) - new Date(b.created_at)
+          : new Date(b.created_at) - new Date(a.created_at);
+      }
+      return 0;
+    });
+  }, [contactsData, sourceFilter, sortConfig, searchQuery]);
+
+  const handleSort = (key) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -64,12 +100,11 @@ export default function Contacts() {
       showToast('error', 'No contacts to export');
       return;
     }
-    const headers = ["Name", "Email", "Phone", "Source", "Created At"];
+    const headers = ["Name", "Email", "Phone", "Created At"];
     const rows = contacts.map(c => [
-      c.name || "",
+      c.full_name || "",
       c.email,
       c.phone || "",
-      c.source,
       new Date(c.created_at).toLocaleDateString(),
     ]);
     const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -342,7 +377,7 @@ export default function Contacts() {
           align-items: center;
         }
 
-        .filter-select {
+        .filter-input {
           padding: 10px 16px;
           border-radius: 10px;
           border: none;
@@ -350,7 +385,7 @@ export default function Contacts() {
           color: var(--text);
           font-size: 14px;
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-          min-width: 160px;
+          min-width: 200px;
         }
 
         .btn-export {
@@ -378,19 +413,30 @@ export default function Contacts() {
           margin-left: auto;
         }
 
-        .source-badge {
-          display: inline-block;
-          padding: 4px 10px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-weight: 600;
-          color: white;
-          text-transform: uppercase;
+        .sort-header {
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          user-select: none;
+        }
+        
+        .sort-header:hover {
+          color: var(--accent);
         }
 
         .contact-date {
           font-size: 12px;
           color: var(--text-muted);
+        }
+        
+        .contact-row {
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .contact-row:hover {
+          background-color: rgba(255,255,255,0.05);
         }
       `}</style>
 
@@ -406,17 +452,13 @@ export default function Contacts() {
       </div>
 
       <div className="filter-bar">
-        <select
-          className="filter-select"
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-        >
-          <option value="all">All Sources</option>
-          <option value="beauty_club_signup">Beauty Club Sign-ups</option>
-          <option value="account_creation">Account Creations</option>
-          <option value="order">Orders</option>
-          <option value="manual">Manual Entry</option>
-        </select>
+        <input
+          type="text"
+          className="filter-input"
+          placeholder="Search contacts..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
         <button className="btn-export" onClick={handleExportCSV}>
           <Download className="w-4 h-4" />
           Export CSV
@@ -431,37 +473,45 @@ export default function Contacts() {
           <table>
             <thead>
               <tr>
-                <th>Name</th>
+                <th onClick={() => handleSort('full_name')}>
+                  <div className="sort-header">
+                    Name <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Source</th>
-                <th>Added</th>
+                <th onClick={() => handleSort('created_at')}>
+                  <div className="sort-header">
+                    Signed Up <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="5" className="empty-state">Loading...</td>
+                  <td colSpan="4" className="empty-state">Loading...</td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan="5" className="empty-state">
+                  <td colSpan="4" className="empty-state">
                     <div className="empty-state-title">Error loading contacts</div>
                     <div>{error.message || 'Please try again'}</div>
                   </td>
                 </tr>
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="empty-state">
-                    <div className="empty-state-title">No contacts yet</div>
-                    <div>Add contacts manually or integrate with your frontend to capture sign-ups</div>
+                  <td colSpan="4" className="empty-state">
+                    <div className="empty-state-title">No contacts found</div>
                   </td>
                 </tr>
               ) : (
                 contacts.map(contact => (
-                  <tr key={contact.id}>
+                  <tr key={contact.id} className="contact-row">
                     <td>
-                      <div className="contact-name">{contact.name || '—'}</div>
+                      <Link to={`/contacts/${contact.user_id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                        <div className="contact-name">{contact.full_name || '—'}</div>
+                      </Link>
                     </td>
                     <td>
                       <div className="contact-info">
@@ -474,14 +524,6 @@ export default function Contacts() {
                         <Phone className="w-4 h-4" />
                         {contact.phone || '—'}
                       </div>
-                    </td>
-                    <td>
-                      <span
-                        className="source-badge"
-                        style={{ backgroundColor: getSourceColor(contact.source) }}
-                      >
-                        {getSourceLabel(contact.source)}
-                      </span>
                     </td>
                     <td>
                       <div className="contact-date">
