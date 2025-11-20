@@ -63,7 +63,7 @@ const navigationGroups = [
     title: "Sales & Inventory",
     items: [
       { name: "Orders", url: "Orders", icon: ShoppingCart },
-      { name: "Payments", url: "Payments", icon: CreditCard },
+      { name: "Sales", url: "Payments", icon: CreditCard },
       { name: "Stock", url: "Stock", icon: Archive } // Changed from Warehouse to Archive
     ]
   },

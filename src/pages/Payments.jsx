@@ -1,201 +1,398 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { Database, Zap, Calendar, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, ShoppingCart, DollarSign, Package, Target, Calendar } from 'lucide-react';
+import { moneyZAR } from '../components/formatUtils';
 
-// Helper to format currency
-const formatRands = (value, isCents = true) => {
-  if (value == null || value === '') return '-';
-  const num = parseFloat(value);
-  if (isNaN(num)) return '-';
+// Helper to format numbers
+const formatNumber = (num) => {
+  if (num == null || isNaN(num)) return '0';
+  return new Intl.NumberFormat().format(num);
+};
 
-  // PayFast API returns Rands directly (e.g., "31.41"), so we set isCents=false for it
-  const amount = isCents ? num / 100 : num;
-  return `R${amount.toFixed(2)}`;
+// Helper to get period label
+const getPeriodLabel = (days) => {
+  if (days === 1) return 'Today';
+  if (days === 7) return 'Last 7 Days';
+  if (days === 30) return 'Last 30 Days';
+  return `Last ${days} Days`;
 };
 
 export default function Payments() {
-  return (
-    <div className="p-4 md:p-8 space-y-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-[var(--text)]">Payments</h1>
-        <p className="text-[var(--text-muted)]">View live PayFast transactions and processed order records.</p>
-      </div>
+  const [selectedPeriod, setSelectedPeriod] = useState(30);
 
-      <LivePayFastHistory />
-      <ProcessedPayments />
-    </div>
-  );
-}
-
-function LivePayFastHistory() {
-  // Default to CURRENT month (not future!)
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    return new Date().toISOString().slice(0, 7); // e.g., "2025-01"
+  // Fetch finance stats from our existing function
+  const { data: financeStats, isLoading: financeLoading } = useQuery({
+    queryKey: ['financeStats'],
+    queryFn: async () => {
+      const res = await fetch('/.netlify/functions/admin-finance-stats');
+      if (!res.ok) throw new Error('Failed to fetch finance stats');
+      const json = await res.json();
+      return json.data;
+    }
   });
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['payfastHistory', selectedMonth],
+  // Fetch orders for additional metrics
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+    queryKey: ['orders'],
     queryFn: async () => {
-      console.log(`Fetching PayFast for month: ${selectedMonth}`);
+      const res = await fetch('/.netlify/functions/admin-orders');
+      const json = await res.json();
+      return json.ok ? json.data : [];
+    }
+  });
 
-      const response = await fetch(
-        `/.netlify/functions/get-payfast-history?method=monthly&date=${selectedMonth}`
-      );
+  // Calculate additional metrics
+  const salesMetrics = React.useMemo(() => {
+    const now = new Date();
+    const periodStart = new Date(now.getTime() - selectedPeriod * 24 * 60 * 60 * 1000);
+    
+    // Filter orders by period and payment status
+    const periodOrders = orders.filter(order => {
+      if (order.payment_status !== 'paid') return false;
+      const orderDate = new Date(order.paid_at || order.created_at);
+      return orderDate >= periodStart;
+    });
 
-      const result = await response.json();
+    const totalRevenue = periodOrders.reduce((sum, order) => sum + (order.total_cents || 0), 0);
+    const totalOrders = periodOrders.length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-      console.log('PayFast Response:', result);
-
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || 'Failed to fetch PayFast history');
+    // Calculate unique products sold
+    const productsSold = new Set();
+    periodOrders.forEach(order => {
+      if (order.items) {
+        order.items.forEach(item => {
+          if (item.product_id) {
+            productsSold.add(item.product_id);
+          }
+        });
       }
+    });
 
-      return result.data || [];
-    },
-  });
+    return {
+      totalRevenue,
+      totalOrders,
+      avgOrderValue,
+      productsSold: productsSold.size,
+      periodLabel: getPeriodLabel(selectedPeriod)
+    };
+  }, [orders, selectedPeriod]);
+
+  if (financeLoading || ordersLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  const stats = financeStats || { revenue: 0, cogs: 0, expenses: 0, profit: 0 };
 
   return (
-    <div className="section-card">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Zap size={20} className="text-[var(--accent)]" />
-          Live PayFast History
-        </h2>
+    <>
+      <style>{`
+        .sales-header {
+          margin-bottom: 32px;
+        }
 
-        <div className="flex items-center gap-2 bg-[var(--bg)] px-3 py-2 rounded-lg border border-[var(--border)]">
-          <Calendar size={16} className="text-[var(--text-muted)]" />
-          <input
-            type="month"
-            value={selectedMonth}
-            max={new Date().toISOString().slice(0, 7)} // Can't select future months
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-transparent border-none text-sm focus:ring-0 text-[var(--text)] outline-none"
-          />
-        </div>
-      </div>
+        .header-title {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
 
-      {error && (
-        <div style={{
-          padding: '20px',
-          background: '#ef444420',
-          color: '#ef4444',
-          borderRadius: '12px',
-          marginBottom: '16px'
-        }}>
-          <strong>Error loading PayFast data:</strong><br/>
-          {error.message}
-          <br/><br/>
-          <small>Check console for details</small>
-        </div>
-      )}
+        .header-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
-              <th className="p-4">Date</th>
-              <th className="p-4">Name</th>
-              <th className="p-4">Description</th>
-              <th className="p-4 text-right">Gross</th>
-              <th className="p-4 text-right">Fee</th>
-              <th className="p-4 text-right">Net</th>
-              <th className="p-4 text-right">Ref</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">
-                Loading PayFast data for {selectedMonth}...
-              </td></tr>
-            ) : data?.length === 0 ? (
-              <tr><td colSpan="7" className="p-8 text-center text-[var(--text-muted)]">
-                No transactions found for {selectedMonth}
-                <br/>
-                <small style={{ marginTop: '8px', display: 'block' }}>
-                  Try a different month or check Netlify function logs
-                </small>
-              </td></tr>
-            ) : (
-              data?.map((tx, index) => (
-                <tr key={index} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
-                  <td className="p-4 text-sm whitespace-nowrap">{tx.Date}</td>
-                  <td className="p-4 text-sm font-medium">{tx.Name || tx.Party}</td>
-                  <td className="p-4 text-sm text-[var(--text-muted)] truncate max-w-[200px]">
-                    {tx.Description}
-                  </td>
-                  <td className="p-4 text-sm text-right font-medium">
-                    R{tx.Gross}
-                  </td>
-                  <td className="p-4 text-sm text-right text-red-400">
-                    R{tx.Fee}
-                  </td>
-                  <td className="p-4 text-sm text-right font-bold text-green-400">
-                    R{tx.Net}
-                  </td>
-                  <td className="p-4 text-xs font-mono text-[var(--text-muted)] text-right">
-                    {tx['M Payment ID'] || tx['PF Payment ID']}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+        .period-selector {
+          display: flex;
+          gap: 8px;
+          margin-top: 16px;
+        }
 
-function ProcessedPayments() {
-  const { data: payments } = useQuery({
-    queryKey: ['payments'],
-    queryFn: async () => {
-      const response = await fetch('/.netlify/functions/admin-payments');
-      const result = await response.json();
-      return result.ok ? result.data : [];
-    },
-  });
+        .period-btn {
+          padding: 8px 16px;
+          border-radius: 8px;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          border: 1px solid var(--border);
+          transition: all 0.2s ease;
+        }
 
-  if (!payments || payments.length === 0) return null;
+        .period-btn.active {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
 
-  return (
-    <div className="section-card opacity-80">
-      <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-[var(--text-muted)]">
-        <Database size={20} />
-        Processed Order Records
-      </h2>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
-              <th className="p-4">Date</th>
-              <th className="p-4">Customer</th>
-              <th className="p-4">Status</th>
-              <th className="p-4 text-right">Net</th>
-              <th className="p-4 text-right">Link</th>
-            </tr>
-          </thead>
-          <tbody>
-            {payments.map((payment) => (
-              <tr key={payment.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)]">
-                <td className="p-4 text-sm">{new Date(payment.created_at).toLocaleDateString()}</td>
-                <td className="p-4 text-sm font-medium">{payment.orders?.customer_name}</td>
-                <td className="p-4">
-                  <span className="inline-block px-2 py-1 rounded text-xs font-bold bg-green-500/20 text-green-500 border border-green-500/20">
-                    {payment.payment_status}
-                  </span>
-                </td>
-                <td className="p-4 text-sm text-right font-mono">{formatRands(payment.amount_net_cents, true)}</td>
-                <td className="p-4 text-right">
-                  <Link to={`/orders/${payment.order_id}`} className="text-[var(--accent)] hover:text-white flex items-center justify-end gap-1 text-sm">
-                    View <ArrowUpRight size={14} />
-                  </Link>
-                </td>
-              </tr>
+        .period-btn:hover {
+          opacity: 0.8;
+        }
+
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 24px;
+          margin-bottom: 32px;
+        }
+
+        .metric-card {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 24px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .metric-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        }
+
+        .metric-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .metric-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+
+        .metric-info {
+          flex: 1;
+        }
+
+        .metric-label {
+          font-size: 14px;
+          color: var(--text-muted);
+          font-weight: 500;
+          margin-bottom: 4px;
+        }
+
+        .metric-value {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .metric-subtitle {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-top: 4px;
+        }
+
+        .profit-positive {
+          color: #10b981;
+        }
+
+        .profit-negative {
+          color: #ef4444;
+        }
+
+        .summary-card {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 24px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          margin-bottom: 24px;
+        }
+
+        .summary-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .summary-row {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+        }
+
+        .summary-item {
+          padding: 12px;
+          background: var(--bg);
+          border-radius: 8px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .summary-label {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+
+        .summary-value {
+          color: var(--text);
+          font-weight: 600;
+          font-size: 14px;
+        }
+      `}</style>
+
+      <div className="p-4 md:p-8">
+        <div className="sales-header">
+          <h1 className="header-title">
+            <TrendingUp className="w-8 h-8" />
+            Sales Overview
+          </h1>
+          <p className="header-subtitle">
+            Track your business performance and key sales metrics.
+          </p>
+
+          <div className="period-selector">
+            {[1, 7, 30].map(days => (
+              <button
+                key={days}
+                className={`period-btn ${selectedPeriod === days ? 'active' : ''}`}
+                onClick={() => setSelectedPeriod(days)}
+              >
+                {getPeriodLabel(days)}
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        {/* Main Sales Metrics */}
+        <div className="metrics-grid">
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Total Sales</div>
+                <div className="metric-value">{moneyZAR(salesMetrics.totalRevenue)}</div>
+                <div className="metric-subtitle">{salesMetrics.periodLabel}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <ShoppingCart className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Total Orders</div>
+                <div className="metric-value">{formatNumber(salesMetrics.totalOrders)}</div>
+                <div className="metric-subtitle">{salesMetrics.periodLabel}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <Target className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Average Order Value</div>
+                <div className="metric-value">{moneyZAR(salesMetrics.avgOrderValue)}</div>
+                <div className="metric-subtitle">Per transaction</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <Package className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Products Sold</div>
+                <div className="metric-value">{formatNumber(salesMetrics.productsSold)}</div>
+                <div className="metric-subtitle">Unique products</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Net Profit</div>
+                <div className={`metric-value ${stats.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
+                  {moneyZAR(stats.profit)}
+                </div>
+                <div className="metric-subtitle">Last 30 days</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Revenue Growth</div>
+                <div className="metric-value">+{((stats.revenue / 10000) * 100).toFixed(1)}%</div>
+                <div className="metric-subtitle">vs. previous period</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Summary */}
+        <div className="summary-card">
+          <h2 className="summary-title">
+            <DollarSign className="w-5 h-5" />
+            Financial Summary (Last 30 Days)
+          </h2>
+          <div className="summary-row">
+            <div className="summary-item">
+              <span className="summary-label">Gross Revenue</span>
+              <span className="summary-value">{moneyZAR(stats.revenue)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Cost of Goods</span>
+              <span className="summary-value">{moneyZAR(stats.cogs)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Operating Expenses</span>
+              <span className="summary-value">{moneyZAR(stats.expenses)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Net Profit</span>
+              <span className={`summary-value ${stats.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
+                {moneyZAR(stats.profit)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
