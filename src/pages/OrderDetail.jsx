@@ -38,6 +38,15 @@ export default function OrderDetail() {
 
   const order = data?.order;
   const items = data?.items || [];
+  
+  // Debug logging
+  console.log('OrderDetail Debug:', {
+    data,
+    order,
+    items,
+    itemsLength: items.length,
+    hasItems: items && items.length > 0
+  });
 
   useEffect(() => {
     if (order?.notes) setNotes(order.notes);
@@ -135,13 +144,18 @@ export default function OrderDetail() {
     }
 
     .status-paid {
-      background: #10b98120;
-      color: #10b981;
+      background: #16a34a20;
+      color: #16a34a;
     }
 
-    .status-packed, .status-out_for_delivery {
-      background: #8b5cf620;
-      color: #8b5cf6;
+    .status-packed {
+      background: #dc262620;
+      color: #dc2626;
+    }
+
+    .status-out_for_delivery {
+      background: #ea580c20;
+      color: #ea580c;
     }
 
     .status-delivered, .status-collected {
@@ -150,13 +164,13 @@ export default function OrderDetail() {
     }
 
     .status-unpaid, .status-created {
-      background: #f59e0b20;
-      color: #f59e0b;
+      background: #eab30820;
+      color: #ca8a04;
     }
 
     .status-cancelled {
-      background: #ef444420;
-      color: #ef4444;
+      background: #991b1b20;
+      color: #991b1b;
     }
 
     .order-date {
@@ -799,7 +813,14 @@ export default function OrderDetail() {
                    <div className="text-[var(--text-muted)] text-xs uppercase font-bold">Shipping Address</div>
                    <div className="whitespace-pre-wrap mt-1 leading-relaxed">
                      {order.shipping_address ||
-                      `${order.address_line_1 || ''}\n${order.address_city || ''}\n${order.address_postal_code || ''}`
+                      [
+                        order.address_line_1,
+                        order.address_line_2,
+                        order.address_city,
+                        order.address_province,
+                        order.address_postal_code
+                      ].filter(Boolean).join('\n') ||
+                      'No delivery address provided'
                      }
                    </div>
                  </div>

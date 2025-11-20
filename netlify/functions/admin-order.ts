@@ -16,7 +16,8 @@ export const handler: Handler = async (e) => {
         shipping_address,
         fulfillment_type,
         buyer_name, buyer_email, buyer_phone,
-        customer_name, customer_email, customer_phone
+        customer_name, customer_email, customer_phone,
+        address_line_1, address_line_2, address_city, address_province, address_postal_code
       `)
       .eq("id", id).single();
 
