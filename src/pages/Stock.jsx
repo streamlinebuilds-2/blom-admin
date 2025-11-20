@@ -46,13 +46,22 @@ export default function Stock() {
     },
   });
 
-  // Filter logic: Hide furniture/courses, apply search
+  // Filter logic: Hide furniture/courses/unlimited items, apply search
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     return products.filter(product => {
-      // Exclude non-tracked items
       const cat = (product.category || '').toLowerCase();
-      if (cat.includes('furniture') || cat.includes('course') || cat.includes('workshop')) return false;
+      const stockType = getStockType(product);
+      
+      // Exclude items that don't need stock tracking
+      if (cat.includes('furniture') || 
+          cat.includes('course') || 
+          cat.includes('workshop') || 
+          cat.includes('training') ||
+          stockType === 'unlimited' ||
+          stockType === 'made_on_demand') {
+        return false;
+      }
 
       // Search
       if (searchTerm) {
@@ -384,20 +393,25 @@ function AdjustStockModal({ product, onClose, showToast }) {
     try {
       const qtyChange = parseInt(quantity) || 0;
       
-      // Update cost price if changed
-      if (costPrice && parseFloat(costPrice) !== parseFloat((product.cost_price_cents || 0) / 100)) {
-        await api.partialUpdateProduct({
-          id: product.id,
-          cost_price_cents: Math.round(parseFloat(costPrice) * 100)
-        });
+      // Use the new Netlify function to adjust stock
+      const response = await fetch('/.netlify/functions/adjust-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product.id,
+          delta: qtyChange,
+          reason: reason,
+          costPriceCents: costPrice ? Math.round(parseFloat(costPrice) * 100) : undefined
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to adjust stock');
       }
 
-      // Adjust stock and log movement
-      if (qtyChange !== 0) {
-        await api.adjustStock(product.id, qtyChange, reason);
-      }
-
-      showToast('success', 'Stock updated successfully');
+      const result = await response.json();
+      showToast('success', result.message || 'Stock updated successfully');
 
       // CRITICAL: Invalidate BOTH queries
       queryClient.invalidateQueries({ queryKey: ['products-stock'] });
