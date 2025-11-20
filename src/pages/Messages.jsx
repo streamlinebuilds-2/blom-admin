@@ -87,202 +87,380 @@ export default function Messages() {
     return "bg-gray-500/20 text-gray-700 dark:text-gray-400";
   };
 
-  return (
-    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
-      <style>{`
-        .messages-container {
-          background: var(--bg);
-          color: var(--text);
-        }
-        .messages-card {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 24px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .messages-input {
-          background: var(--card);
-          border: 1px solid var(--border);
-          color: var(--text);
-          border-radius: 8px;
-          padding: 10px 14px;
-        }
-        .messages-input::placeholder {
-          color: var(--text-muted);
-        }
-        .messages-select {
-          background: var(--card);
-          border: 1px solid var(--border);
-          color: var(--text);
-          border-radius: 8px;
-          padding: 10px 14px;
-        }
-        .messages-button {
-          background: var(--card);
-          border: 1px solid var(--border);
-          color: var(--text);
-          border-radius: 8px;
-          padding: 10px 16px;
-          transition: all 0.2s;
-          cursor: pointer;
-        }
-        .messages-button:hover {
-          background: var(--accent);
-          color: white;
-          border-color: var(--accent);
-        }
-        .messages-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        .messages-table thead {
-          background: var(--card);
-          border-bottom: 2px solid var(--border);
-        }
-        .messages-table th {
-          padding: 12px;
-          text-align: left;
-          font-weight: 600;
-          color: var(--text);
-          font-size: 13px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          white-space: nowrap;
-        }
-        .messages-table td {
-          padding: 14px 12px;
-          border-bottom: 1px solid var(--border);
-          color: var(--text);
-        }
-        .messages-table tbody tr {
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .messages-table tbody tr:hover {
-          background: var(--card);
-        }
-        .messages-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 4px 12px;
-          border-radius: 12px;
-          font-size: 12px;
-          font-weight: 500;
-        }
-        @media (max-width: 768px) {
-          .messages-card {
-            padding: 16px;
-          }
-          .messages-table {
-            min-width: 600px;
-          }
-          .messages-table th {
-            padding: 10px 8px;
-            font-size: 11px;
-          }
-          .messages-table td {
-            padding: 12px 8px;
-            font-size: 13px;
-          }
-          .messages-input {
-            min-width: auto !important;
-            width: 100%;
-          }
-        }
-      `}</style>
+  // Base44 styling CSS
+  const base44Styles = `
+    .messages-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+    }
 
+    .messages-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .messages-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      position: relative;
+      width: 280px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+    }
+
+    .search-input:focus {
+      outline: none;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+
+    .filter-select {
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+      min-width: 160px;
+    }
+
+    .btn-primary {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+    }
+
+    .btn-secondary {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
+    .messages-table-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 0;
+      box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+      overflow: hidden;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .messages-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .messages-table th {
+      text-align: left;
+      padding: 20px 24px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border);
+      background: var(--card);
+    }
+
+    .messages-table td {
+      padding: 20px 24px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .messages-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .messages-table tbody tr {
+      transition: all 0.2s ease;
+    }
+
+    .messages-table tbody tr:hover {
+      background: rgba(110, 193, 255, 0.05);
+      cursor: pointer;
+    }
+
+    .messages-badge {
+      display: inline-flex;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+    }
+
+    .status-new {
+      background: #ef444420;
+      color: #ef4444;
+    }
+
+    .status-handled {
+      background: #10b98120;
+      color: #10b981;
+    }
+
+    .action-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .loading-state, .error-state {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 60px;
+      text-align: center;
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+    }
+
+    .error-state {
+      border-left: 4px solid #ef4444;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .pagination-btn {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 768px) {
+      .messages-container {
+        padding: 20px;
+      }
+      .messages-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .header-actions {
+        justify-content: space-between;
+      }
+      .search-box {
+        width: 100%;
+      }
+      .messages-table th {
+        padding: 16px 12px;
+        font-size: 11px;
+      }
+      .messages-table td {
+        padding: 16px 12px;
+        font-size: 13px;
+      }
+    }
+  `;
+
+  return (
+    <>
+      <style>{base44Styles}</style>
       <div className="messages-container">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: 'var(--text)', fontSize: '22px' }}>
+        {/* Header */}
+        <div className="messages-header">
+          <h1 className="messages-title">
             <MessageSquare className="w-6 h-6" />
             Messages
           </h1>
-          <button
-            onClick={() => load()}
-            className="messages-button flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
-
-        <div className="messages-card mb-6">
-          <div className="flex items-center gap-4 flex-wrap">
-            <input
-              type="text"
-              placeholder="Search by name, email, subject..."
-              className="messages-input flex-1 min-w-[250px]"
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-            />
-            <select className="messages-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+          <div className="header-actions">
+            <div className="search-box">
+              <input
+                type="text"
+                placeholder="Search by name, email, subject..."
+                className="search-input"
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+              />
+            </div>
+            <select className="filter-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
               <option value="">All Messages</option>
               <option value="new">Unanswered</option>
               <option value="handled">Answered</option>
             </select>
+            <button
+              onClick={() => load()}
+              className="btn-secondary"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
           </div>
         </div>
 
         {loading && (
-          <div className="messages-card text-center py-12">
+          <div className="loading-state">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
             <div style={{ color: 'var(--text-muted)' }}>Loading messages...</div>
           </div>
         )}
 
         {error && !loading && (
-          <div className="messages-card p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="error-state">
             <div className="text-red-600 dark:text-red-400 font-semibold mb-2">Error loading messages</div>
             <div className="text-sm text-red-500 dark:text-red-300">{error}</div>
-            <button onClick={() => load()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+            <button onClick={() => load()} className="btn-secondary mt-4">
               Retry
             </button>
           </div>
         )}
 
         {!loading && !error && (
-          <div className="messages-card overflow-x-auto">
-            <table className="messages-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Subject</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(r => (
-                <tr key={r.id} onClick={() => navigate(`/messages/${r.id}`)}>
-                  <td className="font-medium">{r.name || "-"}</td>
-                  <td>
-                    <div className="text-sm opacity-70" style={{ color: 'var(--text-muted)' }}>{r.email || "-"}</div>
-                  </td>
-                  <td className="font-medium">{r.subject || "(No subject)"}</td>
-                  <td>
-                    <span className={`messages-badge ${getStatusBadgeClass(r.status)}`}>
-                      {r.status === "new" ? "Unanswered" : "Answered"}
-                    </span>
-                  </td>
-                  <td className="text-xs opacity-70" style={{ color: 'var(--text-muted)' }}>{formatDate(r.created_at)}</td>
-                  <td>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/messages/${r.id}`); }}
-                      className="messages-button text-xs px-3 py-1.5"
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="messages-table-card">
+            <div className="table-container">
+              <table className="messages-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                  <tr key={r.id} onClick={() => navigate(`/messages/${r.id}`)}>
+                    <td>{r.name || "-"}</td>
+                    <td>{r.email || "-"}</td>
+                    <td>{r.subject || "(No subject)"}</td>
+                    <td>
+                      <span className={`messages-badge status-${r.status}`}>
+                        {r.status === "new" ? "Unanswered" : "Answered"}
+                      </span>
+                    </td>
+                    <td>{formatDate(r.created_at)}</td>
+                    <td>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/messages/${r.id}`); }}
+                        className="action-btn"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {rows.length === 0 && (
-              <div className="text-center py-12 opacity-50" style={{ color: 'var(--text-muted)' }}>
-                <div className="text-lg font-semibold mb-2">No messages found</div>
+              <div className="empty-state">
+                <div className="empty-state-title">No messages found</div>
                 <div className="text-sm">Contact messages will appear here</div>
               </div>
             )}
@@ -290,27 +468,27 @@ export default function Messages() {
         )}
 
         {total > 50 && (
-          <div className="flex items-center gap-4 justify-center mt-6">
+          <div className="pagination">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="messages-button disabled:opacity-50 disabled:cursor-not-allowed"
+              className="pagination-btn"
             >
               Previous
             </button>
-            <span className="text-sm" style={{ color: 'var(--text)' }}>
+            <span style={{ color: 'var(--text)' }}>
               Page {page} of {Math.ceil(total / 50)}
             </span>
             <button
               onClick={() => setPage(p => p + 1)}
               disabled={page >= Math.ceil(total / 50)}
-              className="messages-button disabled:opacity-50 disabled:cursor-not-allowed"
+              className="pagination-btn"
             >
               Next
             </button>
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

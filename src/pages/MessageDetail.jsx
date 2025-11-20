@@ -163,281 +163,480 @@ export default function MessageDetail() {
     );
   }
 
-  return (
-    <div className="p-6 space-y-6" style={{ color: 'var(--text)' }}>
-      <style>{`
-        .detail-container {
-          background: var(--bg);
-          color: var(--text);
-        }
-        .detail-card {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 24px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .detail-button {
-          background: var(--card);
-          border: 1px solid var(--border);
-          color: var(--text);
-          border-radius: 8px;
-          padding: 10px 16px;
-          transition: all 0.2s;
-          cursor: pointer;
-          font-weight: 500;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .detail-button:hover:not(:disabled) {
-          background: var(--accent);
-          color: white;
-          border-color: var(--accent);
-        }
-        .detail-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .detail-button-primary {
-          background: linear-gradient(135deg, var(--accent), #0ea5e9);
-          color: white;
-          border: none;
-        }
-        .detail-button-primary:hover:not(:disabled) {
-          background: linear-gradient(135deg, #0ea5e9, var(--accent));
-        }
-        .detail-button-success {
-          background: linear-gradient(135deg, #10b981, #059669);
-          color: white;
-          border: none;
-        }
-        .detail-button-success:hover:not(:disabled) {
-          background: linear-gradient(135deg, #059669, #10b981);
-        }
-        .detail-button-danger {
-          background: linear-gradient(135deg, #ef4444, #dc2626);
-          color: white;
-          border: none;
-        }
-        .detail-button-danger:hover:not(:disabled) {
-          background: linear-gradient(135deg, #dc2626, #b91c1c);
-        }
-        .detail-label {
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 8px;
-        }
-        .detail-value {
-          color: var(--text);
-          font-size: 15px;
-        }
-        .status-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 6px 14px;
-          border-radius: 12px;
-          font-size: 13px;
-          font-weight: 600;
-        }
-        .status-new {
-          background: rgba(239, 68, 68, 0.2);
-          color: #dc2626;
-        }
-        .status-handled {
-          background: rgba(16, 185, 129, 0.2);
-          color: #059669;
-        }
-        .message-text {
-          background: var(--bg);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 16px;
-          white-space: pre-wrap;
-          line-height: 1.6;
-          font-size: 14px;
-        }
-        .image-gallery {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 12px;
-        }
-        .image-item {
-          width: 100%;
-          height: 200px;
-          object-fit: cover;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-        }
-      `}</style>
+  // Base44 styling CSS
+  const base44Styles = `
+    .message-detail-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+    }
 
-      <div className="detail-container">
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .btn-back {
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .btn-back:hover {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
+    .message-title-section {
+      flex: 1;
+    }
+
+    .message-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    .message-date {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
+    .btn-danger {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+      transition: all 0.3s ease;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+    }
+
+    .section-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 24px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .info-value {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .info-link {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .info-link:hover {
+      color: var(--accent-2);
+      text-decoration: underline;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+    }
+
+    .status-new {
+      background: #ef444420;
+      color: #ef4444;
+    }
+
+    .status-handled {
+      background: #10b98120;
+      color: #10b981;
+    }
+
+    .message-content {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 20px;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      font-size: 14px;
+      color: var(--text);
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+    }
+
+    .image-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .image-item {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 12px;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .image-item:hover {
+      transform: scale(1.05);
+    }
+
+    .status-select {
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+      min-width: 200px;
+    }
+
+    .loading-state, .error-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .error-state {
+      color: #ef4444;
+    }
+
+    @media (max-width: 768px) {
+      .message-detail-container {
+        padding: 20px;
+      }
+      .message-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+      }
+      .action-buttons {
+        justify-content: center;
+      }
+      .info-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+    }
+  `;
+
+  if (loading) {
+    return (
+      <>
+        <style>{base44Styles}</style>
+        <div className="loading-state">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+          <div>Loading message...</div>
+        </div>
+      </>
+    );
+  }
+
+  if (error && !message) {
+    return (
+      <>
+        <style>{base44Styles}</style>
+        <div className="error-state">
+          <div className="font-semibold mb-2">Error loading message</div>
+          <div className="text-sm">{error}</div>
+          <button onClick={() => navigate('/messages')} className="btn-secondary mt-4">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Messages
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (!message) {
+    return (
+      <>
+        <style>{base44Styles}</style>
+        <div className="loading-state">
+          Message not found
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <style>{base44Styles}</style>
+      <div className="message-detail-container">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/messages")}
-              className="detail-button"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <h1 className="text-2xl font-bold">Message Details</h1>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {message.status === "new" && (
-              <button
-                onClick={() => updateStatus("handled")}
-                disabled={updating}
-                className="detail-button detail-button-success"
-              >
-                <CheckCircle className="w-4 h-4" />
-                Mark as Answered
-              </button>
-            )}
-            {message.email && (
-              <button
-                onClick={handleEmailReply}
-                className="detail-button detail-button-primary"
-              >
-                <Mail className="w-4 h-4" />
-                Reply via Email
-              </button>
-            )}
-            {message.phone && (
-              <button
-                onClick={handleWhatsAppReply}
-                className="detail-button detail-button-primary"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Reply via WhatsApp
-              </button>
-            )}
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="detail-button detail-button-danger"
-              title="Delete message"
-            >
-              <Trash2 className="w-4 h-4" />
-              {deleting ? 'Deleting...' : 'Delete'}
-            </button>
+        <div className="message-header">
+          <button onClick={() => navigate('/messages')} className="btn-back">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="message-title-section">
+            <h1 className="message-title">
+              Message Details
+              <span className={`status-badge status-${message.status}`}>
+                {message.status === "new" ? "Unanswered" : "Answered"}
+              </span>
+            </h1>
+            <p className="message-date">
+              Received on {formatDate(message.created_at)}
+            </p>
           </div>
         </div>
 
-        {/* Main Details Card */}
-        <div className="detail-card space-y-6">
-          {/* Status and Date */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div className="detail-label">Status</div>
-              <div>
-                <span className={`status-badge status-${message.status}`}>
-                  {message.status === "new" ? "Unanswered" : "Answered"}
-                </span>
-              </div>
-            </div>
-            <div>
-              <div className="detail-label">Received</div>
-              <div className="detail-value">{formatDate(message.created_at)}</div>
-            </div>
-          </div>
+        <div className="action-buttons">
+          {message.status === "new" && (
+            <button
+              onClick={() => updateStatus("handled")}
+              disabled={updating}
+              className="btn-primary"
+            >
+              <CheckCircle size={18} />
+              {updating ? 'Updating...' : 'Mark as Answered'}
+            </button>
+          )}
+          {message.email && (
+            <button
+              onClick={handleEmailReply}
+              className="btn-primary"
+            >
+              <Mail size={18} />
+              Reply via Email
+            </button>
+          )}
+          {message.phone && (
+            <button
+              onClick={handleWhatsAppReply}
+              className="btn-primary"
+            >
+              <MessageCircle size={18} />
+              Reply via WhatsApp
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="btn-danger"
+            title="Delete message"
+          >
+            <Trash2 size={18} />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
 
-          {/* Contact Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="detail-label">Name</div>
-              <div className="detail-value font-semibold">{message.name || "-"}</div>
+        {/* Contact Information */}
+        <div className="section-card">
+          <h3 className="section-title">
+            Contact Information
+          </h3>
+          <div className="info-grid">
+            <div className="info-item">
+              <div className="info-label">Name</div>
+              <div className="info-value">{message.name || "-"}</div>
             </div>
-            <div>
-              <div className="detail-label">Email</div>
-              <div className="detail-value">
+            <div className="info-item">
+              <div className="info-label">Email</div>
+              <div className="info-value">
                 {message.email ? (
-                  <a href={`mailto:${message.email}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                  <a href={`mailto:${message.email}`} className="info-link">
                     {message.email}
                   </a>
                 ) : "-"}
               </div>
             </div>
-            <div>
-              <div className="detail-label">Phone</div>
-              <div className="detail-value">
+            <div className="info-item">
+              <div className="info-label">Phone</div>
+              <div className="info-value">
                 {message.phone ? (
-                  <a href={`tel:${message.phone}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                  <a href={`tel:${message.phone}`} className="info-link">
                     {message.phone}
                   </a>
                 ) : "-"}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Subject */}
-          {message.subject && (
-            <div>
-              <div className="detail-label">Subject</div>
-              <div className="detail-value font-semibold text-lg">{message.subject}</div>
-            </div>
-          )}
-
-          {/* Message */}
-          <div>
-            <div className="detail-label">Message</div>
-            <div className="message-text">{message.message || "(No message content)"}</div>
+        {/* Subject and Message */}
+        {message.subject && (
+          <div className="section-card">
+            <h3 className="section-title">Subject</h3>
+            <div className="info-value" style={{ fontSize: '18px' }}>{message.subject}</div>
           </div>
+        )}
 
-          {/* Images */}
-          {message.images && Array.isArray(message.images) && message.images.length > 0 && (
-            <div>
-              <div className="detail-label">Images ({message.images.length})</div>
-              <div className="image-gallery">
-                {message.images.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                    <img src={url} alt={`Attachment ${i + 1}`} className="image-item" />
-                  </a>
-                ))}
-              </div>
+        <div className="section-card">
+          <h3 className="section-title">Message</h3>
+          <div className="message-content">{message.message || "(No message content)"}</div>
+        </div>
+
+        {/* Images */}
+        {message.images && Array.isArray(message.images) && message.images.length > 0 && (
+          <div className="section-card">
+            <h3 className="section-title">Images ({message.images.length})</h3>
+            <div className="image-gallery">
+              {message.images.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                  <img src={url} alt={`Attachment ${i + 1}`} className="image-item" />
+                </a>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Additional Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
-            <div>
-              <div className="detail-label">Source</div>
-              <div className="detail-value">{message.source || "website"}</div>
+        {/* Additional Information */}
+        <div className="section-card">
+          <h3 className="section-title">Additional Information</h3>
+          <div className="info-grid">
+            <div className="info-item">
+              <div className="info-label">Source</div>
+              <div className="info-value">{message.source || "website"}</div>
             </div>
             {message.product_slug && (
-              <div>
-                <div className="detail-label">Product</div>
-                <div className="detail-value">{message.product_slug}</div>
+              <div className="info-item">
+                <div className="info-label">Product</div>
+                <div className="info-value">{message.product_slug}</div>
               </div>
             )}
             {message.order_id && (
-              <div>
-                <div className="detail-label">Order ID</div>
-                <div className="detail-value">{message.order_id}</div>
+              <div className="info-item">
+                <div className="info-label">Order ID</div>
+                <div className="info-value">{message.order_id}</div>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Status Update Dropdown */}
-          <div className="pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
-            <div className="detail-label">Update Status</div>
-            <select
-              value={message.status}
-              onChange={(e) => updateStatus(e.target.value)}
-              disabled={updating}
-              className="detail-button"
-              style={{ width: 'auto', minWidth: '200px' }}
-            >
-              <option value="new">Unanswered</option>
-              <option value="handled">Answered</option>
-            </select>
-          </div>
+        {/* Status Update */}
+        <div className="section-card">
+          <h3 className="section-title">Update Status</h3>
+          <select
+            value={message.status}
+            onChange={(e) => updateStatus(e.target.value)}
+            disabled={updating}
+            className="status-select"
+          >
+            <option value="new">Unanswered</option>
+            <option value="handled">Answered</option>
+          </select>
         </div>
       </div>
-    </div>
+    </>
   );
 }
