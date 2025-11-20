@@ -1,19 +1,31 @@
-// netlify/functions/admin-contacts.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-export const handler: Handler = async (e) => {
-  const url = new URL(e.rawUrl);
-  // We can support basic filtering if needed, but instructions say frontend handles sort/search
-  // However, we might want to support 'source' filter if the UI sends it.
-  
-  let q = s.from("contacts").select("*").order("created_at", { ascending: false });
+export const handler: Handler = async (event) => {
+  try {
+    // Fetch from the CORRECT 'contacts' table
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  const { data, error } = await q;
+    if (error) throw error;
 
-  if (error) return { statusCode: 500, body: error.message };
-
-  return { statusCode: 200, body: JSON.stringify({ data }) };
+    return {
+      statusCode: 200,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify(data)
+    };
+  } catch (e: any) {
+    console.error("Fetch Contacts Error:", e);
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: e.message || "Failed to fetch contacts" }) 
+    };
+  }
 };
