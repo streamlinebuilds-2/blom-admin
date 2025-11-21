@@ -280,6 +280,7 @@ export default function Specials() {
   const activeSpecials = specialsSafe.filter(s => s?.status === 'active');
   const scheduledSpecials = specialsSafe.filter(s => s?.status === 'scheduled');
   const expiredSpecials = specialsSafe.filter(s => s?.status === 'expired');
+  const allSpecials = specialsSafe; // All specials for management
 
   const saving = activateMutation.isPending;
 
@@ -763,7 +764,7 @@ export default function Specials() {
           className={`tab ${activeTab === 'active' ? 'active' : ''}`}
           onClick={() => setActiveTab('active')}
         >
-          Active ({activeSpecials.length})
+          All Specials ({allSpecials.length})
         </button>
         <button
           className={`tab ${activeTab === 'scheduled' ? 'active' : ''}`}
@@ -1072,19 +1073,36 @@ export default function Specials() {
 
       {activeTab === 'active' && (
         <div className="specials-list">
-          {activeSpecials.length === 0 ? (
-            <div className="empty-state">No active specials</div>
+          {allSpecials.length === 0 ? (
+            <div className="empty-state">No specials created yet</div>
           ) : (
-            activeSpecials.map(special => (
+            allSpecials.map(special => (
               <div key={special.id} className="special-card">
                 <div className="special-header">
                   <div className="special-title">{special.title}</div>
-                  <div className="special-badge badge-active">Active</div>
+                  <div className={`special-badge ${
+                    special.status === 'active' ? 'badge-active' : 
+                    special.status === 'scheduled' ? 'badge-scheduled' : 'badge-expired'
+                  }`}>
+                    {special.status.charAt(0).toUpperCase() + special.status.slice(1)}
+                  </div>
                 </div>
                 <div className="special-details">
                   <div>Scope: {special.scope}</div>
                   <div>Discount: {special.discount_type} - {special.discount_value}{special.discount_type === 'percent' ? '%' : 'R'}</div>
+                  <div>Starts: {dateTime(special.starts_at)}</div>
                   <div>Ends: {dateTime(special.ends_at)}</div>
+                  <div>Created: {dateTime(special.created_at)}</div>
+                </div>
+                <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+                  <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+                    <Edit className="w-4 h-4 inline mr-2" />
+                    Edit
+                  </button>
+                  <button className="action-btn delete" style={{ padding: '8px 16px', fontSize: '14px' }}>
+                    <Trash2 className="w-4 h-4 inline mr-2" />
+                    Delete
+                  </button>
                 </div>
               </div>
             ))
