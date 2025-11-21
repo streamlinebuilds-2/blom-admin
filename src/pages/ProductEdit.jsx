@@ -417,10 +417,17 @@ export default function ProductEdit() {
         if (typeof item === "string") {
           return item.trim() ? { name: item.trim(), image: "" } : null;
         }
-        return (item?.name?.trim() || item?.image?.trim()) ? {
-          name: item.name?.trim() || "",
-          image: item.image?.trim() || ""
-        } : null;
+        // Allow variants that have at least a name (image is optional)
+        const name = item?.name?.trim() || "";
+        const image = item?.image?.trim() || "";
+        
+        // Only filter out completely empty variants (no name AND no image)
+        if (!name && !image) return null;
+        
+        return {
+          name: name,
+          image: image
+        };
       })
       .filter(Boolean);
   }, [form.variants]);
