@@ -17,18 +17,11 @@ import Reviews from './pages/Reviews';
 import Messages from './pages/Messages';
 import Contacts from './pages/Contacts';
 import Analytics from './pages/Analytics';
-import Settings from './pages/Settings';
 import SupabaseDebug from './pages/SupabaseDebug';
-import GeneralSettings from './pages/GeneralSettings';
-import BrandingSettings from './pages/BrandingSettings';
-import UserSettings from './pages/UserSettings';
-import IntegrationsSettings from './pages/IntegrationsSettings';
-import NotificationsSettings from './pages/NotificationsSettings';
 import MessageDetail from './pages/MessageDetail';
 import MessageIntake from './pages/MessageIntake';
 import ReviewDetail from './pages/ReviewDetail';
 import ReviewIntake from './pages/ReviewIntake';
-import ShippingSettings from './pages/ShippingSettings';
 import DebugData from './pages/DebugData';
 import Layout from './Layout.jsx';
 
@@ -53,18 +46,11 @@ export const PAGES = {
     "Messages": Messages,
     "Contacts": Contacts,
     "Analytics": Analytics,
-    "Settings": Settings,
     "SupabaseDebug": SupabaseDebug,
-    "GeneralSettings": GeneralSettings,
-    "BrandingSettings": BrandingSettings,
-    "UserSettings": UserSettings,
-    "IntegrationsSettings": IntegrationsSettings,
-    "NotificationsSettings": NotificationsSettings,
     "MessageDetail": MessageDetail,
     "MessageIntake": MessageIntake,
     "ReviewDetail": ReviewDetail,
     "ReviewIntake": ReviewIntake,
-    "ShippingSettings": ShippingSettings,
     "DebugData": DebugData,
 }
 
