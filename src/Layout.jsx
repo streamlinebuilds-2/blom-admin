@@ -78,16 +78,7 @@ const navigationGroups = [
   {
     title: "Analytics",
     items: [
-      { name: "Analytics", url: "Analytics", icon: BarChart3 },
-      { name: "Finance", url: "finance", icon: DollarSign }
-    ]
-  },
-  {
-    title: "Settings",
-    items: [
-      { name: "General", url: "GeneralSettings", icon: Settings },
-      { name: "Users", url: "UserSettings", icon: Users },
-      { name: "Shipping", url: "ShippingSettings", icon: Truck }
+      { name: "Analytics", url: "Analytics", icon: BarChart3 }
     ]
   }
 ];
@@ -114,7 +105,7 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
           {group.items.map(item => (
             <Link
               key={item.url}
-              to={item.url === "Orders" ? "/orders" : item.url === "finance" ? "/finance" : item.url === "featured" ? "/featured" : createPageUrl(item.url)}
+              to={item.url === "Orders" ? "/orders" : item.url === "featured" ? "/featured" : createPageUrl(item.url)}
               className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
               onClick={onNavClick}
             >
