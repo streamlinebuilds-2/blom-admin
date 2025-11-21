@@ -79,6 +79,39 @@ const ensureList = (value) => {
   return [""];
 };
 
+// Helper function to validate image URLs
+const isValidImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  
+  // Check if it's a valid URL format
+  try {
+    new URL(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Helper function to determine if an image is from Cloudinary
+const isCloudinaryImage = (url) => {
+  return url && typeof url === 'string' && url.includes('res.cloudinary.com');
+};
+
+// Helper function to clean and validate image URLs before saving
+const sanitizeImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  
+  // Only return URLs that are valid
+  if (isValidImageUrl(trimmed)) {
+    return trimmed;
+  }
+  return '';
+};
+
 export default function ProductEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -102,18 +135,37 @@ export default function ProductEdit() {
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      { method: 'POST', body: formData }
-    );
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok || data.error || !data.secure_url) {
-      throw new Error(data.error?.message || 'Upload failed');
+      // Validate response
+      if (!response.ok) {
+        throw new Error(data.error?.message || `Upload failed with status ${response.status}`);
+      }
+
+      if (data.error) {
+        throw new Error(data.error.message || 'Cloudinary returned an error');
+      }
+
+      if (!data.secure_url) {
+        throw new Error('No secure URL returned from Cloudinary');
+      }
+
+      // Validate the URL is actually from Cloudinary
+      if (!data.secure_url.includes('res.cloudinary.com')) {
+        throw new Error('Invalid URL format received');
+      }
+
+      return data.secure_url;
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      throw error;
     }
-
-    return data.secure_url;
   };
 
   const handleVariantImageUpload = async (index, file) => {
@@ -509,8 +561,12 @@ export default function ProductEdit() {
       nextErrors.inventory_quantity = "Inventory must be zero or greater";
     }
 
-    if (images.length === 0) {
-      nextErrors.images = "Add at least one product image";
+    // Validate images - allow either main image or at least one valid image
+    const mainImageValid = isValidImageUrl(form.thumbnail_url?.trim());
+    const hoverImageValid = isValidImageUrl(form.hover_url?.trim());
+    
+    if (!mainImageValid && !hoverImageValid) {
+      nextErrors.images = "Add at least one valid product image";
     }
 
     setErrors(nextErrors);
@@ -554,8 +610,8 @@ export default function ProductEdit() {
       short_description: form.short_description,
       overview: form.overview,
       description: form.overview,
-      thumbnail_url: form.thumbnail_url?.trim() || "",
-      hover_url: form.hover_url?.trim() || "",
+      thumbnail_url: sanitizeImageUrl(form.thumbnail_url),
+      hover_url: sanitizeImageUrl(form.hover_url),
       gallery_urls: [],
       variants,
       features,
@@ -1152,17 +1208,27 @@ export default function ProductEdit() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         try {
-                          showToast('info', 'Uploading...');
+                          showToast('info', 'Uploading to Cloudinary...');
                           const url = await uploadToCloudinary(file);
                           update("thumbnail_url", url);
-                          showToast('success', 'Image uploaded');
+                          showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {
-                          showToast('error', 'Upload failed');
+                          showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
                         }
                       }}
                     />
                   </label>
                 </div>
+                {form.thumbnail_url && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                    {isCloudinaryImage(form.thumbnail_url) ? (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded">☁️ Cloudinary</span>
+                    ) : (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">🔗 External</span>
+                    )}
+                    <span>Image URL: {form.thumbnail_url.substring(0, 60)}{form.thumbnail_url.length > 60 ? '...' : ''}</span>
+                  </div>
+                )}
                 <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
                 {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
               </div>
@@ -1189,17 +1255,27 @@ export default function ProductEdit() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         try {
-                          showToast('info', 'Uploading...');
+                          showToast('info', 'Uploading to Cloudinary...');
                           const url = await uploadToCloudinary(file);
                           update("hover_url", url);
-                          showToast('success', 'Image uploaded');
+                          showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {
-                          showToast('error', 'Upload failed');
+                          showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
                         }
                       }}
                     />
                   </label>
                 </div>
+                {form.hover_url && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                    {isCloudinaryImage(form.hover_url) ? (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded">☁️ Cloudinary</span>
+                    ) : (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">🔗 External</span>
+                    )}
+                    <span>Image URL: {form.hover_url.substring(0, 60)}{form.hover_url.length > 60 ? '...' : ''}</span>
+                  </div>
+                )}
                 <small className="text-xs text-[var(--text-muted)]">Shows when customer hovers over product</small>
               </div>
             </div>
