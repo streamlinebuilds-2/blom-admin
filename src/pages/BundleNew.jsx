@@ -851,6 +851,58 @@ export default function BundleNew() {
                 <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
                 {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
               </div>
+              
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
+                  Hover Image URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="hover_url"
+                    type="url"
+                    className="product-form-input flex-1"
+                    value={form.hover_url}
+                    onChange={(event) => update("hover_url", event.target.value)}
+                    placeholder="https://example.com/hover-image.jpg"
+                  />
+                  <label className="product-btn-secondary cursor-pointer">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          showToast('info', 'Uploading hover image...');
+                          const url = await uploadToCloudinary(file);
+                          update("hover_url", url);
+                          showToast('success', 'Hover image uploaded');
+                        } catch (err) {
+                          showToast('error', 'Upload failed');
+                        }
+                      }}
+                    />
+                  </label>
+                  {form.hover_url && (
+                    <div style={{ maxWidth: '60px', maxHeight: '60px' }}>
+                      <img 
+                        src={form.hover_url} 
+                        alt="Hover preview" 
+                        style={{ 
+                          width: '60px', 
+                          height: '60px', 
+                          objectFit: 'cover', 
+                          borderRadius: '8px',
+                          border: '2px solid var(--border)'
+                        }} 
+                      />
+                    </div>
+                  )}
+                </div>
+                <small className="text-xs text-[var(--text-muted)]">Optional hover image for product cards</small>
+              </div>
             </div>
           </section>
 
