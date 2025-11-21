@@ -678,14 +678,11 @@ export default function BundleNew() {
                   required
                 >
                   <option value="">Select product...</option>
-                  {allProducts
-                    .filter(p => p.product_type !== 'bundle')
-                    .map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} - R{product.price}
-                      </option>
-                    ))
-                  }
+                  {allProducts.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - R{product.price}
+                    </option>
+                  ))}
                 </select>
 
                 <input
@@ -848,6 +845,21 @@ export default function BundleNew() {
                       }}
                     />
                   </label>
+                  {form.thumbnail_url && (
+                    <div style={{ maxWidth: '60px', maxHeight: '60px' }}>
+                      <img 
+                        src={form.thumbnail_url} 
+                        alt="Thumbnail preview" 
+                        style={{ 
+                          width: '60px', 
+                          height: '60px', 
+                          objectFit: 'cover', 
+                          borderRadius: '8px',
+                          border: '2px solid var(--border)'
+                        }} 
+                      />
+                    </div>
+                  )}
                 </div>
                 <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
                 {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
