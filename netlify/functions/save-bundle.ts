@@ -87,7 +87,9 @@ export const handler: Handler = async (event) => {
       
       short_desc: payload.short_description || payload.short_desc || '',
       long_desc: payload.overview || payload.long_desc || '',
-      images: payload.gallery_urls || payload.images || [],
+      images: payload.images || payload.gallery_urls || [],
+      gallery_urls: payload.gallery_urls || payload.images || [],
+      thumbnail_url: payload.thumbnail_url || '',
       hover_image: payload.hover_url || payload.hover_image || null,
       
       // The components - saved as JSONB array in bundles table as well for easier access

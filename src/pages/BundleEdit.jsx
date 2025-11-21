@@ -149,38 +149,41 @@ export default function BundleEdit() {
         }
 
         if (bundle) {
-          // Map bundles table columns to form fields
-          const images = Array.isArray(bundle.images) ? bundle.images : [];
+          // Map bundles table columns to form fields properly
+          const bundleImages = Array.isArray(bundle.images) ? bundle.images : [];
+          const galleryUrls = Array.isArray(bundle.gallery_urls) ? bundle.gallery_urls : [];
+          const allImages = [...bundleImages, ...galleryUrls];
+          
           setForm({
             id: bundle.id,
             name: bundle.name || '',
             slug: bundle.slug || '',
-            sku: generateSKU(), // Bundles table doesn't have SKU
-            category: 'Bundle Deals',
+            sku: bundle.sku || generateSKU(),
+            category: bundle.category || 'Bundle Deals',
             status: bundle.status || 'active',
             price: bundle.price_cents ? (bundle.price_cents / 100).toString() : '',
             compare_at_price: bundle.compare_at_price_cents ? (bundle.compare_at_price_cents / 100).toString() : '',
-            weight: '',
-            barcode: '',
+            weight: bundle.weight || '',
+            barcode: bundle.barcode || '',
             short_description: bundle.short_desc || '',
             overview: bundle.long_desc || '',
-            thumbnail_url: images[0] || '',
+            thumbnail_url: bundle.thumbnail_url || bundleImages[0] || '',
             hover_url: bundle.hover_image || '',
-            gallery_urls: images.length > 0 ? images : [''],
-            variants: [{ label: "", image: "" }],
-            features: [''],
-            how_to_use: [''],
-            inci_ingredients: [''],
-            key_ingredients: [''],
-            size: '',
-            shelf_life: '',
-            claims: [''],
-            meta_title: '',
-            meta_description: '',
-            is_active: bundle.status === 'active',
-            is_featured: false,
-            badges: [''],
-            related: [''],
+            gallery_urls: allImages.length > 0 ? allImages : [''],
+            variants: Array.isArray(bundle.variants) ? bundle.variants : [{ label: "", image: "" }],
+            features: Array.isArray(bundle.features) ? bundle.features : [''],
+            how_to_use: Array.isArray(bundle.how_to_use) ? bundle.how_to_use : [''],
+            inci_ingredients: Array.isArray(bundle.inci_ingredients) ? bundle.inci_ingredients : [''],
+            key_ingredients: Array.isArray(bundle.key_ingredients) ? bundle.key_ingredients : [''],
+            size: bundle.size || '',
+            shelf_life: bundle.shelf_life || '',
+            claims: Array.isArray(bundle.claims) ? bundle.claims : [''],
+            meta_title: bundle.meta_title || '',
+            meta_description: bundle.meta_description || '',
+            is_active: bundle.is_active !== false,
+            is_featured: bundle.is_featured || false,
+            badges: Array.isArray(bundle.badges) ? bundle.badges : [''],
+            related: Array.isArray(bundle.related) ? bundle.related : [''],
             bundle_products: bundleProducts,
           });
         }
@@ -1135,6 +1138,21 @@ export default function BundleEdit() {
                       }}
                     />
                   </label>
+                  {form.thumbnail_url && (
+                    <div style={{ maxWidth: '60px', maxHeight: '60px' }}>
+                      <img 
+                        src={form.thumbnail_url} 
+                        alt="Thumbnail preview" 
+                        style={{ 
+                          width: '60px', 
+                          height: '60px', 
+                          objectFit: 'cover', 
+                          borderRadius: '8px',
+                          border: '2px solid var(--border)'
+                        }} 
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               

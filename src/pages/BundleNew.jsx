@@ -79,6 +79,7 @@ export default function BundleNew() {
         .from('products')
         .select('id, name, price, product_type')
         .eq('is_active', true)
+        .neq('product_type', 'bundle') // Exclude bundles from product selection
         .order('name');
       setAllProducts(data || []);
     }
