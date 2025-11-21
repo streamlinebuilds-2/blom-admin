@@ -1,4 +1,3 @@
-s
 import React, { useState, useMemo } from "react";
 import { Sparkles, Plus, Calendar, Target, TrendingDown, Edit, Trash2, TrendingUp, X, Search, Tag } from "lucide-react";
 import { moneyZAR, dateTime } from "../components/formatUtils";
