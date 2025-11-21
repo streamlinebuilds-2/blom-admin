@@ -22,14 +22,14 @@ export function useActiveSpecials() {
   const getDisplayPriceCents = (kind, id, baseCents) => {
     // Find applicable special: scoped first, then sitewide
     const scoped = activeSpecials.find(s => 
-      s.scope === kind && s.ref_id === id
+      s.scope === kind && Array.isArray(s.target_ids) && s.target_ids.includes(id)
     );
     const sitewide = activeSpecials.find(s => s.scope === 'sitewide');
     
     const special = scoped || sitewide;
     if (!special) return baseCents;
 
-    return calcSpecialPrice(baseCents, special.discount_type, special.value);
+    return calcSpecialPrice(baseCents, special.discount_type, special.discount_value);
   };
 
   return {
