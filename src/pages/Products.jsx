@@ -77,6 +77,25 @@ export default function Products() {
     const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
     return matchesSearch && matchesStatus;
+  }).sort((a, b) => {
+    // When viewing all status, prioritize active products over archived ones
+    if (statusFilter === 'all') {
+      // Define priority order: active > draft > archived
+      const statusPriority = { 'active': 0, 'draft': 1, 'archived': 2 };
+      const aPriority = statusPriority[a.status] ?? 999;
+      const bPriority = statusPriority[b.status] ?? 999;
+      
+      // Sort by status priority first
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // If same status, sort by updated date (newest first)
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    }
+    
+    // For specific status filters, just sort by updated date (newest first)
+    return new Date(b.updated_at) - new Date(a.updated_at);
   });
 
   return (
