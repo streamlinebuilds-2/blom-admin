@@ -31,13 +31,14 @@ export default function Stock() {
   const [searchTerm, setSearchTerm] = useState('');
   const { showToast } = useToast();
 
-  // Fetch ALL products including draft and archived for management
+  // Fetch only ACTIVE products for stock management
   const { data: products, isLoading } = useQuery({
     queryKey: ['products-stock'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
         .select('id, name, stock, category, stock_type, cost_price_cents, variants, status')
+        .eq('status', 'active')
         .order('name');
 
       if (error) throw error;
