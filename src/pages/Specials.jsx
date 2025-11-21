@@ -29,7 +29,6 @@ const normalizeCouponType = (type) => {
 };
 
 export default function Specials() {
-  const [activeTab, setActiveTab] = useState("coupons");
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -167,8 +166,14 @@ export default function Specials() {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('🎉 Special created successfully, refreshing data...');
+      console.log('Created special:', result);
+      
+      // Force refresh all related queries
       queryClient.invalidateQueries({ queryKey: ['specials'] });
+      queryClient.refetchQueries({ queryKey: ['specials'] });
+      
       showToast('success', 'Special activated successfully');
       setFormData({
         title: "",
@@ -766,48 +771,12 @@ export default function Specials() {
 
       <div className="specials-header">
         <h1 className="header-title">
-          <Sparkles className="w-8 h-8" />
-          Specials & Promotions
+          <Tag className="w-8 h-8" />
+          Coupons
         </h1>
       </div>
 
-      <div className="tabs">
-        <button
-          className={`tab ${activeTab === 'coupons' ? 'active' : ''}`}
-          onClick={() => setActiveTab('coupons')}
-        >
-          <Tag className="w-4 h-4 inline mr-2" />
-          Coupons ({coupons.length})
-        </button>
-        <button
-          className={`tab ${activeTab === 'create' ? 'active' : ''}`}
-          onClick={() => setActiveTab('create')}
-        >
-          <Plus className="w-4 h-4 inline mr-2" />
-          Create Special
-        </button>
-        <button
-          className={`tab ${activeTab === 'active' ? 'active' : ''}`}
-          onClick={() => setActiveTab('active')}
-        >
-          All Specials ({allItems.length})
-        </button>
-        <button
-          className={`tab ${activeTab === 'scheduled' ? 'active' : ''}`}
-          onClick={() => setActiveTab('scheduled')}
-        >
-          Scheduled ({scheduledSpecials.length})
-        </button>
-        <button
-          className={`tab ${activeTab === 'expired' ? 'active' : ''}`}
-          onClick={() => setActiveTab('expired')}
-        >
-          Expired ({expiredSpecials.length})
-        </button>
-      </div>
-
-      {/* COUPONS TAB */}
-      {activeTab === 'coupons' && (
+      {/* COUPONS CONTENT */}
         <div>
           <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             <button className="btn-activate" onClick={handleAddNewCoupon}>
@@ -947,259 +916,6 @@ export default function Specials() {
             )}
           </div>
         </div>
-      )}
-
-      {activeTab === 'create' && (
-        <div className="create-form">
-          <div className="form-group">
-            <label className="form-label">Promotion Title *</label>
-            <input
-              type="text"
-              className="form-input"
-              value={formData.title}
-              onChange={(e) => updateField('title', e.target.value)}
-              placeholder="e.g., Summer Sale 2024"
-            />
-          </div>
-
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Starts At *</label>
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={formData.starts_at}
-                onChange={(e) => updateField('starts_at', e.target.value)}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Ends At *</label>
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={formData.ends_at}
-                onChange={(e) => updateField('ends_at', e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Scope *</label>
-              <select
-                className="form-select"
-                value={formData.scope}
-                onChange={(e) => updateField('scope', e.target.value)}
-              >
-                <option value="product">Products</option>
-                <option value="bundle">Bundles</option>
-                <option value="sitewide">Sitewide</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Discount Type *</label>
-              <select
-                className="form-select"
-                value={formData.discount_type}
-                onChange={(e) => updateField('discount_type', e.target.value)}
-              >
-                <option value="percent">Percentage Off</option>
-                <option value="amount_off">Amount Off (R)</option>
-                <option value="fixed_price">Fixed Price (R)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Discount Value *</label>
-            <input
-              type="number"
-              className="form-input"
-              value={formData.discount_value}
-              onChange={(e) => updateField('discount_value', e.target.value)}
-              placeholder={formData.discount_type === 'percent' ? '10' : '50.00'}
-              step="0.01"
-            />
-          </div>
-
-          {formData.scope !== 'sitewide' && (
-            <div className="form-group">
-              <label className="form-label">
-                Select {formData.scope === 'product' ? 'Products' : 'Bundles'} *
-              </label>
-              {getTargets().length === 0 ? (
-                 <div className="text-sm text-gray-500 mt-2">No {formData.scope === 'product' ? 'products' : 'bundles'} available or active.</div>
-              ) : (
-                <div className="targets-grid">
-                  {getTargets().map(target => (
-                    <div
-                      key={target.id}
-                      className={`target-card ${formData.target_ids.includes(target.id) ? 'selected' : ''}`}
-                      onClick={() => toggleTarget(target.id)}
-                    >
-                      <input
-                        type="checkbox"
-                        className="target-checkbox"
-                        checked={formData.target_ids.includes(target.id)}
-                        onChange={() => {}}
-                      />
-                      <div className="target-name">{target.name}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {selectedTargets.length > 0 && formData.discount_value !== "" && !isNaN(parseFloat(formData.discount_value)) && (
-            <div className="preview-section">
-              <h3 className="preview-title">
-                <TrendingDown className="w-5 h-5 inline mr-2" />
-                Price Impact Preview
-              </h3>
-              <div className="preview-grid">
-                {selectedTargets.map(target => {
-                  const oldPriceCents = target.price_cents || 0;
-                  const newPriceCents = calcSpecialPrice(
-                    oldPriceCents,
-                    formData.discount_type,
-                    parseFloat(formData.discount_value)
-                  );
-                  const savings = oldPriceCents > 0 ? Math.round(((oldPriceCents - newPriceCents) / oldPriceCents) * 100) : 0;
-
-                  return (
-                    <div key={target.id} className="preview-item">
-                      <div className="preview-item-name">{target.name}</div>
-                      <div className="preview-prices">
-                        <div className="preview-old-price">{moneyZAR(oldPriceCents)}</div>
-                        <div className="preview-new-price">{moneyZAR(newPriceCents)}</div>
-                        {savings > 0 && (
-                          <div className="preview-savings">Save {savings}%</div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <button
-            className="btn-activate"
-            onClick={handleActivate}
-            disabled={saving}
-          >
-            <Sparkles className="w-5 h-5" />
-            {saving ? 'Activating...' : 'Activate Special'}
-          </button>
-        </div>
-      )}
-
-      {activeTab === 'active' && (
-        <div className="specials-list">
-          {allItems.length === 0 ? (
-            <div className="empty-state">No specials or coupons created yet</div>
-          ) : (
-            allItems.map(item => (
-              <div key={item.id} className="special-card">
-                <div className="special-header">
-                  <div className="special-title">
-                    {item.type === 'special' ? item.title : `Coupon: ${item.code}`}
-                  </div>
-                  <div className={`special-badge ${
-                    item.type === 'special' 
-                      ? (item.status === 'active' ? 'badge-active' : 
-                         item.status === 'scheduled' ? 'badge-scheduled' : 'badge-expired')
-                      : (item.status === 'active' ? 'badge-active' : 'badge-inactive')
-                  }`}>
-                    {item.type === 'special' 
-                      ? item.status.charAt(0).toUpperCase() + item.status.slice(1)
-                      : 'Coupon'
-                    }
-                  </div>
-                </div>
-                <div className="special-details">
-                  {item.type === 'special' ? (
-                    <>
-                      <div>Type: Special</div>
-                      <div>Scope: {item.scope}</div>
-                      <div>Discount: {item.discount_type} - {item.discount_value}{item.discount_type === 'percent' ? '%' : 'R'}</div>
-                      <div>Starts: {dateTime(item.starts_at)}</div>
-                      <div>Ends: {dateTime(item.ends_at)}</div>
-                      <div>Created: {dateTime(item.created_at)}</div>
-                    </>
-                  ) : (
-                    <>
-                      <div>Type: Coupon</div>
-                      <div>Value: {item.type === 'percentage' ? `${item.value}%` : `R${Number(item.value).toFixed(2)}`}</div>
-                      <div>Usage: {item.used_count || 0} / {item.max_uses || '∞'}</div>
-                      <div>Min Spend: {formatRands(item.min_order_cents)}</div>
-                      <div>Valid Until: {item.valid_until ? new Date(item.valid_until).toLocaleDateString() : 'No expiry'}</div>
-                    </>
-                  )}
-                </div>
-                <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
-                  <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-                    <Edit className="w-4 h-4 inline mr-2" />
-                    Edit
-                  </button>
-                  <button 
-                    className="action-btn delete" 
-                    style={{ padding: '8px 16px', fontSize: '14px' }}
-                    onClick={() => item.type === 'special' ? null : handleDeleteCoupon(item.id)}
-                  >
-                    <Trash2 className="w-4 h-4 inline mr-2" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {activeTab === 'scheduled' && (
-        <div className="specials-list">
-          {scheduledSpecials.length === 0 ? (
-            <div className="empty-state">No scheduled specials</div>
-          ) : (
-            scheduledSpecials.map(special => (
-              <div key={special.id} className="special-card">
-                <div className="special-header">
-                  <div className="special-title">{special.title}</div>
-                  <div className="special-badge badge-scheduled">Scheduled</div>
-                </div>
-                <div className="special-details">
-                  <div>Starts: {dateTime(special.starts_at)}</div>
-                  <div>Ends: {dateTime(special.ends_at)}</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {activeTab === 'expired' && (
-        <div className="specials-list">
-          {expiredSpecials.length === 0 ? (
-            <div className="empty-state">No expired specials</div>
-          ) : (
-            expiredSpecials.map(special => (
-              <div key={special.id} className="special-card">
-                <div className="special-header">
-                  <div className="special-title">{special.title}</div>
-                  <div className="special-badge badge-expired">Expired</div>
-                </div>
-                <div className="special-details">
-                  <div>Ended: {dateTime(special.ends_at)}</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
     </>
   );
 }
