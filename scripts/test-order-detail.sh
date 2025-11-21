@@ -10,7 +10,7 @@ echo "Order ID: $ORDER_ID"
 echo ""
 
 # Test what the admin panel would call
-curl -s "https://blom-admin-1.netlify.app/.netlify/functions/admin-order?id=${ORDER_ID}" | jq '.'
+curl -s "https://blom-cosmetics.co.za/.netlify/functions/admin-order?id=${ORDER_ID}" | jq '.'
 
 echo ""
 echo "========================================"

@@ -6,7 +6,7 @@
  */
 
 async function createSpecialsTable() {
-  const BASE_URL = 'https://blom-admin-6v2m4d7b3.streamlinebuilds-2.netlify.app';
+  const BASE_URL = 'https://blom-cosmetics.co.za';
   const FUNCTION_URL = `${BASE_URL}/.netlify/functions/admin-db-operation`;
 
   console.log('🔧 Creating specials table with correct schema...\n');
