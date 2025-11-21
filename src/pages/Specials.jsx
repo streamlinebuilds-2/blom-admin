@@ -129,12 +129,15 @@ export default function Specials() {
   // Special/Promotion mutation
   const activateMutation = useMutation({
     mutationFn: async (data) => {
+      console.log('🔄 Creating special with data:', data);
+      
       const discountValueNum = parseFloat(data.discount_value);
       if (isNaN(discountValueNum)) {
         throw new Error('Discount value must be a valid number.');
       }
 
       const payload = { ...data, discount_value: discountValueNum, status: 'active' };
+      console.log('📦 Final payload for API:', payload);
 
       const webhookUrl = import.meta.env.VITE_SPECIALS_WEBHOOK;
       if (webhookUrl) {
@@ -152,7 +155,17 @@ export default function Specials() {
           console.warn('Webhook call failed:', err);
         }
       }
-      return await api.upsertSpecial(payload);
+      
+      try {
+        console.log('🚀 Calling api.upsertSpecial...');
+        const result = await api.upsertSpecial(payload);
+        console.log('✅ Special created successfully:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ Special creation failed:', error);
+        console.error('Error details:', error.message, error.stack);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['specials'] });
@@ -281,6 +294,19 @@ export default function Specials() {
   const scheduledSpecials = specialsSafe.filter(s => s?.status === 'scheduled');
   const expiredSpecials = specialsSafe.filter(s => s?.status === 'expired');
   const allSpecials = specialsSafe; // All specials for management
+  
+  // Combine specials and coupons for the "All Specials" tab
+  const allItems = [
+    ...allSpecials.map(s => ({ ...s, type: 'special' })),
+    ...coupons.map(c => ({ 
+      ...c, 
+      type: 'coupon',
+      title: c.code,
+      starts_at: c.valid_from,
+      ends_at: c.valid_until,
+      status: c.is_active ? 'active' : 'inactive'
+    }))
+  ];
 
   const saving = activateMutation.isPending;
 
@@ -764,7 +790,7 @@ export default function Specials() {
           className={`tab ${activeTab === 'active' ? 'active' : ''}`}
           onClick={() => setActiveTab('active')}
         >
-          All Specials ({allSpecials.length})
+          All Specials ({allItems.length})
         </button>
         <button
           className={`tab ${activeTab === 'scheduled' ? 'active' : ''}`}
@@ -1073,33 +1099,57 @@ export default function Specials() {
 
       {activeTab === 'active' && (
         <div className="specials-list">
-          {allSpecials.length === 0 ? (
-            <div className="empty-state">No specials created yet</div>
+          {allItems.length === 0 ? (
+            <div className="empty-state">No specials or coupons created yet</div>
           ) : (
-            allSpecials.map(special => (
-              <div key={special.id} className="special-card">
+            allItems.map(item => (
+              <div key={item.id} className="special-card">
                 <div className="special-header">
-                  <div className="special-title">{special.title}</div>
+                  <div className="special-title">
+                    {item.type === 'special' ? item.title : `Coupon: ${item.code}`}
+                  </div>
                   <div className={`special-badge ${
-                    special.status === 'active' ? 'badge-active' : 
-                    special.status === 'scheduled' ? 'badge-scheduled' : 'badge-expired'
+                    item.type === 'special' 
+                      ? (item.status === 'active' ? 'badge-active' : 
+                         item.status === 'scheduled' ? 'badge-scheduled' : 'badge-expired')
+                      : (item.status === 'active' ? 'badge-active' : 'badge-inactive')
                   }`}>
-                    {special.status.charAt(0).toUpperCase() + special.status.slice(1)}
+                    {item.type === 'special' 
+                      ? item.status.charAt(0).toUpperCase() + item.status.slice(1)
+                      : 'Coupon'
+                    }
                   </div>
                 </div>
                 <div className="special-details">
-                  <div>Scope: {special.scope}</div>
-                  <div>Discount: {special.discount_type} - {special.discount_value}{special.discount_type === 'percent' ? '%' : 'R'}</div>
-                  <div>Starts: {dateTime(special.starts_at)}</div>
-                  <div>Ends: {dateTime(special.ends_at)}</div>
-                  <div>Created: {dateTime(special.created_at)}</div>
+                  {item.type === 'special' ? (
+                    <>
+                      <div>Type: Special</div>
+                      <div>Scope: {item.scope}</div>
+                      <div>Discount: {item.discount_type} - {item.discount_value}{item.discount_type === 'percent' ? '%' : 'R'}</div>
+                      <div>Starts: {dateTime(item.starts_at)}</div>
+                      <div>Ends: {dateTime(item.ends_at)}</div>
+                      <div>Created: {dateTime(item.created_at)}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div>Type: Coupon</div>
+                      <div>Value: {item.type === 'percentage' ? `${item.value}%` : `R${Number(item.value).toFixed(2)}`}</div>
+                      <div>Usage: {item.used_count || 0} / {item.max_uses || '∞'}</div>
+                      <div>Min Spend: {formatRands(item.min_order_cents)}</div>
+                      <div>Valid Until: {item.valid_until ? new Date(item.valid_until).toLocaleDateString() : 'No expiry'}</div>
+                    </>
+                  )}
                 </div>
                 <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                   <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
                     <Edit className="w-4 h-4 inline mr-2" />
                     Edit
                   </button>
-                  <button className="action-btn delete" style={{ padding: '8px 16px', fontSize: '14px' }}>
+                  <button 
+                    className="action-btn delete" 
+                    style={{ padding: '8px 16px', fontSize: '14px' }}
+                    onClick={() => item.type === 'special' ? null : handleDeleteCoupon(item.id)}
+                  >
                     <Trash2 className="w-4 h-4 inline mr-2" />
                     Delete
                   </button>
