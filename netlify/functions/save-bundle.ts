@@ -2,8 +2,13 @@ import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
 const getSupabaseAdmin = () => {
-  const supabaseUrl = process.env.SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  
   return createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 };
 
@@ -26,12 +31,34 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const body = JSON.parse(event.body || '{}');
-    const payload = body.payload || body; // Handle wrapped payload or direct body
+    console.log('Received event body:', event.body);
+    
+    let payload;
+    try {
+      const body = JSON.parse(event.body || '{}');
+      payload = body.payload || body; // Handle wrapped payload or direct body
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Invalid JSON in request body' })
+      };
+    }
 
-    console.log('Saving bundle:', payload.name);
+    console.log('Processing bundle:', payload.name || 'Unnamed bundle');
 
-    const supabase = getSupabaseAdmin();
+    let supabase;
+    try {
+      supabase = getSupabaseAdmin();
+    } catch (envError) {
+      console.error('Environment variable error:', envError);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Server configuration error: ' + envError.message })
+      };
+    }
 
     // Calculate price_cents from price if provided
     const priceCents = payload.price_cents ?? (payload.price ? Math.round(Number(payload.price) * 100) : 0);
