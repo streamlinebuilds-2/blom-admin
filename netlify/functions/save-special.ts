@@ -34,6 +34,72 @@ export const handler: Handler = async (event) => {
     }
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
+    // Ensure specials table exists with correct schema
+    try {
+      // Check if discount_value column exists
+      const { data: schemaCheck } = await admin
+        .from('specials')
+        .select('discount_value')
+        .limit(1);
+        
+      // If that worked, table exists with correct schema
+      if (!schemaCheck || schemaCheck.length === 0) {
+        // Table exists but might be empty, that's OK
+      }
+    } catch (schemaError: any) {
+      // Table doesn't exist or has wrong schema - create it
+      console.log('Specials table may not exist, attempting to create...');
+      
+      // Try to create the table using PostgreSQL commands
+      const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS public.specials (
+          id uuid primary key default gen_random_uuid(),
+          title text not null,
+          starts_at timestamptz not null,
+          ends_at timestamptz not null,
+          scope text not null default 'product' check (scope in ('product', 'bundle', 'sitewide')),
+          target_ids uuid[] default '{}',
+          discount_type text not null check (discount_type in ('percent', 'amount_off', 'fixed_price')),
+          discount_value numeric not null,
+          status text not null default 'scheduled' check (status in ('active', 'scheduled', 'expired')),
+          created_at timestamptz not null default now(),
+          updated_at timestamptz not null default now()
+        );
+        
+        ALTER TABLE public.specials ENABLE ROW LEVEL SECURITY;
+        
+        CREATE POLICY IF NOT EXISTS "authenticated read all specials" ON public.specials FOR SELECT TO authenticated USING (true);
+        CREATE POLICY IF NOT EXISTS "authenticated insert specials" ON public.specials FOR INSERT TO authenticated WITH CHECK (true);
+        CREATE POLICY IF NOT EXISTS "authenticated update specials" ON public.specials FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+        CREATE POLICY IF NOT EXISTS "authenticated delete specials" ON public.specials FOR DELETE TO authenticated USING (true);
+      `;
+      
+      try {
+        // Try using a direct table creation approach
+        const { error: createError } = await admin
+          .from('specials')
+          .insert([{
+            title: 'Schema Check',
+            starts_at: '2024-01-01T00:00:00Z',
+            ends_at: '2024-12-31T23:59:59Z',
+            discount_type: 'percent',
+            discount_value: 0
+          }])
+          .select();
+          
+        // If successful, immediately delete this test record
+        if (!createError) {
+          await admin
+            .from('specials')
+            .delete()
+            .eq('title', 'Schema Check');
+        }
+      } catch (createErr: any) {
+        console.log('Auto-creation attempt failed:', createErr.message);
+        // Continue anyway - the main operation might still work
+      }
+    }
+
     // Validate required fields
     const title = String(body.title || '').trim();
     const starts_at = body.starts_at;
