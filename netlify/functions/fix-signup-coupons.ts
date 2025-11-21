@@ -64,11 +64,11 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Update each coupon to be 10% percentage discount
+    // Update each coupon to be 10% percentage discount with single use
     const updatePromises = couponsToFix.map(coupon =>
       supabase
         .from('coupons')
-        .update({ type: 'percentage', value: 10 })
+        .update({ type: 'percentage', value: 10, max_uses: 1 })
         .eq('id', coupon.id)
     );
 
@@ -95,7 +95,7 @@ export const handler: Handler = async (event) => {
       headers,
       body: JSON.stringify({
         ok: true,
-        message: `Successfully updated ${couponsToFix.length} sign-up coupons to 10% discount`,
+        message: `Successfully updated ${couponsToFix.length} sign-up coupons to 10% discount (single use)`,
         total: coupons.length,
         updated: couponsToFix.length
       })
