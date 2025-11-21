@@ -253,6 +253,9 @@ export function createSupabaseAdapter() {
       }
 
       const saved = await res.json();
+      if (!saved.ok) {
+        throw new Error(saved.error || 'Save special failed');
+      }
       return saved.special || saved;
     },
 
