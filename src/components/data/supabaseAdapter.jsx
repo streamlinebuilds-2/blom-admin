@@ -220,24 +220,40 @@ export function createSupabaseAdapter() {
     },
 
     async upsertSpecial(s) {
-      let result;
-      if (s.id) {
-        const { data, error } = await supabase
-          .from('specials')
-          .update(s)
-          .eq('id', s.id)
-          .select()
-          .single();
-        result = ensure(data, error);
-      } else {
-        const { data, error } = await supabase
-          .from('specials')
-          .insert([s])
-          .select()
-          .single();
-        result = ensure(data, error);
+      // Route special saves through Netlify function (service role)
+      const special = { ...s };
+      
+      // Ensure required fields are present
+      if (!special.title || !special.starts_at || !special.ends_at) {
+        throw new Error('Missing required fields for special');
       }
-      return result;
+
+      // Prepare payload for save-special function
+      const payload = {
+        id: special.id,
+        title: String(special.title || '').trim(),
+        starts_at: special.starts_at,
+        ends_at: special.ends_at,
+        scope: special.scope || 'product',
+        discount_type: special.discount_type || 'percent',
+        discount_value: Number(special.discount_value || 0),
+        status: special.status || 'active',
+        target_ids: Array.isArray(special.target_ids) ? special.target_ids : [],
+      };
+
+      const res = await fetch('/.netlify/functions/save-special', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`save-special failed: ${res.status} ${text}`);
+      }
+
+      const saved = await res.json();
+      return saved.special || saved;
     },
 
     // ===== BUNDLES =====
