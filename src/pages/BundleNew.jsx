@@ -77,9 +77,8 @@ export default function BundleNew() {
     async function loadProducts() {
       const { data } = await supabase
         .from('products')
-        .select('id, name, price, product_type')
+        .select('id, name, price')
         .eq('is_active', true)
-        .neq('product_type', 'bundle') // Exclude bundles from product selection
         .order('name');
       setAllProducts(data || []);
     }
