@@ -540,6 +540,11 @@ export default function Orders() {
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                         {order.buyer_email || order.customer_email || '-'}
                       </div>
+                      {order.shipping_address && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          📍 {order.shipping_address.split('\n')[0]}
+                        </div>
+                      )}
                     </td>
                     <td>
                       {order.fulfillment_type === 'collection' ? (

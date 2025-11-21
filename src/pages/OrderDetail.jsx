@@ -670,11 +670,11 @@ export default function OrderDetail() {
                 </thead>
                 <tbody>
                   {items.map((item, i) => {
-                    // FIX: Calculate line total manually since 'total' column doesn't exist
-                    // Database has: price (cents), quantity (integer)
-                    const unitPriceCents = item.price || 0;
+                    // FIX: Use the correct field names from database
+                    // Database has: unit_price_cents, line_total_cents, quantity
+                    const unitPriceCents = item.unit_price_cents || 0;
                     const quantity = item.quantity || 0;
-                    const totalCents = unitPriceCents * quantity;
+                    const totalCents = item.line_total_cents || (unitPriceCents * quantity);
 
                     return (
                       <tr key={i} className="item-row">

@@ -24,7 +24,7 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
