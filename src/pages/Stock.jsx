@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../components/supabaseClient';
+import { supabase } from '../lib/supabase';
 import { History, Search, DollarSign, Package, Save, X } from 'lucide-react';
 import { useToast } from '../components/ui/ToastProvider';
 import { api } from '../components/data/api';
