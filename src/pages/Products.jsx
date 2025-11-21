@@ -7,6 +7,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, Search, Infinity, Hammer } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
+import { useActiveSpecials } from "../components/hooks/useActiveSpecials";
+import { discountLabel } from "../components/helpers/pricing";
 
 // Helper function to determine stock type based on category or explicit stock_type field
 const getStockType = (product) => {
@@ -38,6 +40,8 @@ export default function Products() {
     refetchInterval: false, // Don't poll constantly
     staleTime: 30000, // Consider data fresh for 30 seconds
   });
+
+  const { getDisplayPriceCents } = useActiveSpecials();
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
@@ -469,6 +473,9 @@ export default function Products() {
               ) : (
                 filteredProducts.map(product => {
                   const stockType = getStockType(product);
+                  const displayPriceCents = getDisplayPriceCents('product', product.id, product.price_cents);
+                  const discount = discountLabel(product.price_cents, displayPriceCents);
+                  
                   return (
                     <tr key={product.id}>
                       <td>
@@ -481,11 +488,16 @@ export default function Products() {
                         </span>
                       </td>
                       <td className="price-cell">
-                        {moneyZAR(product.price_cents)}
-                        {product.compare_at_price_cents && (
+                        {moneyZAR(displayPriceCents)}
+                        {(discount || product.compare_at_price_cents) && (
                           <span className="compare-price">
-                            {moneyZAR(product.compare_at_price_cents)}
+                            {moneyZAR(product.compare_at_price_cents || product.price_cents)}
                           </span>
+                        )}
+                        {discount && (
+                          <div className="text-xs text-green-600 font-medium">
+                            {discount.pct}% OFF
+                          </div>
                         )}
                       </td>
                       <td>
