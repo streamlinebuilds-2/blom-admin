@@ -72,14 +72,21 @@ export default function Dashboard() {
   });
 
   const [financeMetrics, setFinanceMetrics] = useState(null);
+  const [financeError, setFinanceError] = useState(null);
   useEffect(() => {
     (async () => {
       try {
         const r = await fetch(`/.netlify/functions/admin-finance-daily?date=${new Date().toISOString().slice(0,10)}`);
         const j = await r.json();
-        setFinanceMetrics(j.data);
+        console.log('Finance metrics response:', j);
+        if (j.ok && j.data && j.data.length > 0) {
+          setFinanceMetrics(j.data[0]);
+        } else {
+          setFinanceError('No finance data available');
+        }
       } catch (e) {
         console.error('Failed to load finance metrics:', e);
+        setFinanceError(e.message);
       }
     })();
   }, []);
@@ -102,7 +109,7 @@ export default function Dashboard() {
     if (!orderDate) return false;
     return new Date(orderDate).toDateString() === today;
   }).reduce((sum, order) => {
-    const total = order?.total_cents ? order.total_cents / 100 : (order?.total || 0);
+    const total = order?.total_cents ? order.total_cents : (order?.total ? order.total * 100 : 0);
     return sum + total;
   }, 0);
 
