@@ -208,13 +208,22 @@ export function createSupabaseAdapter() {
     // ===== SPECIALS =====
     async listSpecials() {
       try {
+        console.log('🔍 Fetching specials from database...');
         const { data, error } = await supabase
           .from('specials')
           .select('*')
           .order('starts_at', { ascending: false });
+        
+        if (error) {
+          console.error('❌ Supabase error fetching specials:', error);
+          console.log('💡 This might mean the specials table doesn\'t exist or has wrong schema');
+          return [];
+        }
+        
+        console.log('✅ Fetched specials:', data?.length || 0, 'items');
         return ensureArray(data, error);
       } catch (err) {
-        console.error('Error listing specials:', err);
+        console.error('💥 Exception in listSpecials:', err);
         return [];
       }
     },
