@@ -560,6 +560,213 @@ img {
   }
 }
 
+/* Specific page mobile fixes */
+
+/* Products page - Fix "New Product" button sizing */
+@media (max-width: 768px) {
+  .products-header .header-actions .btn-primary {
+    flex: none !important;
+    width: auto !important;
+    min-width: 140px !important;
+    max-width: 200px !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+  }
+
+  .products-header .header-actions {
+    justify-content: flex-end !important;
+  }
+}
+
+/* Bundles page - Fix "New Bundle" button visibility */
+@media (max-width: 768px) {
+  .bundles-header .header-actions .btn-primary {
+    flex: none !important;
+    width: auto !important;
+    min-width: 140px !important;
+    max-width: 200px !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    margin-top: 8px !important;
+  }
+
+  .bundles-header .header-actions {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+  }
+
+  .bundles-header .search-box {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* Specials/Coupons page - Fix content cutoff */
+@media (max-width: 768px) {
+  .specials-list {
+    padding: 16px !important;
+  }
+
+  .coupon-table th,
+  .coupon-table td {
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+  }
+
+  /* Hide less important columns on mobile */
+  .coupon-table th:nth-child(5),
+  .coupon-table td:nth-child(5), /* Min. Spend */
+  .coupon-table th:nth-child(6),
+  .coupon-table td:nth-child(6), /* Max Discount */
+  .coupon-table th:nth-child(7),
+  .coupon-table td:nth-child(7), /* Usage */
+  .coupon-table th:nth-child(8),
+  .coupon-table td:nth-child(8), /* Exclusions */
+  .coupon-table th:nth-child(9),
+  .coupon-table td:nth-child(9) { /* Expires */
+    display: none !important;
+  }
+
+  /* Coupon form mobile fixes */
+  .create-form {
+    padding: 16px !important;
+  }
+
+  .form-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .product-exclusion-list {
+    max-height: 150px !important;
+  }
+
+  .selected-exclusions {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+}
+
+/* Stock page - Fix content cutoff */
+@media (max-width: 768px) {
+  .stock-header .header-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .stock-header .search-box {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Table responsive fixes */
+  .section-card table th,
+  .section-card table td {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+
+  /* Hide cost price column on very small screens */
+  @media (max-width: 480px) {
+    .section-card table th:nth-child(2),
+    .section-card table td:nth-child(2) {
+      display: none !important;
+    }
+  }
+
+  /* Modal fixes */
+  .section-card.w-full.max-w-md {
+    max-width: 95vw !important;
+    margin: 1rem !important;
+  }
+
+  .section-card .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+}
+
+/* Messages page - Fix cutoff at email */
+@media (max-width: 768px) {
+  /* Hide less important columns */
+  th:nth-child(4),
+  td:nth-child(4), /* Subject */
+  th:nth-child(5),
+  td:nth-child(5), /* Date */
+  th:nth-child(6),
+  td:nth-child(6) { /* Actions */
+    display: none !important;
+  }
+
+  /* Make remaining columns more readable */
+  th:nth-child(2),
+  td:nth-child(2), /* Name */
+  th:nth-child(3),
+  td:nth-child(3) { /* Email */
+    padding: 12px 8px !important;
+    font-size: 13px !important;
+  }
+
+  th:nth-child(2) {
+    width: 30% !important;
+  }
+
+  th:nth-child(3) {
+    width: 70% !important;
+  }
+}
+
+/* Contacts page - Fix cutoff at email */
+@media (max-width: 768px) {
+  /* Hide less important columns */
+  th:nth-child(4),
+  td:nth-child(4), /* Phone */
+  th:nth-child(5),
+  td:nth-child(5), /* Date */
+  th:nth-child(6),
+  td:nth-child(6) { /* Actions */
+    display: none !important;
+  }
+
+  /* Make remaining columns more readable */
+  th:nth-child(2),
+  td:nth-child(2), /* Name */
+  th:nth-child(3),
+  td:nth-child(3) { /* Email */
+    padding: 12px 8px !important;
+    font-size: 13px !important;
+  }
+
+  th:nth-child(2) {
+    width: 30% !important;
+  }
+
+  th:nth-child(3) {
+    width: 70% !important;
+  }
+}
+
+/* General table improvements for all pages */
+@media (max-width: 768px) {
+  table {
+    font-size: 13px !important;
+  }
+
+  th, td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  /* Better table scrolling */
+  .table-container,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
 /* Enhanced mobile touch event handling */
 @media (max-width: 768px) {
   /* Ensure buttons respond to touch events */
