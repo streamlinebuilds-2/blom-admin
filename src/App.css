@@ -767,6 +767,270 @@ img {
   }
 }
 
+/* COMPREHENSIVE PRODUCT EDIT PAGE MOBILE FIXES */
+
+/* Product Edit Page - Force single column layout on all mobile sizes */
+@media (max-width: 1024px) {
+  .content-area.grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Ensure all form sections are properly spaced and visible */
+  .product-form-section {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Force all grids to single column */
+  .grid.gap-4.md\\:grid-cols-2,
+  .grid.gap-4.md\\:grid-cols-3,
+  .grid.gap-4.md\\:grid-cols-4,
+  .grid.md\\:grid-cols-2,
+  .grid.md\\:grid-cols-3,
+  .grid.md\\:grid-cols-4 {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Form inputs - ensure proper sizing and visibility */
+  .product-form-input,
+  .product-form-textarea,
+  .product-form-select {
+    width: 100% !important;
+    font-size: 16px !important; /* Prevent zoom */
+    padding: 12px 16px !important;
+    margin-bottom: 0.5rem !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Ensure labels are visible */
+  .product-form-label,
+  label {
+    display: block !important;
+    width: 100% !important;
+    margin-bottom: 8px !important;
+    font-size: 14px !important;
+  }
+
+  /* Array fields (badges, features, etc.) */
+  .space-y-2 > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  .flex.gap-2 {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .flex.gap-2 > * {
+    width: 100% !important;
+  }
+
+  /* Variant rows */
+  .variant-row {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    padding: 1rem !important;
+    width: 100% !important;
+  }
+
+  .variant-row input,
+  .variant-row .product-form-input {
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  .variant-image-upload {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .upload-btn {
+    width: 100% !important;
+    padding: 10px 16px !important;
+    text-align: center !important;
+  }
+
+  /* Buttons */
+  .product-btn-primary,
+  .product-btn-secondary,
+  .product-btn-add {
+    width: 100% !important;
+    min-height: 44px !important;
+    margin-bottom: 0.5rem !important;
+    padding: 12px 16px !important;
+  }
+
+  /* Action buttons layout */
+  .flex.items-center.justify-end.gap-3 {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+
+  .flex.items-center.justify-end.gap-3 button {
+    width: 100% !important;
+    min-height: 48px !important;
+  }
+
+  /* Preview section */
+  .flex.gap-2.justify-between {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .flex.gap-2 button {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  /* Mobile preview container */
+  [class*="w-[390px]"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Topbar adjustments */
+  .topbar {
+    padding: 16px !important;
+  }
+
+  .topbar .flex.items-center {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  .font-bold.text-lg {
+    font-size: 16px !important;
+  }
+
+  /* Content area padding */
+  .content-area {
+    padding: 1rem !important;
+  }
+
+  /* Ensure all sections have proper spacing */
+  .space-y-6 > * + * {
+    margin-top: 1.5rem !important;
+  }
+
+  .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  /* Form group spacing */
+  .space-y-1 > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  /* Checkbox and label alignment */
+  .flex.items-center.gap-3 {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .flex.items-center.gap-3 input[type="checkbox"] {
+    margin-top: 2px !important;
+  }
+
+  /* Small text adjustments */
+  small {
+    display: block !important;
+    margin-top: 4px !important;
+    font-size: 12px !important;
+  }
+
+  /* Error messages */
+  .text-xs.text-red-500 {
+    margin-top: 4px !important;
+    display: block !important;
+  }
+
+  /* Related products section */
+  .flex.gap-2.mb-2 {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .flex.gap-2.mb-2 > * {
+    width: 100% !important;
+  }
+
+  /* Product exclusion list */
+  .product-exclusion-list {
+    max-height: 150px !important;
+  }
+
+  .product-exclusion-item {
+    padding: 10px 12px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Selected exclusions */
+  .selected-exclusions {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
+  .selected-exclusion-tag {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* Extra small screens - even more aggressive fixes */
+@media (max-width: 480px) {
+  .product-form-section {
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .product-section-title {
+    font-size: 16px !important;
+  }
+
+  .product-section-desc {
+    font-size: 13px !important;
+  }
+
+  .product-form-input,
+  .product-form-textarea,
+  .product-form-select {
+    padding: 10px 12px !important;
+    font-size: 16px !important;
+  }
+
+  /* Reduce padding on all elements to fit more content */
+  .space-y-6 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  .space-y-4 > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  .space-y-2 > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  /* Make sure all text is readable */
+  .text-sm {
+    font-size: 13px !important;
+  }
+
+  .text-xs {
+    font-size: 12px !important;
+  }
+}
+
 /* Enhanced mobile touch event handling */
 @media (max-width: 768px) {
   /* Ensure buttons respond to touch events */
