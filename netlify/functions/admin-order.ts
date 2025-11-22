@@ -4,6 +4,31 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 export const handler: Handler = async (e) => {
   try {
+    // Handle PATCH request for archiving orders
+    if (e.httpMethod === 'PATCH') {
+      const body = JSON.parse(e.body || '{}');
+      const { id, archived } = body;
+
+      if (!id) {
+        return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing order id" }) };
+      }
+
+      // Update the order's archived status
+      const { data, error } = await s.from("orders")
+        .update({ archived: archived })
+        .eq("id", id)
+        .select();
+
+      if (error) throw error;
+
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ ok: true, order: data[0] })
+      };
+    }
+
+    // Handle GET request for fetching order details
     const id = new URL(e.rawUrl).searchParams.get("id");
     if (!id) {
       return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing id" }) };

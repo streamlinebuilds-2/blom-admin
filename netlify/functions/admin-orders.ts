@@ -31,6 +31,9 @@ export const handler: Handler = async (e) => {
     // Filter for paid orders: payment_status = 'paid' OR status = 'paid'
     query = query.or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)');
 
+    // Exclude archived orders
+    query = query.or('archived.is.null,archived.eq.false');
+
     // NOTE: Removed strict fulfillment_type requirement to show all orders
     // Previously: query = query.not('fulfillment_type', 'is', null);
 
