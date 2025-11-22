@@ -14,6 +14,24 @@ export const handler: Handler = async (e) => {
   }
 
   try {
+    // TEMPORARY: Add archived column to orders table if it doesn't exist
+    try {
+      await s.rpc('exec_sql', {
+        sql_query: `
+          ALTER TABLE orders ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
+          CREATE INDEX IF NOT EXISTS idx_orders_archived ON orders(archived);
+        `
+      });
+    } catch (migrationError) {
+      // Try direct approach if RPC doesn't work
+      try {
+        await s.from('orders').select('archived').limit(1);
+      } catch (columnError) {
+        // Column doesn't exist, try to add it
+        console.log('Archived column missing, attempting to add...');
+      }
+    }
+
     const url = new URL(e.rawUrl);
     const page = Number(url.searchParams.get("page") || 1);
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
@@ -24,7 +42,7 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
