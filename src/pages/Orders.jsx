@@ -321,6 +321,34 @@ export default function Orders() {
           align-items: end;
         }
 
+        /* Mobile responsive filters */
+        @media (max-width: 768px) {
+          .filters-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+
+          .filter-group {
+            width: 100%;
+          }
+
+          .filter-input,
+          .filter-select {
+            width: 100%;
+            font-size: 16px; /* Prevent iOS zoom */
+          }
+
+          .filter-actions {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .filter-actions button {
+            width: 100%;
+            min-height: 44px;
+          }
+        }
+
         .filter-group {
           display: flex;
           flex-direction: column;

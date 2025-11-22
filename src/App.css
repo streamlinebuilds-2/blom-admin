@@ -373,3 +373,189 @@ img {
     border-radius: 2px;
   }
 }
+
+/* Enhanced mobile responsiveness */
+
+/* Ensure all form grids stack on mobile */
+@media (max-width: 768px) {
+  .grid.md\\:grid-cols-2,
+  .grid.md\\:grid-cols-3,
+  .grid.md\\:grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Product form specific mobile adjustments */
+  .product-form-section {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .product-form-input,
+  .product-form-textarea,
+  .product-form-select {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 12px 16px !important;
+  }
+
+  /* Better spacing for form elements */
+  .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  .space-y-6 > * + * {
+    margin-top: 1.5rem !important;
+  }
+
+  /* Variant rows stack better */
+  .variant-row {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .variant-row input,
+  .variant-row .product-form-input {
+    width: 100% !important;
+  }
+
+  /* Button groups stack */
+  .flex-col-mobile {
+    flex-direction: column !important;
+  }
+
+  .flex-col-mobile > * {
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Filters grid becomes single column */
+  .filters-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Table improvements */
+  table {
+    font-size: 14px !important;
+  }
+
+  th, td {
+    padding: 8px 12px !important;
+    white-space: nowrap;
+  }
+
+  /* Hide non-essential table columns on very small screens */
+  @media (max-width: 480px) {
+    th:nth-child(3),
+    td:nth-child(3),
+    th:nth-child(4),
+    td:nth-child(4),
+    th:nth-child(5),
+    td:nth-child(5) {
+      display: none;
+    }
+  }
+
+  /* Action buttons in tables */
+  .action-buttons {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+
+  .action-buttons button,
+  .action-buttons .btn-icon {
+    width: 100% !important;
+    min-height: 40px !important;
+  }
+
+  /* Modal and dialog improvements */
+  .dialog-content,
+  .modal-content {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 2rem auto !important;
+  }
+
+  /* Card layouts */
+  .card,
+  .order-card,
+  .product-card,
+  .stat-card {
+    margin-bottom: 1rem !important;
+  }
+
+  /* Navigation improvements */
+  .nav-item {
+    padding: 12px 16px !important;
+    min-height: 48px !important;
+  }
+
+  /* Topbar adjustments */
+  .topbar-actions {
+    gap: 8px !important;
+  }
+
+  .topbar-actions button,
+  .topbar-actions .theme-toggle {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* Preview improvements */
+  .preview-fullscreen .mobile-preview {
+    max-width: 100% !important;
+    border: none !important;
+  }
+
+  /* Better text truncation */
+  .text-truncate {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Ensure proper viewport handling */
+  .content-area {
+    padding: 1rem !important;
+  }
+
+  /* Loading states */
+  .loading-spinner {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+/* Extra small screen adjustments */
+@media (max-width: 480px) {
+  .page-container,
+  .content-area {
+    padding: 0.5rem !important;
+  }
+
+  .product-form-section {
+    padding: 0.75rem !important;
+  }
+
+  .header-title {
+    font-size: 20px !important;
+  }
+
+  .breadcrumb {
+    font-size: 16px !important;
+  }
+
+  /* Stack all buttons vertically */
+  .header-actions,
+  .filter-actions,
+  .btn-group {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .header-actions button,
+  .filter-actions button,
+  .btn-group button {
+    width: 100% !important;
+  }
+}

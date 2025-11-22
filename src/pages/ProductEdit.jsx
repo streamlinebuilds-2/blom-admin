@@ -973,6 +973,104 @@ export default function ProductEdit() {
         </div>
 
         <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <style>{`
+            /* Enhanced mobile responsiveness for ProductEdit */
+            @media (max-width: 768px) {
+              .content-area.grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+              }
+
+              .product-form-section {
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+              }
+
+              .product-form-input,
+              .product-form-textarea,
+              .product-form-select {
+                font-size: 16px !important;
+                padding: 12px 16px !important;
+              }
+
+              .grid.gap-4.md\\:grid-cols-2 {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+              }
+
+              .flex.gap-2 {
+                flex-direction: column !important;
+                gap: 0.5rem !important;
+              }
+
+              .flex.gap-2 > * {
+                width: 100% !important;
+              }
+
+              .variant-row {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+                padding: 1rem !important;
+              }
+
+              .variant-row input,
+              .variant-row .product-form-input {
+                width: 100% !important;
+              }
+
+              .upload-btn {
+                width: 100% !important;
+                padding: 10px 16px !important;
+              }
+
+              .product-btn-secondary,
+              .product-btn-add {
+                width: 100% !important;
+                min-height: 44px !important;
+              }
+
+              .flex.items-center.justify-end.gap-3 {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+              }
+
+              .flex.items-center.justify-end.gap-3 button {
+                width: 100% !important;
+                min-height: 48px !important;
+              }
+
+              /* Preview tabs */
+              .flex.gap-2.justify-between {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+              }
+
+              .flex.gap-2 button {
+                width: 100% !important;
+                min-height: 44px !important;
+              }
+
+              /* Mobile preview adjustments */
+              .mx-auto.w-\\[390px\\] {
+                width: 100% !important;
+                max-width: 100% !important;
+              }
+            }
+
+            @media (max-width: 480px) {
+              .product-form-section {
+                padding: 0.75rem !important;
+              }
+
+              .product-section-title {
+                font-size: 16px !important;
+              }
+
+              .product-section-desc {
+                font-size: 13px !important;
+              }
+            }
+          `}</style>
           <form className="space-y-6" onSubmit={handleSubmit}>
           <section className="product-form-section">
             <header className="mb-4">
