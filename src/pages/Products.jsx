@@ -10,7 +10,6 @@ import { useToast } from "../components/ui/ToastProvider";
 import { useActiveSpecials } from "../components/hooks/useActiveSpecials";
 import { discountLabel } from "../components/helpers/pricing";
 import { ConfirmDialog } from "../components/ui/dialog";
-import { useState } from "react";
 
 // Helper function to determine stock type based on category or explicit stock_type field
 const getStockType = (product) => {

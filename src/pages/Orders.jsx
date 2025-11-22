@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { Eye, RefreshCw, Truck, Package, Archive, Filter, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '../components/ui/dialog';
-import { useState } from 'react';
 
 export default function Orders() {
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
