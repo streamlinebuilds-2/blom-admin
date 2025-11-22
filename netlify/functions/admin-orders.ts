@@ -14,24 +14,6 @@ export const handler: Handler = async (e) => {
   }
 
   try {
-    // TEMPORARY: Add archived column to orders table if it doesn't exist
-    try {
-      await s.rpc('exec_sql', {
-        sql_query: `
-          ALTER TABLE orders ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
-          CREATE INDEX IF NOT EXISTS idx_orders_archived ON orders(archived);
-        `
-      });
-    } catch (migrationError) {
-      // Try direct approach if RPC doesn't work
-      try {
-        await s.from('orders').select('archived').limit(1);
-      } catch (columnError) {
-        // Column doesn't exist, try to add it
-        console.log('Archived column missing, attempting to add...');
-      }
-    }
-
     const url = new URL(e.rawUrl);
     const page = Number(url.searchParams.get("page") || 1);
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
