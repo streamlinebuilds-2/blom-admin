@@ -559,3 +559,69 @@ img {
     width: 100% !important;
   }
 }
+
+/* Enhanced mobile touch event handling */
+@media (max-width: 768px) {
+  /* Ensure buttons respond to touch events */
+  button,
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-icon,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .nav-item,
+  .action-buttons button,
+  .header-actions button {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Ensure proper z-index stacking for mobile interactions */
+  .sidebar {
+    z-index: 200 !important;
+  }
+
+  .mobile-overlay {
+    z-index: 150 !important;
+  }
+
+  /* Fix any potential overlay issues */
+  .mobile-overlay {
+    pointer-events: auto !important;
+  }
+
+  /* Ensure dialogs appear above everything on mobile */
+  .dialog-overlay,
+  .modal-overlay {
+    z-index: 1000 !important;
+  }
+
+  /* Prevent horizontal scroll issues */
+  body {
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Better scrolling for content areas */
+  .content-area,
+  .table-container {
+    -webkit-overflow-scrolling: touch;
+  }
+}

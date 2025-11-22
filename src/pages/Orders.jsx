@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Eye, RefreshCw, Truck, Package, Archive, Filter, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { ConfirmDialog } from '../components/ui/dialog';
+import { useState } from 'react';
 
 export default function Orders() {
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
@@ -26,6 +28,7 @@ export default function Orders() {
     search: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, order: null });
 
   const orders = ordersResponse || [];
 
@@ -71,10 +74,15 @@ export default function Orders() {
   });
 
   // Archive order function
-  const handleArchiveOrder = async (orderId) => {
-    if (!confirm('Are you sure you want to archive this order? This will hide it from the main orders list.')) {
-      return;
-    }
+  const handleArchiveOrder = (orderId) => {
+    setConfirmDialog({
+      isOpen: true,
+      order: { id: orderId }
+    });
+  };
+
+  const confirmArchiveOrder = async () => {
+    if (!confirmDialog.order) return;
 
     try {
       const response = await fetch('/.netlify/functions/admin-order', {
@@ -83,13 +91,13 @@ export default function Orders() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: orderId,
+          id: confirmDialog.order.id,
           archived: true
         }),
       });
 
       if (!response.ok) throw new Error('Failed to archive order');
-      
+
       // Refetch orders to update the list
       refetch();
     } catch (error) {
@@ -617,6 +625,16 @@ export default function Orders() {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, order: null })}
+        onConfirm={confirmArchiveOrder}
+        title="Archive Order"
+        description="Are you sure you want to archive this order? This will hide it from the main orders list."
+        confirmText="Archive"
+        cancelText="Cancel"
+      />
     </>
   );
 }

@@ -464,6 +464,7 @@ export default function Layout({ children, currentPageName }) {
             background: rgba(0, 0, 0, 0.6);
             z-index: 140;
             backdrop-filter: blur(2px);
+            pointer-events: ${mobileOpen ? 'auto' : 'none'};
           }
         }
       `}</style>

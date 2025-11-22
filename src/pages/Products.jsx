@@ -9,6 +9,8 @@ import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { useActiveSpecials } from "../components/hooks/useActiveSpecials";
 import { discountLabel } from "../components/helpers/pricing";
+import { ConfirmDialog } from "../components/ui/dialog";
+import { useState } from "react";
 
 // Helper function to determine stock type based on category or explicit stock_type field
 const getStockType = (product) => {
@@ -30,6 +32,7 @@ const getStockType = (product) => {
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, product: null });
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -73,8 +76,16 @@ export default function Products() {
   });
 
   const handleDelete = (id, name) => {
-    if (!confirm(`Permanently delete "${name}"? This action cannot be undone and will remove the product from Supabase completely.`)) return;
-    deleteMutation.mutate(id);
+    setConfirmDialog({
+      isOpen: true,
+      product: { id, name }
+    });
+  };
+
+  const confirmDelete = () => {
+    if (confirmDialog.product) {
+      deleteMutation.mutate(confirmDialog.product.id);
+    }
   };
 
   const filteredProducts = products.filter(p => {
@@ -546,6 +557,16 @@ export default function Products() {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, product: null })}
+        onConfirm={confirmDelete}
+        title="Delete Product"
+        description={`Permanently delete "${confirmDialog.product?.name}"? This action cannot be undone and will remove the product from Supabase completely.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   );
 }

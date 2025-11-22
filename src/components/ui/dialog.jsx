@@ -97,6 +97,36 @@ const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 
+const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, description, confirmText = "Confirm", cancelText = "Cancel" }) => (
+  <Dialog open={isOpen} onOpenChange={onClose}>
+    <DialogContent className="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+        <DialogDescription>{description}</DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 min-h-[44px] min-w-[44px]"
+        >
+          {cancelText}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onConfirm();
+            onClose();
+          }}
+          className="px-4 py-2 ml-3 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 min-h-[44px] min-w-[44px]"
+        >
+          {confirmText}
+        </button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
 export {
   Dialog,
   DialogPortal,
@@ -108,4 +138,5 @@ export {
   DialogFooter,
   DialogTitle,
   DialogDescription,
+  ConfirmDialog,
 }
