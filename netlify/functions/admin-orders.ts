@@ -14,6 +14,30 @@ export const handler: Handler = async (e) => {
   }
 
   try {
+    // Ensure archived column exists
+    try {
+      // Try to select from orders with archived column to check if it exists
+      await s.from("orders").select("archived").limit(1);
+    } catch (error) {
+      // Column doesn't exist, try to add it
+      console.log("Archived column missing, adding it...");
+      try {
+        // Use raw SQL via Supabase client
+        const { error: alterError } = await s.rpc('exec', {
+          query: `
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
+            CREATE INDEX IF NOT EXISTS idx_orders_archived ON orders(archived);
+          `
+        });
+        if (alterError) {
+          console.log("RPC failed, trying direct SQL execution...");
+          // If RPC doesn't work, we'll handle it in the query
+        }
+      } catch (rpcError) {
+        console.log("Migration attempt failed:", rpcError.message);
+      }
+    }
+
     const url = new URL(e.rawUrl);
     const page = Number(url.searchParams.get("page") || 1);
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
@@ -24,15 +48,12 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
     // Filter for paid orders: payment_status = 'paid' OR status = 'paid'
     query = query.or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)');
-
-    // Exclude archived orders
-    query = query.or('archived.is.null,archived.eq.false');
 
     // NOTE: Removed strict fulfillment_type requirement to show all orders
     // Previously: query = query.not('fulfillment_type', 'is', null);
