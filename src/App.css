@@ -374,17 +374,11 @@ img {
   }
 }
 
-/* Enhanced mobile responsiveness */
+/* Enhanced mobile responsiveness with horizontal scrolling */
 
-/* Ensure all form grids stack on mobile */
+/* Forms and buttons remain properly sized, but allow horizontal scrolling for wide content */
 @media (max-width: 768px) {
-  .grid.md\\:grid-cols-2,
-  .grid.md\\:grid-cols-3,
-  .grid.md\\:grid-cols-4 {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Product form specific mobile adjustments */
+  /* Keep forms properly sized - don't force single column for forms */
   .product-form-section {
     padding: 1rem !important;
     margin-bottom: 1rem !important;
@@ -432,39 +426,41 @@ img {
     grid-template-columns: 1fr !important;
   }
 
-  /* Table improvements */
+  /* Tables get horizontal scrolling instead of hiding columns */
+  .table-container,
+  .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
+  }
+
   table {
+    min-width: 600px !important; /* Ensure minimum width for horizontal scroll */
     font-size: 14px !important;
   }
 
   th, td {
-    padding: 8px 12px !important;
-    white-space: nowrap;
+    padding: 12px 16px !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
   }
 
-  /* Hide non-essential table columns on very small screens */
-  @media (max-width: 480px) {
-    th:nth-child(3),
-    td:nth-child(3),
-    th:nth-child(4),
-    td:nth-child(4),
-    th:nth-child(5),
-    td:nth-child(5) {
-      display: none;
-    }
-  }
+  /* Keep all table columns visible - let user scroll horizontally */
+  /* Removed column hiding rules */
 
-  /* Action buttons in tables */
+  /* Action buttons in tables remain inline */
   .action-buttons {
     display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
   }
 
   .action-buttons button,
   .action-buttons .btn-icon {
-    width: 100% !important;
-    min-height: 40px !important;
+    min-width: 80px !important;
+    min-height: 36px !important;
   }
 
   /* Modal and dialog improvements */
@@ -506,9 +502,9 @@ img {
     border: none !important;
   }
 
-  /* Better text truncation */
+  /* Better text truncation for very long content */
   .text-truncate {
-    max-width: 100px;
+    max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -523,6 +519,20 @@ img {
   .loading-spinner {
     width: 40px !important;
     height: 40px !important;
+  }
+
+  /* Horizontal scroll indicators */
+  .table-container::after,
+  .overflow-x-auto::after {
+    content: "⟷ Scroll horizontally to see more";
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding: 4px;
+    background: var(--bg);
+    border-radius: 4px;
   }
 }
 
@@ -560,7 +570,7 @@ img {
   }
 }
 
-/* Specific page mobile fixes */
+/* Specific page mobile fixes with horizontal scrolling */
 
 /* Products page - Fix "New Product" button sizing */
 @media (max-width: 768px) {
@@ -575,6 +585,16 @@ img {
 
   .products-header .header-actions {
     justify-content: flex-end !important;
+  }
+
+  /* Products table gets horizontal scroll */
+  .products-table .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .products-table table {
+    min-width: 800px !important;
   }
 }
 
@@ -602,30 +622,30 @@ img {
   }
 }
 
-/* Specials/Coupons page - Fix content cutoff */
+/* Specials/Coupons page - Horizontal scroll for full table */
 @media (max-width: 768px) {
   .specials-list {
     padding: 16px !important;
   }
 
-  .coupon-table th,
-  .coupon-table td {
-    padding: 8px 4px !important;
-    font-size: 12px !important;
+  /* Keep all coupon table columns visible - horizontal scroll */
+  .coupon-table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
   }
 
-  /* Hide less important columns on mobile */
-  .coupon-table th:nth-child(5),
-  .coupon-table td:nth-child(5), /* Min. Spend */
-  .coupon-table th:nth-child(6),
-  .coupon-table td:nth-child(6), /* Max Discount */
-  .coupon-table th:nth-child(7),
-  .coupon-table td:nth-child(7), /* Usage */
-  .coupon-table th:nth-child(8),
-  .coupon-table td:nth-child(8), /* Exclusions */
-  .coupon-table th:nth-child(9),
-  .coupon-table td:nth-child(9) { /* Expires */
-    display: none !important;
+  .coupon-table table {
+    min-width: 1000px !important;
+    font-size: 13px !important;
+  }
+
+  .coupon-table th,
+  .coupon-table td {
+    padding: 10px 12px !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
   }
 
   /* Coupon form mobile fixes */
@@ -648,7 +668,7 @@ img {
   }
 }
 
-/* Stock page - Fix content cutoff */
+/* Stock page - Horizontal scroll for full table */
 @media (max-width: 768px) {
   .stock-header .header-actions {
     flex-direction: column !important;
@@ -661,19 +681,24 @@ img {
     max-width: none !important;
   }
 
-  /* Table responsive fixes */
-  .section-card table th,
-  .section-card table td {
-    padding: 8px 12px !important;
+  /* Stock table gets full horizontal scroll */
+  .section-card .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
+  }
+
+  .section-card table {
+    min-width: 900px !important;
     font-size: 13px !important;
   }
 
-  /* Hide cost price column on very small screens */
-  @media (max-width: 480px) {
-    .section-card table th:nth-child(2),
-    .section-card table td:nth-child(2) {
-      display: none !important;
-    }
+  .section-card table th,
+  .section-card table td {
+    padding: 10px 14px !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
   }
 
   /* Modal fixes */
@@ -687,64 +712,66 @@ img {
   }
 }
 
-/* Messages page - Fix cutoff at email */
+/* Messages page - Horizontal scroll for full table */
 @media (max-width: 768px) {
-  /* Hide less important columns */
-  th:nth-child(4),
-  td:nth-child(4), /* Subject */
-  th:nth-child(5),
-  td:nth-child(5), /* Date */
-  th:nth-child(6),
-  td:nth-child(6) { /* Actions */
-    display: none !important;
+  /* Messages table gets horizontal scroll - keep all columns */
+  .section-card .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
   }
 
-  /* Make remaining columns more readable */
-  th:nth-child(2),
-  td:nth-child(2), /* Name */
-  th:nth-child(3),
-  td:nth-child(3) { /* Email */
-    padding: 12px 8px !important;
+  .section-card table {
+    min-width: 700px !important;
     font-size: 13px !important;
   }
 
-  th:nth-child(2) {
-    width: 30% !important;
+  .section-card table th,
+  .section-card table td {
+    padding: 12px 16px !important;
+    white-space: nowrap !important;
+    min-width: 100px !important;
   }
 
-  th:nth-child(3) {
-    width: 70% !important;
-  }
+  /* Better column widths for messages */
+  .section-card table th:nth-child(1) { min-width: 60px !important; } /* # */
+  .section-card table th:nth-child(2) { min-width: 150px !important; } /* Name */
+  .section-card table th:nth-child(3) { min-width: 200px !important; } /* Email */
+  .section-card table th:nth-child(4) { min-width: 200px !important; } /* Subject */
+  .section-card table th:nth-child(5) { min-width: 120px !important; } /* Date */
+  .section-card table th:nth-child(6) { min-width: 120px !important; } /* Actions */
 }
 
-/* Contacts page - Fix cutoff at email */
+/* Contacts page - Horizontal scroll for full table */
 @media (max-width: 768px) {
-  /* Hide less important columns */
-  th:nth-child(4),
-  td:nth-child(4), /* Phone */
-  th:nth-child(5),
-  td:nth-child(5), /* Date */
-  th:nth-child(6),
-  td:nth-child(6) { /* Actions */
-    display: none !important;
+  /* Contacts table gets horizontal scroll - keep all columns */
+  .section-card .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
   }
 
-  /* Make remaining columns more readable */
-  th:nth-child(2),
-  td:nth-child(2), /* Name */
-  th:nth-child(3),
-  td:nth-child(3) { /* Email */
-    padding: 12px 8px !important;
+  .section-card table {
+    min-width: 800px !important;
     font-size: 13px !important;
   }
 
-  th:nth-child(2) {
-    width: 30% !important;
+  .section-card table th,
+  .section-card table td {
+    padding: 12px 16px !important;
+    white-space: nowrap !important;
+    min-width: 100px !important;
   }
 
-  th:nth-child(3) {
-    width: 70% !important;
-  }
+  /* Better column widths for contacts */
+  .section-card table th:nth-child(1) { min-width: 60px !important; } /* # */
+  .section-card table th:nth-child(2) { min-width: 150px !important; } /* Name */
+  .section-card table th:nth-child(3) { min-width: 200px !important; } /* Email */
+  .section-card table th:nth-child(4) { min-width: 120px !important; } /* Phone */
+  .section-card table th:nth-child(5) { min-width: 120px !important; } /* Date */
+  .section-card table th:nth-child(6) { min-width: 120px !important; } /* Actions */
 }
 
 /* General table improvements for all pages */
@@ -767,46 +794,52 @@ img {
   }
 }
 
-/* COMPREHENSIVE PRODUCT EDIT PAGE MOBILE FIXES */
+/* PRODUCT EDIT PAGE - Horizontal scrolling for wide forms while keeping proper sizing */
 
-/* Product Edit Page - Force single column layout on all mobile sizes */
+/* Product Edit Page - Allow horizontal scrolling for very wide forms */
 @media (max-width: 1024px) {
-  .content-area.grid {
-    grid-template-columns: 1fr !important;
-    gap: 1rem !important;
+  /* Content area can scroll horizontally if form is too wide */
+  .content-area {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 1rem !important;
   }
 
-  /* Ensure all form sections are properly spaced and visible */
+  /* Form sections remain properly sized */
   .product-form-section {
+    min-width: 320px !important; /* Minimum readable width */
     padding: 1rem !important;
     margin-bottom: 1rem !important;
-    width: 100% !important;
     box-sizing: border-box !important;
   }
 
-  /* Force all grids to single column */
+  /* Keep form grids responsive but allow horizontal scroll if needed */
   .grid.gap-4.md\\:grid-cols-2,
   .grid.gap-4.md\\:grid-cols-3,
-  .grid.gap-4.md\\:grid-cols-4,
-  .grid.md\\:grid-cols-2,
-  .grid.md\\:grid-cols-3,
-  .grid.md\\:grid-cols-4 {
-    grid-template-columns: 1fr !important;
+  .grid.gap-4.md\\:grid-cols-4 {
+    display: flex !important;
+    flex-wrap: wrap !important;
     gap: 1rem !important;
   }
 
-  /* Form inputs - ensure proper sizing and visibility */
+  .grid.gap-4.md\\:grid-cols-2 > *,
+  .grid.gap-4.md\\:grid-cols-3 > *,
+  .grid.gap-4.md\\:grid-cols-4 > * {
+    flex: 1 1 300px !important; /* Allow flexing but maintain minimum width */
+    min-width: 280px !important;
+  }
+
+  /* Form inputs - proper sizing */
   .product-form-input,
   .product-form-textarea,
   .product-form-select {
     width: 100% !important;
     font-size: 16px !important; /* Prevent zoom */
     padding: 12px 16px !important;
-    margin-bottom: 0.5rem !important;
     box-sizing: border-box !important;
   }
 
-  /* Ensure labels are visible */
+  /* Labels remain visible */
   .product-form-label,
   label {
     display: block !important;
@@ -815,7 +848,7 @@ img {
     font-size: 14px !important;
   }
 
-  /* Array fields (badges, features, etc.) */
+  /* Array fields stack vertically */
   .space-y-2 > * + * {
     margin-top: 0.75rem !important;
   }
@@ -829,18 +862,18 @@ img {
     width: 100% !important;
   }
 
-  /* Variant rows */
+  /* Variant rows stack */
   .variant-row {
     flex-direction: column !important;
     gap: 0.75rem !important;
     padding: 1rem !important;
     width: 100% !important;
+    min-width: 300px !important;
   }
 
   .variant-row input,
   .variant-row .product-form-input {
     width: 100% !important;
-    flex: none !important;
   }
 
   .variant-image-upload {
@@ -854,13 +887,12 @@ img {
     text-align: center !important;
   }
 
-  /* Buttons */
+  /* Buttons remain properly sized */
   .product-btn-primary,
   .product-btn-secondary,
   .product-btn-add {
     width: 100% !important;
     min-height: 44px !important;
-    margin-bottom: 0.5rem !important;
     padding: 12px 16px !important;
   }
 
@@ -908,11 +940,6 @@ img {
     font-size: 16px !important;
   }
 
-  /* Content area padding */
-  .content-area {
-    padding: 1rem !important;
-  }
-
   /* Ensure all sections have proper spacing */
   .space-y-6 > * + * {
     margin-top: 1.5rem !important;
@@ -922,7 +949,6 @@ img {
     margin-top: 1rem !important;
   }
 
-  /* Form group spacing */
   .space-y-1 > * + * {
     margin-top: 0.5rem !important;
   }
@@ -964,6 +990,7 @@ img {
   /* Product exclusion list */
   .product-exclusion-list {
     max-height: 150px !important;
+    overflow-y: auto !important;
   }
 
   .product-exclusion-item {
@@ -986,11 +1013,12 @@ img {
   }
 }
 
-/* Extra small screens - even more aggressive fixes */
+/* Extra small screens - optimize for very small devices */
 @media (max-width: 480px) {
   .product-form-section {
     padding: 0.75rem !important;
     margin-bottom: 0.75rem !important;
+    min-width: 280px !important;
   }
 
   .product-section-title {
@@ -1008,7 +1036,7 @@ img {
     font-size: 16px !important;
   }
 
-  /* Reduce padding on all elements to fit more content */
+  /* Optimize spacing for small screens */
   .space-y-6 > * + * {
     margin-top: 1rem !important;
   }
@@ -1021,7 +1049,7 @@ img {
     margin-top: 0.5rem !important;
   }
 
-  /* Make sure all text is readable */
+  /* Ensure readability */
   .text-sm {
     font-size: 13px !important;
   }
