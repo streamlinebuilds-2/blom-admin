@@ -48,12 +48,15 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
     // Filter for paid orders: payment_status = 'paid' OR status = 'paid'
     query = query.or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)');
+
+    // Filter out archived orders from the main list
+    query = query.or('archived.is.null,archived.eq.false');
 
     // NOTE: Removed strict fulfillment_type requirement to show all orders
     // Previously: query = query.not('fulfillment_type', 'is', null);
