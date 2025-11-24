@@ -245,6 +245,25 @@ export default function ProductNew() {
     });
   };
 
+  const moveVariant = (field, index, direction) => {
+    setForm((previous) => {
+      const next = getArrayFromPrevious(previous, field);
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      
+      // Check bounds
+      if (targetIndex < 0 || targetIndex >= next.length) {
+        return previous;
+      }
+      
+      // Swap positions
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      
+      return { ...previous, [field]: next };
+    });
+  };
+
   const priceNumber = useMemo(() => {
     const parsed = parseFloat(form.price);
     return Number.isFinite(parsed) ? parsed : Number.NaN;
@@ -1143,6 +1162,29 @@ export default function ProductNew() {
                 <div className="space-y-3">
                   {ensureList(form.variants).map((variant, index) => (
                     <div key={`variant-${index}`} className="variant-row">
+                      <div className="flex flex-col gap-2">
+                        <span className="text-xs font-medium text-[var(--text-muted)]">#{index + 1}</span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveVariant("variants", index, 'up')}
+                            disabled={index === 0}
+                            className="product-btn-secondary px-2 py-1 text-xs"
+                            title="Move up"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveVariant("variants", index, 'down')}
+                            disabled={index === ensureList(form.variants).length - 1}
+                            className="product-btn-secondary px-2 py-1 text-xs"
+                            title="Move down"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
                       <input
                         type="text"
                         placeholder="Variant name (e.g. 250ml, Pink)"
