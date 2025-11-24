@@ -175,10 +175,6 @@ export default function ProductEdit() {
       showToast('info', 'Uploading variant image...');
       const url = await uploadToCloudinary(file);
 
-      if (!url) {
-        throw new Error('Upload returned no URL');
-      }
-
       const current = form.variants[index];
       const updated = typeof current === "string"
         ? { name: current, image: url }
