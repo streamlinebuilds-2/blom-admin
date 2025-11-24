@@ -127,69 +127,137 @@ export default function ProductEdit() {
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Debug: Monitor form state changes
+  useEffect(() => {
+    console.log('🔄 Form state changed:', {
+      thumbnail_url: form.thumbnail_url,
+      hover_url: form.hover_url,
+      variants: form.variants.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
+    });
+  }, [form.thumbnail_url, form.hover_url, form.variants]);
+
+  // Debug: Monitor component mount/unmount
+  useEffect(() => {
+    console.log('🚀 ProductEdit component mounted for product ID:', id);
+    return () => {
+      console.log('🛑 ProductEdit component unmounting');
+    };
+  }, [id]);
+
   const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 
   const uploadToCloudinary = async (file) => {
+    console.log('☁️ Starting Cloudinary upload for file:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      preset: CLOUDINARY_UPLOAD_PRESET,
+      cloudName: CLOUDINARY_CLOUD_NAME
+    });
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
     try {
+      console.log('📤 Sending request to Cloudinary...');
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
         { method: 'POST', body: formData }
       );
 
+      console.log('📥 Cloudinary response status:', response.status);
       const data = await response.json();
+      console.log('📥 Cloudinary response data:', data);
 
       // Validate response
       if (!response.ok) {
-        throw new Error(data.error?.message || `Upload failed with status ${response.status}`);
+        const errorMsg = data.error?.message || `Upload failed with status ${response.status}`;
+        console.error('❌ Cloudinary upload error:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       if (data.error) {
-        throw new Error(data.error.message || 'Cloudinary returned an error');
+        const errorMsg = data.error.message || 'Cloudinary returned an error';
+        console.error('❌ Cloudinary returned error:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       if (!data.secure_url) {
+        console.error('❌ No secure URL returned from Cloudinary');
         throw new Error('No secure URL returned from Cloudinary');
       }
 
       // Validate the URL is actually from Cloudinary
       if (!data.secure_url.includes('res.cloudinary.com')) {
+        console.error('❌ Invalid URL format received:', data.secure_url);
         throw new Error('Invalid URL format received');
       }
 
+      console.log('✅ Cloudinary upload successful, returning URL:', data.secure_url);
       return data.secure_url;
     } catch (error) {
-      console.error('Cloudinary upload error:', error);
+      console.error('❌ Cloudinary upload error:', error);
       throw error;
     }
   };
 
   const handleVariantImageUpload = async (index, file) => {
-    if (!file) return;
+    console.log('🖼️ Starting variant image upload for index:', index, 'file:', {
+      name: file?.name,
+      size: file?.size,
+      type: file?.type
+    });
+
+    if (!file) {
+      console.log('❌ No file provided for variant upload');
+      return;
+    }
+
+    console.log('🖼️ Current variant state before upload:', {
+      index,
+      currentVariant: form.variants[index],
+      allVariants: form.variants.map((v, i) => ({ index: i, type: typeof v, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
+    });
 
     try {
+      console.log('📤 Uploading variant image to Cloudinary...');
       showToast('info', 'Uploading variant image...');
       const url = await uploadToCloudinary(file);
-      console.log('Variant upload successful, URL:', url);
+      console.log('✅ Variant upload successful, URL:', url);
 
-      // Force explicit state update
+      console.log('🔄 Updating variant state with new URL...');
+      // Force explicit state update with detailed logging
       setForm(prev => {
+        console.log('🔄 setForm called for variant update:', {
+          index,
+          newUrl: url,
+          currentVariants: prev.variants.map((v, i) => ({ index: i, type: typeof v, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
+        });
+
         const next = [...prev.variants];
         const current = next[index];
-        next[index] = typeof current === "string"
+        console.log('🔄 Current variant at index:', index, '=', current);
+        
+        const updatedVariant = typeof current === "string"
           ? { name: current, image: url }
           : { ...current, image: url };
-        return { ...prev, variants: next };
+          
+        console.log('🔄 Updated variant:', updatedVariant);
+        next[index] = updatedVariant;
+
+        const newState = { ...prev, variants: next };
+        console.log('🔄 New form state variants:', newState.variants.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image })));
+        
+        return newState;
       });
       
+      console.log('✅ Variant state update complete');
       showToast('success', 'Variant image uploaded');
     } catch (error) {
-      console.error('Variant image upload error:', error);
-      showToast('error', 'Image upload failed');
+      console.error('❌ Variant image upload error:', error);
+      showToast('error', 'Image upload failed: ' + error.message);
     }
   };
 
@@ -209,41 +277,61 @@ export default function ProductEdit() {
   // Load product data for editing
   useEffect(() => {
     async function loadProduct() {
+      console.log('🚀 Starting to load product with ID:', id);
+      
       if (!id) {
+        console.log('❌ No product ID provided, navigating to products');
         setLoading(false);
         navigate('/products');
         return;
       }
 
       try {
+        console.log('📥 Loading product from Supabase...');
         const { data: product, error } = await supabase
           .from('products')
           .select('*')
           .eq('id', id)
           .single();
 
+        console.log('📥 Product loaded from DB:', {
+          id: product?.id,
+          name: product?.name,
+          thumbnail_url: product?.thumbnail_url,
+          hover_url: product?.hover_url,
+          variants_count: product?.variants?.length,
+          variants: product?.variants?.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name || v?.label, image: typeof v === 'string' ? '' : v?.image }))
+        });
+
         if (error) {
-          console.error('Failed to load product:', error);
+          console.error('❌ Failed to load product:', error);
           showToast('error', 'Failed to load product');
           setLoading(false);
           return;
         }
 
         if (product) {
+          console.log('🔄 Processing product data for form...');
+          
           // Check if category is custom (not in predefined list)
           const isCustomCategory = product.category && !CATEGORIES.includes(product.category);
           setShowCustomCategory(isCustomCategory);
+          console.log('🔄 Custom category:', isCustomCategory);
 
           // Convert variants from label to name format if needed
           const normalizedVariants = Array.isArray(product.variants) && product.variants.length > 0
             ? product.variants.map(v => {
                 if (typeof v === 'string') return { name: v, image: '' };
                 // Handle both 'label' and 'name' formats
-                return { name: v.name || v.label || '', image: v.image || '' };
+                const normalized = { name: v.name || v.label || '', image: v.image || '' };
+                console.log('🔄 Normalized variant:', v, '→', normalized);
+                return normalized;
               })
             : [{ name: "", image: "" }];
 
-          setForm({
+          console.log('🔄 Final normalized variants:', normalizedVariants);
+
+          const formData = {
             id: product.id,
             name: product.name || '',
             category: product.category || '',
@@ -282,12 +370,22 @@ export default function ProductEdit() {
             related: Array.isArray(product.related) && product.related.length > 0
               ? product.related
               : [],
+          };
+
+          console.log('🚀 Setting form data:', {
+            thumbnail_url: formData.thumbnail_url,
+            hover_url: formData.hover_url,
+            variants: formData.variants.map((v, i) => ({ index: i, name: v.name, image: v.image }))
           });
+          
+          setForm(formData);
+          console.log('✅ Form data set successfully');
         }
 
         setLoading(false);
+        console.log('✅ Product loading complete');
       } catch (err) {
-        console.error('Error loading product:', err);
+        console.error('❌ Error loading product:', err);
         showToast('error', 'Error loading product');
         setLoading(false);
       }
@@ -297,10 +395,20 @@ export default function ProductEdit() {
   }, [id, navigate, showToast]);
 
   const update = (field, value) => {
-    setForm((previous) => ({ ...previous, [field]: value }));
+    console.log('🔄 update called:', { field, value });
+    setForm((previous) => {
+      console.log('🔄 setForm in update function:', { 
+        field, 
+        oldValue: previous[field], 
+        newValue: value 
+      });
+      const newState = { ...previous, [field]: value };
+      return newState;
+    });
     
     // If status is being changed, immediately save it
     if (field === 'status' && id) {
+      console.log('🔄 Status change detected, calling handleStatusChange');
       handleStatusChange(value);
     }
   };
@@ -994,8 +1102,13 @@ export default function ProductEdit() {
 
         <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
           <style>{`
-            /* Enhanced mobile responsiveness for ProductEdit */
+            /* Enhanced mobile responsiveness for ProductEdit with Horizontal Scrolling */
             @media (max-width: 768px) {
+              .content-area {
+                overflow-x: hidden;
+                padding: 0 16px 16px;
+              }
+
               .content-area.grid {
                 grid-template-columns: 1fr !important;
                 gap: 1rem !important;
@@ -1004,6 +1117,9 @@ export default function ProductEdit() {
               .product-form-section {
                 padding: 1rem !important;
                 margin-bottom: 1rem !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                min-width: 280px !important;
               }
 
               .product-form-input,
@@ -1011,52 +1127,81 @@ export default function ProductEdit() {
               .product-form-select {
                 font-size: 16px !important;
                 padding: 12px 16px !important;
+                min-width: 200px !important;
               }
 
               .grid.gap-4.md\\:grid-cols-2 {
-                grid-template-columns: 1fr !important;
+                display: flex !important;
+                flex-direction: column !important;
                 gap: 1rem !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+              }
+
+              .grid.gap-4.md\\:grid-cols-2 > * {
+                min-width: 200px !important;
+                flex-shrink: 0 !important;
               }
 
               .flex.gap-2 {
                 flex-direction: column !important;
                 gap: 0.5rem !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
               }
 
               .flex.gap-2 > * {
                 width: 100% !important;
+                min-width: 200px !important;
               }
 
+              /* Enhanced variant row scrolling */
               .variant-row {
-                flex-direction: column !important;
+                display: flex !important;
+                flex-direction: row !important;
                 gap: 0.75rem !important;
                 padding: 1rem !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                min-width: 320px !important;
+                align-items: stretch !important;
               }
 
               .variant-row input,
               .variant-row .product-form-input {
-                width: 100% !important;
+                min-width: 120px !important;
+                flex: 1 !important;
+              }
+
+              .variant-image-upload {
+                flex-shrink: 0 !important;
               }
 
               .upload-btn {
-                width: 100% !important;
-                padding: 10px 16px !important;
+                width: auto !important;
+                padding: 8px 14px !important;
+                white-space: nowrap !important;
               }
 
               .product-btn-secondary,
               .product-btn-add {
-                width: 100% !important;
+                width: auto !important;
                 min-height: 44px !important;
+                flex-shrink: 0 !important;
               }
 
               .flex.items-center.justify-end.gap-3 {
-                flex-direction: column !important;
+                flex-direction: row !important;
                 gap: 0.75rem !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px !important;
               }
 
               .flex.items-center.justify-end.gap-3 button {
-                width: 100% !important;
+                width: auto !important;
                 min-height: 48px !important;
+                flex-shrink: 0 !important;
               }
 
               /* Preview tabs */
@@ -1074,12 +1219,116 @@ export default function ProductEdit() {
               .mx-auto.w-\\[390px\\] {
                 width: 100% !important;
                 max-width: 100% !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+              }
+
+              /* Force horizontal scrolling for overflow content */
+              .space-y-6 {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+              }
+
+              /* Variants container scrolling */
+              .space-y-3 {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 1rem !important;
+              }
+
+              .space-y-3 > * {
+                flex-shrink: 0 !important;
+              }
+
+              /* Related products scrolling */
+              .space-y-2 {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+              }
+
+              /* Array field scrolling */
+              .space-y-2 .flex {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                gap: 0.5rem !important;
+              }
+
+              /* Touch optimization improvements */
+              button,
+              input,
+              select,
+              textarea {
+                touch-action: manipulation;
+              }
+
+              /* Improved scroll behavior */
+              .variant-row,
+              .product-form-section,
+              .space-y-3,
+              .space-y-2,
+              .grid.gap-4.md\\:grid-cols-2,
+              .flex.gap-2,
+              .flex.items-center.justify-end.gap-3 {
+                -webkit-overflow-scrolling: touch;
+                scroll-behavior: smooth;
+              }
+
+              /* Better form field spacing on mobile */
+              .product-form-input,
+              .product-form-textarea,
+              .product-form-select {
+                margin-bottom: 8px;
+              }
+
+              /* Prevent zoom on input focus */
+              input[type="text"],
+              input[type="number"],
+              input[type="email"],
+              input[type="tel"],
+              input[type="url"],
+              textarea,
+              select {
+                font-size: 16px !important;
+              }
+
+              /* Enhanced button interactions */
+              .product-btn-primary,
+              .product-btn-secondary,
+              .product-btn-add,
+              .upload-btn {
+                transition: all 0.2s ease;
+                -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+              }
+
+              .product-btn-primary:active,
+              .product-btn-secondary:active,
+              .product-btn-add:active,
+              .upload-btn:active {
+                transform: scale(0.98);
+              }
+
+              /* Variants section swipe indicator */
+              .space-y-3::before {
+                content: '← Swipe to see more variants →';
+                display: block;
+                text-align: center;
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-bottom: 8px;
+                opacity: 0.7;
               }
             }
 
             @media (max-width: 480px) {
+              .content-area {
+                padding: 0 12px 12px !important;
+              }
+
               .product-form-section {
                 padding: 0.75rem !important;
+                min-width: 260px !important;
               }
 
               .product-section-title {
@@ -1088,6 +1337,73 @@ export default function ProductEdit() {
 
               .product-section-desc {
                 font-size: 13px !important;
+              }
+
+              .variant-row {
+                min-width: 300px !important;
+                padding: 0.75rem !important;
+              }
+
+              .product-form-input,
+              .product-form-textarea,
+              .product-form-select {
+                min-width: 180px !important;
+                font-size: 16px !important;
+              }
+            }
+
+            /* Enhanced scrolling styles for all screen sizes */
+            .variant-row,
+            .product-form-section,
+            .space-y-3,
+            .space-y-2 {
+              scrollbar-width: thin;
+              scrollbar-color: var(--accent) transparent;
+            }
+
+            .variant-row::-webkit-scrollbar,
+            .product-form-section::-webkit-scrollbar,
+            .space-y-3::-webkit-scrollbar,
+            .space-y-2::-webkit-scrollbar {
+              height: 4px;
+            }
+
+            .variant-row::-webkit-scrollbar-track,
+            .product-form-section::-webkit-scrollbar-track,
+            .space-y-3::-webkit-scrollbar-track,
+            .space-y-2::-webkit-scrollbar-track {
+              background: transparent;
+            }
+
+            .variant-row::-webkit-scrollbar-thumb,
+            .product-form-section::-webkit-scrollbar-thumb,
+            .space-y-3::-webkit-scrollbar-thumb,
+            .space-y-2::-webkit-scrollbar-thumb {
+              background: var(--accent);
+              border-radius: 2px;
+            }
+
+            /* Landscape mobile optimizations */
+            @media (max-width: 768px) and (orientation: landscape) {
+              .content-area {
+                padding: 0 12px 12px;
+              }
+
+              .product-form-section {
+                padding: 0.75rem;
+              }
+
+              .variant-row {
+                padding: 0.5rem;
+                gap: 0.5rem;
+              }
+            }
+
+            /* High DPI display optimizations */
+            @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+              .variant-thumbnail {
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: crisp-edges;
               }
             }
           `}</style>
@@ -1331,17 +1647,53 @@ export default function ProductEdit() {
                       className="hidden"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
+                        console.log('🖼️ Main image file selected:', {
+                          name: file?.name,
+                          size: file?.size,
+                          type: file?.type,
+                          hasFile: !!file
+                        });
+                        
+                        if (!file) {
+                          console.log('❌ No file selected for main image');
+                          return;
+                        }
+                        
+                        console.log('🔄 Current main image state:', {
+                          thumbnail_url: form.thumbnail_url,
+                          hover_url: form.hover_url
+                        });
+                        
                         try {
-                          showToast('info', 'Uploading to Cloudinary...');
+                          showToast('info', 'Uploading main image to Cloudinary...');
+                          console.log('📤 Starting main image upload for file:', file.name, file.size);
                           const url = await uploadToCloudinary(file);
-                          console.log('Upload successful, URL:', url);
+                          console.log('✅ Main image upload successful, URL:', url);
+                          console.log('🔄 Updating main image state with URL:', url);
+                          
                           // Force state update with explicit setForm
-                          setForm(prev => ({ ...prev, thumbnail_url: url }));
-                          showToast('success', 'Image uploaded to Cloudinary');
+                          setForm(prev => {
+                            console.log('🔄 setForm called for main image update:', {
+                              oldThumbnail: prev.thumbnail_url,
+                              newThumbnail: url
+                            });
+                            const newState = { ...prev, thumbnail_url: url };
+                            console.log('🔄 New main image state:', {
+                              thumbnail_url: newState.thumbnail_url,
+                              hover_url: newState.hover_url
+                            });
+                            return newState;
+                          });
+                          
+                          console.log('✅ Main image state update complete');
+                          // Clear the file input to allow re-upload of same file
+                          e.target.value = '';
+                          showToast('success', 'Main image uploaded to Cloudinary');
                         } catch (err) {
-                          console.error('Upload error:', err);
+                          console.error('❌ Main image upload error:', err);
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
+                          // Clear the file input on error
+                          e.target.value = '';
                         }
                       }}
                     />
@@ -1381,17 +1733,53 @@ export default function ProductEdit() {
                       className="hidden"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
+                        console.log('🖼️ Hover image file selected:', {
+                          name: file?.name,
+                          size: file?.size,
+                          type: file?.type,
+                          hasFile: !!file
+                        });
+                        
+                        if (!file) {
+                          console.log('❌ No file selected for hover image');
+                          return;
+                        }
+                        
+                        console.log('🔄 Current hover image state:', {
+                          thumbnail_url: form.thumbnail_url,
+                          hover_url: form.hover_url
+                        });
+                        
                         try {
-                          showToast('info', 'Uploading to Cloudinary...');
+                          showToast('info', 'Uploading hover image to Cloudinary...');
+                          console.log('📤 Starting hover image upload for file:', file.name, file.size);
                           const url = await uploadToCloudinary(file);
-                          console.log('Upload successful, URL:', url);
+                          console.log('✅ Hover image upload successful, URL:', url);
+                          console.log('🔄 Updating hover image state with URL:', url);
+                          
                           // Force state update with explicit setForm
-                          setForm(prev => ({ ...prev, hover_url: url }));
-                          showToast('success', 'Image uploaded to Cloudinary');
+                          setForm(prev => {
+                            console.log('🔄 setForm called for hover image update:', {
+                              oldHover: prev.hover_url,
+                              newHover: url
+                            });
+                            const newState = { ...prev, hover_url: url };
+                            console.log('🔄 New hover image state:', {
+                              thumbnail_url: newState.thumbnail_url,
+                              hover_url: newState.hover_url
+                            });
+                            return newState;
+                          });
+                          
+                          console.log('✅ Hover image state update complete');
+                          // Clear the file input to allow re-upload of same file
+                          e.target.value = '';
+                          showToast('success', 'Hover image uploaded to Cloudinary');
                         } catch (err) {
-                          console.error('Upload error:', err);
+                          console.error('❌ Hover image upload error:', err);
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
+                          // Clear the file input on error
+                          e.target.value = '';
                         }
                       }}
                     />
@@ -1469,7 +1857,18 @@ export default function ProductEdit() {
                           style={{ display: 'none' }}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleVariantImageUpload(index, file);
+                            console.log('🖼️ Variant file selected for index:', index, 'file:', {
+                              name: file?.name,
+                              size: file?.size,
+                              type: file?.type,
+                              hasFile: !!file
+                            });
+                            if (file) {
+                              console.log('🔄 Calling handleVariantImageUpload for index:', index);
+                              handleVariantImageUpload(index, file);
+                            } else {
+                              console.log('❌ No file selected for variant at index:', index);
+                            }
                           }}
                         />
                         <label htmlFor={`variant-image-${index}`} className="upload-btn">
