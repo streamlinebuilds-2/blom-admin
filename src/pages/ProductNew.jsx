@@ -120,6 +120,7 @@ export default function ProductNew() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [previewTab, setPreviewTab] = useState("card");
+  const [viewMode, setViewMode] = useState("desktop");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [allProducts, setAllProducts] = useState([]);

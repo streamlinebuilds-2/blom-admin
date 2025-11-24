@@ -121,6 +121,7 @@ export default function ProductEdit() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [previewTab, setPreviewTab] = useState("card");
+  const [viewMode, setViewMode] = useState("desktop");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
@@ -128,16 +129,32 @@ export default function ProductEdit() {
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Monitor form state changes (minimal logging for production)
+  // Prevent any external interference during uploads
+  const [uploadLock, setUploadLock] = useState(false);
+  
+  // Monitor all form state changes with comprehensive tracking
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 Form state changed:', {
-        thumbnail_url: form.thumbnail_url,
-        hover_url: form.hover_url,
-        variants: form.variants.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
-      });
-    }
-  }, [form.thumbnail_url, form.hover_url, form.variants]);
+    console.log('🔄 Form state changed:', {
+      thumbnail_url: form.thumbnail_url,
+      hover_url: form.hover_url,
+      isUploading,
+      uploadLock,
+      variants: form.variants.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
+    });
+  }, [form.thumbnail_url, form.hover_url, form.variants, isUploading, uploadLock]);
+
+  // Additional protection against component re-mounting
+  useEffect(() => {
+    console.log('🚀 ProductEdit component mounted/updated for product ID:', id, {
+      timestamp: new Date().toISOString(),
+      uploadLock,
+      isUploading
+    });
+    
+    return () => {
+      console.log('🛑 ProductEdit component unmounting');
+    };
+  }, [id, uploadLock, isUploading]);
 
   const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -202,7 +219,8 @@ export default function ProductEdit() {
     console.log('🖼️ Starting variant image upload for index:', index, 'file:', {
       name: file?.name,
       size: file?.size,
-      type: file?.type
+      type: file?.type,
+      timestamp: new Date().toISOString()
     });
 
     if (!file) {
@@ -216,9 +234,10 @@ export default function ProductEdit() {
       allVariants: form.variants.map((v, i) => ({ index: i, type: typeof v, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
     });
 
-    // Prevent product reload during upload
+    // Apply comprehensive upload lock
     setIsUploading(true);
-    console.log('🚫 Blocking product reload during upload');
+    setUploadLock(true);
+    console.log('🔒 Applying comprehensive upload lock');
 
     try {
       console.log('📤 Uploading variant image to Cloudinary...');
@@ -232,6 +251,8 @@ export default function ProductEdit() {
         console.log('🔄 setForm called for variant update:', {
           index,
           newUrl: url,
+          uploadLock,
+          isUploading,
           currentVariants: prev.variants.map((v, i) => ({ index: i, type: typeof v, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
         });
 
@@ -258,9 +279,12 @@ export default function ProductEdit() {
       console.error('❌ Variant image upload error:', error);
       showToast('error', 'Image upload failed: ' + error.message);
     } finally {
-      // Re-enable product reload after upload
-      setIsUploading(false);
-      console.log('✅ Upload complete, re-enabling product reload');
+      // Release upload lock after a brief delay to ensure all state updates are processed
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadLock(false);
+        console.log('🔓 Upload lock released, re-enabling product reload');
+      }, 100);
     }
   };
 
@@ -277,11 +301,14 @@ export default function ProductEdit() {
     loadProducts();
   }, []);
 
+  // Track if this is the initial load to prevent unnecessary reloads
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
   // Load product data for editing
   useEffect(() => {
     async function loadProduct() {
       console.log('🚀 Starting to load product with ID:', id);
-      console.log('🚫 Upload status:', { isUploading });
+      console.log('🚫 Upload status:', { isUploading, isInitialLoad });
       
       if (!id) {
         console.log('❌ No product ID provided, navigating to products');
@@ -291,8 +318,15 @@ export default function ProductEdit() {
       }
 
       // Skip reload if currently uploading images to prevent race condition
-      if (isUploading) {
-        console.log('🚫 Skipping product reload during upload');
+      if (isUploading || uploadLock) {
+        console.log('🚫 Skipping product reload during upload, uploadLock:', uploadLock);
+        return;
+      }
+
+      // Only reload from database if this is the initial load or if we don't have form data yet
+      if (!isInitialLoad && form.id === id && form.thumbnail_url && form.hover_url) {
+        console.log('🚫 Skipping reload - form already has data for this product');
+        setLoading(false);
         return;
       }
 
@@ -389,6 +423,7 @@ export default function ProductEdit() {
           });
           
           setForm(formData);
+          setIsInitialLoad(false);
           console.log('✅ Form data set successfully');
         }
 
@@ -402,15 +437,23 @@ export default function ProductEdit() {
     }
 
     loadProduct();
-  }, [id, navigate, showToast, isUploading]);
+  }, [id, navigate, showToast, isUploading, isInitialLoad, form.id, form.thumbnail_url, form.hover_url]);
 
   const update = (field, value) => {
+    // Skip updates during upload locks to prevent interference
+    if (uploadLock || isUploading) {
+      console.log('🚫 Skipping update due to upload lock:', { field, value, uploadLock, isUploading });
+      return;
+    }
+    
     console.log('🔄 update called:', { field, value });
     setForm((previous) => {
       console.log('🔄 setForm in update function:', { 
         field, 
         oldValue: previous[field], 
-        newValue: value 
+        newValue: value,
+        uploadLock,
+        isUploading
       });
       const newState = { ...previous, [field]: value };
       return newState;
@@ -1674,9 +1717,10 @@ export default function ProductEdit() {
                           hover_url: form.hover_url
                         });
                         
-                        // Prevent product reload during upload
+                        // Apply comprehensive upload lock
                         setIsUploading(true);
-                        console.log('🚫 Blocking product reload during main image upload');
+                        setUploadLock(true);
+                        console.log('🔒 Applying comprehensive upload lock for main image');
                         
                         try {
                           showToast('info', 'Uploading main image to Cloudinary...');
@@ -1689,7 +1733,9 @@ export default function ProductEdit() {
                           setForm(prev => {
                             console.log('🔄 setForm called for main image update:', {
                               oldThumbnail: prev.thumbnail_url,
-                              newThumbnail: url
+                              newThumbnail: url,
+                              uploadLock,
+                              isUploading
                             });
                             const newState = { ...prev, thumbnail_url: url };
                             console.log('🔄 New main image state:', {
@@ -1709,9 +1755,12 @@ export default function ProductEdit() {
                           // Clear the file input on error
                           e.target.value = '';
                         } finally {
-                          // Re-enable product reload after upload
-                          setIsUploading(false);
-                          console.log('✅ Main image upload complete, re-enabling product reload');
+                          // Release upload lock after a brief delay to ensure all state updates are processed
+                          setTimeout(() => {
+                            setIsUploading(false);
+                            setUploadLock(false);
+                            console.log('🔓 Main image upload lock released, re-enabling product reload');
+                          }, 100);
                         }
                       }}
                     />
@@ -1768,9 +1817,10 @@ export default function ProductEdit() {
                           hover_url: form.hover_url
                         });
                         
-                        // Prevent product reload during upload
+                        // Apply comprehensive upload lock
                         setIsUploading(true);
-                        console.log('🚫 Blocking product reload during hover image upload');
+                        setUploadLock(true);
+                        console.log('🔒 Applying comprehensive upload lock for hover image');
                         
                         try {
                           showToast('info', 'Uploading hover image to Cloudinary...');
@@ -1783,7 +1833,9 @@ export default function ProductEdit() {
                           setForm(prev => {
                             console.log('🔄 setForm called for hover image update:', {
                               oldHover: prev.hover_url,
-                              newHover: url
+                              newHover: url,
+                              uploadLock,
+                              isUploading
                             });
                             const newState = { ...prev, hover_url: url };
                             console.log('🔄 New hover image state:', {
@@ -1803,9 +1855,12 @@ export default function ProductEdit() {
                           // Clear the file input on error
                           e.target.value = '';
                         } finally {
-                          // Re-enable product reload after upload
-                          setIsUploading(false);
-                          console.log('✅ Hover image upload complete, re-enabling product reload');
+                          // Release upload lock after a brief delay to ensure all state updates are processed
+                          setTimeout(() => {
+                            setIsUploading(false);
+                            setUploadLock(false);
+                            console.log('🔓 Hover image upload lock released, re-enabling product reload');
+                          }, 100);
                         }
                       }}
                     />
@@ -2081,13 +2136,41 @@ export default function ProductEdit() {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setFullscreenPreview(!fullscreenPreview)}
-                className="product-btn-secondary text-xs"
-              >
-                {fullscreenPreview ? '✕ Exit Fullscreen' : '⛶ Fullscreen'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '4px', marginRight: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('desktop')}
+                    className={`w-8 h-8 rounded border-none cursor-pointer flex items-center justify-center transition-colors ${
+                      viewMode === 'desktop' 
+                        ? 'bg-[var(--accent)] text-white' 
+                        : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                    title="Desktop View"
+                  >
+                    🖥️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('mobile')}
+                    className={`w-8 h-8 rounded border-none cursor-pointer flex items-center justify-center transition-colors ${
+                      viewMode === 'mobile' 
+                        ? 'bg-[var(--accent)] text-white' 
+                        : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                    title="Mobile View"
+                  >
+                    📱
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFullscreenPreview(!fullscreenPreview)}
+                  className="product-btn-secondary text-xs"
+                >
+                  {fullscreenPreview ? '✕ Exit Fullscreen' : '⛶ Fullscreen'}
+                </button>
+              </div>
             </div>
             <div className={fullscreenPreview ? "overflow-auto p-4" : "max-h-[75vh] overflow-auto p-4"}>
               {previewTab === "card" ? (
@@ -2099,24 +2182,21 @@ export default function ProductEdit() {
                   )}
                 </div>
               ) : null}
-              {previewTab === "page-desktop" ? (
+              {(previewTab === "page-desktop" || previewTab === "page-mobile") ? (
                 <div className={fullscreenPreview ? "desktop-preview" : "preview-container overflow-x-auto max-w-full"}>
-                  <div className={fullscreenPreview ? "mx-auto max-w-[1200px]" : "min-w-[1200px] mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
+                  <div className={`mx-auto overflow-hidden rounded-xl border border-[var(--card)] shadow-sm ${
+                    viewMode === 'mobile' 
+                      ? 'max-w-[390px]' 
+                      : fullscreenPreview 
+                        ? 'max-w-[1200px]' 
+                        : 'min-w-[1200px] max-w-5xl'
+                  } ${viewMode === 'mobile' ? 'ring-2 ring-[var(--accent)]' : ''}`}>
                     {pageModel ? (
                       <ProductPageTemplate product={pageModel} isPreview={true} />
                     ) : (
                       <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
                     )}
                   </div>
-                </div>
-              ) : null}
-              {previewTab === "page-mobile" ? (
-                <div className={fullscreenPreview ? "mobile-preview mx-auto" : "mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
-                  {pageModel ? (
-                    <ProductPageTemplate product={pageModel} isPreview={true} />
-                  ) : (
-                    <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
-                  )}
                 </div>
               ) : null}
             </div>
