@@ -369,15 +369,20 @@ export default function Products() {
           margin-bottom: 8px;
         }
 
-        /* Mobile responsive styles */
+        /* Enhanced mobile responsive styles */
         @media (max-width: 768px) {
           .products-header {
             flex-direction: column;
             align-items: stretch;
+            margin-bottom: 20px;
+            gap: 12px;
           }
 
           .header-actions {
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
           }
 
           .search-box {
@@ -386,11 +391,79 @@ export default function Products() {
 
           .filter-select {
             flex: 1;
+            font-size: 16px;
+            padding: 14px 16px;
           }
 
           .btn-primary {
             flex: 1;
             justify-content: center;
+            min-height: 48px;
+            padding: 14px 24px;
+          }
+
+          th,
+          td {
+            padding: 10px 6px;
+            font-size: 12px;
+            white-space: nowrap;
+          }
+
+          th {
+            padding: 12px 8px;
+            font-size: 11px;
+          }
+
+          .products-title {
+            font-size: 22px;
+            margin-bottom: 4px;
+          }
+
+          .table-container {
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -16px;
+            padding: 0 16px;
+          }
+
+          .products-table {
+            border-radius: 12px;
+            margin: 0 -16px;
+          }
+
+          /* Enhanced action buttons for mobile */
+          .action-buttons {
+            gap: 6px;
+          }
+
+          .btn-icon {
+            min-width: 40px;
+            min-height: 40px;
+            width: 40px;
+            height: 40px;
+          }
+
+          /* Better touch targets */
+          .btn-icon,
+          .btn-primary,
+          .filter-select {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+          }
+
+          .btn-icon:active,
+          .btn-primary:active {
+            transform: scale(0.98);
+          }
+
+          /* Scroll indicators for table */
+          .table-container::after {
+            content: '← Swipe to see more →';
+            display: block;
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 8px;
+            opacity: 0.7;
           }
 
           /* Hide less important columns on mobile */
@@ -401,18 +474,9 @@ export default function Products() {
             display: none;
           }
 
-          th,
-          td {
-            padding: 12px 8px;
-            font-size: 13px;
-          }
-
-          .products-title {
-            font-size: 24px;
-          }
-
-          .table-container {
-            -webkit-overflow-scrolling: touch;
+          /* Ensure minimum table width */
+          table {
+            min-width: 400px;
           }
         }
 
@@ -421,6 +485,85 @@ export default function Products() {
           th:nth-child(2),
           td:nth-child(2) {
             display: none;
+          }
+
+          .products-header {
+            margin-bottom: 16px;
+          }
+
+          .header-actions {
+            gap: 8px;
+          }
+
+          .search-input {
+            font-size: 16px; /* Prevent zoom on iOS */
+          }
+
+          th,
+          td {
+            padding: 8px 4px;
+            font-size: 11px;
+          }
+
+          th {
+            padding: 10px 6px;
+            font-size: 10px;
+          }
+
+          .products-title {
+            font-size: 20px;
+          }
+
+          /* Reduce action button size further */
+          .btn-icon {
+            min-width: 36px;
+            min-height: 36px;
+            width: 36px;
+            height: 36px;
+          }
+
+          /* Ensure table scrolls properly */
+          .table-container {
+            margin: 0 -12px;
+            padding: 0 12px;
+          }
+
+          table {
+            min-width: 320px;
+          }
+        }
+
+        /* Enhanced scrolling styles */
+        .table-container::-webkit-scrollbar {
+          height: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 2px;
+        }
+
+        /* Touch improvements for all screen sizes */
+        @media (max-width: 768px) {
+          tbody tr {
+            touch-action: manipulation;
+          }
+
+          tbody tr:active {
+            background: rgba(110, 193, 255, 0.1);
+          }
+
+          /* Better empty state for mobile */
+          .empty-state {
+            padding: 40px 16px;
+          }
+
+          .empty-state-title {
+            font-size: 18px;
           }
         }
       `}</style>

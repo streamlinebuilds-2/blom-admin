@@ -118,15 +118,19 @@ export default function Dashboard() {
   return (
     <>
       <style>{`
+        /* Enhanced mobile responsiveness for Dashboard */
         .dashboard-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 16px;
-          margin-bottom: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 20px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         @media (min-width: 640px) {
           .dashboard-grid {
+            display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
           }
@@ -142,16 +146,32 @@ export default function Dashboard() {
 
         .stat-card {
           background: var(--card);
-          border-radius: 20px;
-          padding: 20px;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+          border-radius: 16px;
+          padding: 16px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           position: relative;
           overflow: hidden;
+          min-height: 120px;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 640px) {
+          .stat-card {
+            padding: 20px;
+            min-height: 140px;
+          }
         }
 
         @media (min-width: 768px) {
           .stat-card {
             padding: 24px;
+            min-height: 160px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .stat-card {
+            min-height: 180px;
           }
         }
 
@@ -161,60 +181,125 @@ export default function Dashboard() {
           top: 0;
           left: 0;
           right: 0;
-          height: 4px;
+          height: 3px;
           background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        }
+
+        @media (min-width: 768px) {
+          .stat-card::before {
+            height: 4px;
+          }
         }
 
         .stat-header {
           display: flex;
           align-items: flex-start;
-          gap: 16px;
-          margin-bottom: 12px;
+          gap: 12px;
+          margin-bottom: 10px;
+        }
+
+        @media (min-width: 768px) {
+          .stat-header {
+            gap: 16px;
+            margin-bottom: 12px;
+          }
         }
 
         .stat-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
           background: linear-gradient(135deg, var(--accent), var(--accent-2));
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          }
         }
 
         .stat-info {
           flex: 1;
+          min-width: 0;
         }
 
         .stat-title {
-          font-size: 14px;
+          font-size: 12px;
           color: var(--text-muted);
           font-weight: 500;
-          margin-bottom: 4px;
+          margin-bottom: 3px;
+          line-height: 1.3;
         }
 
-        .stat-value {
-          font-size: 24px;
-          font-weight: 700;
-          color: var(--text);
-          word-break: break-word;
+        @media (min-width: 640px) {
+          .stat-title {
+            font-size: 13px;
+            margin-bottom: 4px;
+          }
         }
 
         @media (min-width: 768px) {
+          .stat-title {
+            font-size: 14px;
+          }
+        }
+
+        .stat-value {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text);
+          word-break: break-word;
+          line-height: 1.2;
+        }
+
+        @media (min-width: 640px) {
+          .stat-value {
+            font-size: 20px;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .stat-value {
+            font-size: 24px;
+          }
+        }
+
+        @media (min-width: 1024px) {
           .stat-value {
             font-size: 32px;
           }
         }
 
         .stat-subtitle {
-          font-size: 13px;
+          font-size: 11px;
           color: var(--text-muted);
-          margin-top: 8px;
+          margin-top: 6px;
+          line-height: 1.3;
+        }
+
+        @media (min-width: 640px) {
+          .stat-subtitle {
+            font-size: 12px;
+            margin-top: 8px;
+          }
         }
 
         @media (min-width: 768px) {
+          .stat-subtitle {
+            font-size: 13px;
+          }
+        }
+
+        @media (min-width: 1024px) {
           .stat-subtitle {
             font-size: 14px;
           }
@@ -223,10 +308,24 @@ export default function Dashboard() {
         .stat-trend {
           display: flex;
           align-items: center;
-          gap: 6px;
-          margin-top: 12px;
-          font-size: 14px;
+          gap: 4px;
+          margin-top: 8px;
+          font-size: 12px;
           font-weight: 600;
+        }
+
+        @media (min-width: 640px) {
+          .stat-trend {
+            gap: 6px;
+            margin-top: 12px;
+            font-size: 13px;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .stat-trend {
+            font-size: 14px;
+          }
         }
 
         .trend-up {
@@ -238,118 +337,209 @@ export default function Dashboard() {
         }
 
         .section-title {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 700;
           color: var(--text);
-          margin-bottom: 16px;
+          margin-bottom: 12px;
+          margin-top: 20px;
+        }
+
+        @media (min-width: 640px) {
+          .section-title {
+            font-size: 17px;
+            margin-bottom: 16px;
+            margin-top: 24px;
+          }
         }
 
         @media (min-width: 768px) {
           .section-title {
-            font-size: 20px;
+            font-size: 18px;
             margin-bottom: 20px;
+            margin-top: 28px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .section-title {
+            font-size: 20px;
+            margin-bottom: 24px;
+            margin-top: 32px;
           }
         }
 
         .quick-links-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         @media (min-width: 640px) {
           .quick-links-grid {
+            display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
+            gap: 12px;
           }
         }
 
         @media (min-width: 1024px) {
           .quick-links-grid {
             grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+          }
+        }
+
+        @media (min-width: 1280px) {
+          .quick-links-grid {
             gap: 20px;
           }
         }
 
         .quick-link {
           background: var(--card);
-          border-radius: 16px;
-          padding: 16px;
+          border-radius: 14px;
+          padding: 14px;
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           text-decoration: none;
-          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
           transition: all 0.3s ease;
-          min-height: 48px;
+          min-height: 44px;
+          flex-shrink: 0;
+          touch-action: manipulation;
+        }
+
+        @media (min-width: 640px) {
+          .quick-link {
+            padding: 16px;
+            gap: 12px;
+          }
         }
 
         @media (min-width: 768px) {
           .quick-link {
             padding: 20px;
             gap: 16px;
+            min-height: 48px;
           }
         }
 
         .quick-link:hover {
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
-          transform: translateY(-2px);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          transform: translateY(-1px);
         }
 
         .quick-link:active {
           transform: translateY(0);
+          box-shadow: inset 1px 1px 2px var(--shadow-dark), inset -1px -1px 2px var(--shadow-light);
         }
 
         .quick-link-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
           background: var(--card);
           display: flex;
           align-items: center;
           justify-content: center;
           color: var(--accent);
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+          .quick-link-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+          }
         }
 
         .quick-link-content {
           flex: 1;
+          min-width: 0;
         }
 
         .quick-link-title {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 600;
           color: var(--text);
-          margin-bottom: 4px;
+          margin-bottom: 3px;
+          line-height: 1.3;
+        }
+
+        @media (min-width: 640px) {
+          .quick-link-title {
+            font-size: 15px;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .quick-link-title {
+            font-size: 16px;
+            margin-bottom: 4px;
+          }
         }
 
         .quick-link-description {
-          font-size: 13px;
+          font-size: 11px;
           color: var(--text-muted);
+          line-height: 1.3;
+        }
+
+        @media (min-width: 640px) {
+          .quick-link-description {
+            font-size: 12px;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .quick-link-description {
+            font-size: 13px;
+          }
         }
 
         .quick-link-arrow {
           color: var(--text-muted);
           transition: transform 0.3s ease;
+          flex-shrink: 0;
         }
 
         .quick-link:hover .quick-link-arrow {
-          transform: translate(4px, -4px);
+          transform: translate(3px, -3px);
+        }
+
+        @media (min-width: 768px) {
+          .quick-link:hover .quick-link-arrow {
+            transform: translate(4px, -4px);
+          }
         }
 
         .recent-table {
           background: var(--card);
-          border-radius: 20px;
-          padding: 16px;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-          margin-top: 24px;
+          border-radius: 16px;
+          padding: 14px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          margin-top: 20px;
           overflow: hidden;
+        }
+
+        @media (min-width: 640px) {
+          .recent-table {
+            padding: 16px;
+            margin-top: 24px;
+          }
         }
 
         @media (min-width: 768px) {
           .recent-table {
             padding: 24px;
             margin-top: 32px;
+            border-radius: 20px;
+            box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
           }
         }
 
@@ -357,9 +547,15 @@ export default function Dashboard() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 16px;
+          margin-bottom: 12px;
           flex-wrap: wrap;
           gap: 8px;
+        }
+
+        @media (min-width: 640px) {
+          .table-header {
+            margin-bottom: 16px;
+          }
         }
 
         @media (min-width: 768px) {
@@ -369,9 +565,15 @@ export default function Dashboard() {
         }
 
         .table-title {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 700;
           color: var(--text);
+        }
+
+        @media (min-width: 640px) {
+          .table-title {
+            font-size: 15px;
+          }
         }
 
         @media (min-width: 768px) {
@@ -383,8 +585,15 @@ export default function Dashboard() {
         .table-scroll-wrapper {
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
-          margin: 0 -16px;
-          padding: 0 16px;
+          margin: 0 -14px;
+          padding: 0 14px;
+        }
+
+        @media (min-width: 640px) {
+          .table-scroll-wrapper {
+            margin: 0 -16px;
+            padding: 0 16px;
+          }
         }
 
         @media (min-width: 768px) {
@@ -395,31 +604,65 @@ export default function Dashboard() {
         }
 
         .view-all-link {
-          font-size: 14px;
+          font-size: 12px;
           color: var(--accent);
           text-decoration: none;
           font-weight: 600;
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 4px;
+          padding: 6px 8px;
+          border-radius: 6px;
+          transition: background-color 0.2s ease;
+        }
+
+        @media (min-width: 640px) {
+          .view-all-link {
+            font-size: 13px;
+            gap: 6px;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .view-all-link {
+            font-size: 14px;
+          }
+        }
+
+        .view-all-link:hover {
+          background-color: var(--accent);
+          color: white;
         }
 
         table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 500px;
+          min-width: 400px;
+        }
+
+        @media (min-width: 640px) {
+          table {
+            min-width: 500px;
+          }
         }
 
         th {
           text-align: left;
-          padding: 10px 8px;
-          font-size: 11px;
+          padding: 8px 6px;
+          font-size: 10px;
           font-weight: 600;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           border-bottom: 1px solid var(--border);
           white-space: nowrap;
+        }
+
+        @media (min-width: 640px) {
+          th {
+            padding: 10px 8px;
+            font-size: 11px;
+          }
         }
 
         @media (min-width: 768px) {
@@ -430,10 +673,18 @@ export default function Dashboard() {
         }
 
         td {
-          padding: 12px 8px;
+          padding: 10px 6px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
-          font-size: 13px;
+          font-size: 12px;
+          line-height: 1.3;
+        }
+
+        @media (min-width: 640px) {
+          td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
         }
 
         @media (min-width: 768px) {
@@ -449,11 +700,25 @@ export default function Dashboard() {
 
         .status-badge {
           display: inline-flex;
-          padding: 4px 12px;
-          border-radius: 8px;
-          font-size: 12px;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-size: 10px;
           font-weight: 600;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          box-shadow: inset 1px 1px 2px var(--shadow-dark), inset -1px -1px 2px var(--shadow-light);
+        }
+
+        @media (min-width: 640px) {
+          .status-badge {
+            padding: 4px 10px;
+            font-size: 11px;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .status-badge {
+            padding: 4px 12px;
+            font-size: 12px;
+          }
         }
 
         .status-active {
@@ -469,6 +734,50 @@ export default function Dashboard() {
         .status-pending {
           background: #3b82f620;
           color: #3b82f6;
+        }
+
+        /* Enhanced scrolling styles */
+        .dashboard-grid::-webkit-scrollbar,
+        .quick-links-grid::-webkit-scrollbar,
+        .table-scroll-wrapper::-webkit-scrollbar {
+          height: 3px;
+        }
+
+        .dashboard-grid::-webkit-scrollbar-track,
+        .quick-links-grid::-webkit-scrollbar-track,
+        .table-scroll-wrapper::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .dashboard-grid::-webkit-scrollbar-thumb,
+        .quick-links-grid::-webkit-scrollbar-thumb,
+        .table-scroll-wrapper::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 2px;
+        }
+
+        /* Touch optimizations */
+        @media (max-width: 768px) {
+          .stat-card,
+          .quick-link {
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+            touch-action: manipulation;
+          }
+
+          .stat-card:active,
+          .quick-link:active {
+            transform: scale(0.98);
+          }
+
+          /* Prevent zoom on input focus */
+          input, select, textarea {
+            font-size: 16px;
+          }
+
+          /* Better spacing for mobile */
+          .section-title:first-child {
+            margin-top: 0;
+          }
         }
       `}</style>
 

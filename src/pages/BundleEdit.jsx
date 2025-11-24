@@ -66,6 +66,7 @@ export default function BundleEdit() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [previewTab, setPreviewTab] = useState("card");
+  const [viewMode, setViewMode] = useState("desktop");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState([]);
@@ -835,6 +836,257 @@ export default function BundleEdit() {
         </div>
 
         <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <style>{`
+            /* Enhanced mobile responsiveness for BundleEdit - ProductEdit Pattern */
+            @media (max-width: 768px) {
+              .content-area {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 1rem;
+              }
+
+              .content-area.grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+              }
+
+              .product-form-section {
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                min-width: 320px !important;
+                box-sizing: border-box !important;
+              }
+
+              .product-form-input,
+              .product-form-textarea,
+              .product-form-select {
+                width: 100% !important;
+                font-size: 16px !important; /* Prevent iOS zoom */
+                padding: 12px 16px !important;
+                box-sizing: border-box !important;
+              }
+
+              .grid.gap-4.md\\:grid-cols-2 {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 1rem !important;
+              }
+
+              .grid.gap-4.md\\:grid-cols-2 > * {
+                flex: 1 1 300px !important;
+                min-width: 280px !important;
+              }
+
+              /* Bundle items - horizontal scroll support */
+              .bundle-item {
+                display: flex !important;
+                flex-direction: row !important;
+                gap: 0.75rem !important;
+                padding: 1rem !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                min-width: 320px !important;
+                align-items: stretch !important;
+                box-sizing: border-box !important;
+              }
+
+              .bundle-item select,
+              .bundle-item input {
+                min-width: 120px !important;
+                flex: 1 !important;
+                font-size: 16px !important;
+              }
+
+              .product-btn-secondary {
+                width: auto !important;
+                min-height: 44px !important;
+                flex-shrink: 0 !important;
+                padding: 10px 16px !important;
+              }
+
+              /* Action buttons - stack vertically */
+              .flex.items-center.justify-end.gap-3 {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+                width: 100% !important;
+              }
+
+              .flex.items-center.justify-end.gap-3 button {
+                width: 100% !important;
+                min-height: 48px !important;
+              }
+
+              /* Variant rows - stack vertically */
+              .flex.gap-2 {
+                flex-direction: column !important;
+                gap: 0.5rem !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+
+              .flex.gap-2 input {
+                width: 100% !important;
+              }
+
+              /* Touch optimization improvements */
+              button,
+              input,
+              select,
+              textarea {
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+              }
+
+              button:active {
+                transform: scale(0.98);
+              }
+
+              /* Prevent zoom on input focus */
+              input[type="text"],
+              input[type="number"],
+              input[type="email"],
+              input[type="tel"],
+              input[type="url"],
+              textarea,
+              select {
+                font-size: 16px !important;
+              }
+
+              /* Better form field spacing */
+              .space-y-2 > * + * {
+                margin-top: 0.75rem !important;
+              }
+
+              .space-y-4 > * + * {
+                margin-top: 1rem !important;
+              }
+
+              .space-y-6 > * + * {
+                margin-top: 1.5rem !important;
+              }
+
+              /* Bundle products scroll indicator */
+              .space-y-3::before {
+                content: '← Scroll horizontally to see more →';
+                display: block;
+                text-align: center;
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-bottom: 8px;
+                opacity: 0.7;
+              }
+
+              /* Checkbox and label alignment */
+              .flex.items-center.gap-3 {
+                flex-direction: row !important;
+                align-items: flex-start !important;
+                gap: 0.75rem !important;
+              }
+
+              .flex.items-center.gap-3 input[type="checkbox"] {
+                margin-top: 2px !important;
+              }
+
+              /* Small text adjustments */
+              small {
+                display: block !important;
+                margin-top: 4px !important;
+                font-size: 12px !important;
+              }
+            }
+
+            @media (max-width: 480px) {
+              .content-area {
+                padding: 0.5rem !important;
+              }
+
+              .product-form-section {
+                padding: 0.75rem !important;
+                min-width: 280px !important;
+              }
+
+              .bundle-item {
+                min-width: 300px !important;
+                padding: 0.75rem !important;
+                gap: 0.5rem !important;
+              }
+
+              .product-form-input,
+              .product-form-textarea,
+              .product-form-select {
+                padding: 10px 12px !important;
+                font-size: 16px !important;
+              }
+
+              /* Optimize spacing for small screens */
+              .space-y-6 > * + * {
+                margin-top: 1rem !important;
+              }
+
+              .space-y-4 > * + * {
+                margin-top: 0.75rem !important;
+              }
+
+              .space-y-2 > * + * {
+                margin-top: 0.5rem !important;
+              }
+
+              /* Ensure readability */
+              .text-sm {
+                font-size: 13px !important;
+              }
+
+              .text-xs {
+                font-size: 12px !important;
+              }
+            }
+
+            /* Enhanced scrolling styles for all screen sizes */
+            .bundle-item,
+            .product-form-section,
+            .flex.gap-2 {
+              scrollbar-width: thin;
+              scrollbar-color: var(--accent) transparent;
+            }
+
+            .bundle-item::-webkit-scrollbar,
+            .product-form-section::-webkit-scrollbar,
+            .flex.gap-2::-webkit-scrollbar {
+              height: 4px;
+            }
+
+            .bundle-item::-webkit-scrollbar-track,
+            .product-form-section::-webkit-scrollbar-track,
+            .flex.gap-2::-webkit-scrollbar-track {
+              background: transparent;
+            }
+
+            .bundle-item::-webkit-scrollbar-thumb,
+            .product-form-section::-webkit-scrollbar-thumb,
+            .flex.gap-2::-webkit-scrollbar-thumb {
+              background: var(--accent);
+              border-radius: 2px;
+            }
+
+            /* Landscape mobile optimizations */
+            @media (max-width: 768px) and (orientation: landscape) {
+              .content-area {
+                padding: 0 12px 12px;
+              }
+
+              .product-form-section {
+                padding: 0.75rem;
+              }
+
+              .bundle-item,
+              .flex.gap-2 {
+                padding: 0.5rem;
+                gap: 0.5rem;
+              }
+            }
+          `}</style>
           <form className="space-y-6" onSubmit={handleSubmit}>
           <section className="product-form-section">
             <header className="mb-4">
@@ -1477,9 +1729,9 @@ export default function BundleEdit() {
             <div className="flex gap-2 justify-between border-b border-[var(--card)] p-3 text-sm font-semibold text-[var(--text-muted)]">
               <div className="flex gap-2">
                 {[
-                  { id: "card", label: "Product Card" },
-                  { id: "page-desktop", label: "Product Page – Desktop" },
-                  { id: "page-mobile", label: "Product Page – Mobile" },
+                  { id: "card", label: "Bundle Card" },
+                  { id: "page-desktop", label: "Bundle Page – Desktop" },
+                  { id: "page-mobile", label: "Bundle Page – Mobile" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1493,13 +1745,41 @@ export default function BundleEdit() {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setFullscreenPreview(!fullscreenPreview)}
-                className="product-btn-secondary text-xs"
-              >
-                {fullscreenPreview ? '✕ Exit Fullscreen' : '⛶ Fullscreen'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '4px', marginRight: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('desktop')}
+                    className={`w-8 h-8 rounded border-none cursor-pointer flex items-center justify-center transition-colors ${
+                      viewMode === 'desktop' 
+                        ? 'bg-[var(--accent)] text-white' 
+                        : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                    title="Desktop View"
+                  >
+                    🖥️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('mobile')}
+                    className={`w-8 h-8 rounded border-none cursor-pointer flex items-center justify-center transition-colors ${
+                      viewMode === 'mobile' 
+                        ? 'bg-[var(--accent)] text-white' 
+                        : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                    title="Mobile View"
+                  >
+                    📱
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFullscreenPreview(!fullscreenPreview)}
+                  className="product-btn-secondary text-xs"
+                >
+                  {fullscreenPreview ? '✕ Exit Fullscreen' : '⛶ Fullscreen'}
+                </button>
+              </div>
             </div>
             <div className={fullscreenPreview ? "overflow-auto p-4" : "max-h-[75vh] overflow-auto p-4"}>
               {previewTab === "card" ? (
@@ -1513,7 +1793,13 @@ export default function BundleEdit() {
               ) : null}
               {previewTab === "page-desktop" ? (
                 <div className={fullscreenPreview ? "desktop-preview" : "preview-container overflow-x-auto max-w-full"}>
-                  <div className={fullscreenPreview ? "mx-auto max-w-[1200px]" : "min-w-[1200px] mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
+                  <div className={`mx-auto overflow-hidden rounded-xl border border-[var(--card)] shadow-sm ${
+                    viewMode === 'mobile' 
+                      ? 'max-w-[390px]' 
+                      : fullscreenPreview 
+                        ? 'max-w-[1200px]' 
+                        : 'min-w-[1200px] max-w-5xl'
+                  } ${viewMode === 'mobile' ? 'ring-2 ring-[var(--accent)]' : ''}`}>
                     {pageModel ? (
                       <ProductPageTemplate product={pageModel} isPreview={true} />
                     ) : (
@@ -1523,7 +1809,7 @@ export default function BundleEdit() {
                 </div>
               ) : null}
               {previewTab === "page-mobile" ? (
-                <div className={fullscreenPreview ? "mobile-preview mx-auto" : "mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
+                <div className={fullscreenPreview ? "mobile-preview mx-auto" : `mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm ${viewMode === 'mobile' ? 'ring-2 ring-[var(--accent)]' : ''}`}>
                   {pageModel ? (
                     <ProductPageTemplate product={pageModel} isPreview={true} />
                   ) : (

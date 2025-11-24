@@ -126,23 +126,18 @@ export default function ProductEdit() {
   const [allProducts, setAllProducts] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Debug: Monitor form state changes
+  // Monitor form state changes (minimal logging for production)
   useEffect(() => {
-    console.log('🔄 Form state changed:', {
-      thumbnail_url: form.thumbnail_url,
-      hover_url: form.hover_url,
-      variants: form.variants.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 Form state changed:', {
+        thumbnail_url: form.thumbnail_url,
+        hover_url: form.hover_url,
+        variants: form.variants.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
+      });
+    }
   }, [form.thumbnail_url, form.hover_url, form.variants]);
-
-  // Debug: Monitor component mount/unmount
-  useEffect(() => {
-    console.log('🚀 ProductEdit component mounted for product ID:', id);
-    return () => {
-      console.log('🛑 ProductEdit component unmounting');
-    };
-  }, [id]);
 
   const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -221,6 +216,10 @@ export default function ProductEdit() {
       allVariants: form.variants.map((v, i) => ({ index: i, type: typeof v, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
     });
 
+    // Prevent product reload during upload
+    setIsUploading(true);
+    console.log('🚫 Blocking product reload during upload');
+
     try {
       console.log('📤 Uploading variant image to Cloudinary...');
       showToast('info', 'Uploading variant image...');
@@ -258,6 +257,10 @@ export default function ProductEdit() {
     } catch (error) {
       console.error('❌ Variant image upload error:', error);
       showToast('error', 'Image upload failed: ' + error.message);
+    } finally {
+      // Re-enable product reload after upload
+      setIsUploading(false);
+      console.log('✅ Upload complete, re-enabling product reload');
     }
   };
 
@@ -278,11 +281,18 @@ export default function ProductEdit() {
   useEffect(() => {
     async function loadProduct() {
       console.log('🚀 Starting to load product with ID:', id);
+      console.log('🚫 Upload status:', { isUploading });
       
       if (!id) {
         console.log('❌ No product ID provided, navigating to products');
         setLoading(false);
         navigate('/products');
+        return;
+      }
+
+      // Skip reload if currently uploading images to prevent race condition
+      if (isUploading) {
+        console.log('🚫 Skipping product reload during upload');
         return;
       }
 
@@ -392,7 +402,7 @@ export default function ProductEdit() {
     }
 
     loadProduct();
-  }, [id, navigate, showToast]);
+  }, [id, navigate, showToast, isUploading]);
 
   const update = (field, value) => {
     console.log('🔄 update called:', { field, value });
@@ -1664,6 +1674,10 @@ export default function ProductEdit() {
                           hover_url: form.hover_url
                         });
                         
+                        // Prevent product reload during upload
+                        setIsUploading(true);
+                        console.log('🚫 Blocking product reload during main image upload');
+                        
                         try {
                           showToast('info', 'Uploading main image to Cloudinary...');
                           console.log('📤 Starting main image upload for file:', file.name, file.size);
@@ -1694,6 +1708,10 @@ export default function ProductEdit() {
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
                           // Clear the file input on error
                           e.target.value = '';
+                        } finally {
+                          // Re-enable product reload after upload
+                          setIsUploading(false);
+                          console.log('✅ Main image upload complete, re-enabling product reload');
                         }
                       }}
                     />
@@ -1750,6 +1768,10 @@ export default function ProductEdit() {
                           hover_url: form.hover_url
                         });
                         
+                        // Prevent product reload during upload
+                        setIsUploading(true);
+                        console.log('🚫 Blocking product reload during hover image upload');
+                        
                         try {
                           showToast('info', 'Uploading hover image to Cloudinary...');
                           console.log('📤 Starting hover image upload for file:', file.name, file.size);
@@ -1780,6 +1802,10 @@ export default function ProductEdit() {
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
                           // Clear the file input on error
                           e.target.value = '';
+                        } finally {
+                          // Re-enable product reload after upload
+                          setIsUploading(false);
+                          console.log('✅ Hover image upload complete, re-enabling product reload');
                         }
                       }}
                     />

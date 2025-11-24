@@ -328,31 +328,293 @@ export default function Orders() {
           align-items: end;
         }
 
-        /* Mobile responsive filters */
+        /* Enhanced mobile responsive styles */
         @media (max-width: 768px) {
+          .orders-header {
+            margin-bottom: 20px;
+          }
+
+          .header-title {
+            font-size: 24px;
+            margin-bottom: 6px;
+          }
+
+          .header-subtitle {
+            font-size: 13px;
+          }
+
+          .header-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            margin-bottom: 20px;
+          }
+
+          .header-actions > div:first-child {
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+          }
+
+          .header-actions > div:first-child > button {
+            width: 100%;
+            justify-content: center;
+            min-height: 44px;
+          }
+
+          .header-actions > div:last-child {
+            width: 100%;
+          }
+
+          .header-actions > div:last-child > button {
+            width: 100%;
+            justify-content: center;
+            min-height: 44px;
+          }
+
+          /* Enhanced filters section */
+          .filters-section {
+            margin-bottom: 20px;
+            border-radius: 12px;
+            padding: 16px;
+          }
+
           .filters-grid {
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 14px;
           }
 
           .filter-group {
             width: 100%;
           }
 
+          .filter-label {
+            font-size: 11px;
+            margin-bottom: 6px;
+          }
+
           .filter-input,
           .filter-select {
             width: 100%;
             font-size: 16px; /* Prevent iOS zoom */
+            padding: 12px 14px;
+            min-height: 44px;
           }
 
           .filter-actions {
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
+            margin-top: 16px;
           }
 
           .filter-actions button {
             width: 100%;
             min-height: 44px;
+            font-size: 16px;
+          }
+
+          .btn-filter-primary,
+          .btn-filter-secondary {
+            padding: 12px 20px;
+          }
+
+          .results-count {
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 0;
+          }
+
+          /* Enhanced table styles for mobile */
+          .section-card {
+            border-radius: 12px;
+            margin: 0 -16px;
+          }
+
+          th {
+            padding: 12px 8px;
+            font-size: 10px;
+          }
+
+          td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
+
+          /* Stack customer info on mobile */
+          td:nth-child(3) {
+            max-width: 120px;
+            overflow: hidden;
+          }
+
+          td:nth-child(3) div:first-child {
+            font-size: 12px;
+            font-weight: 600;
+          }
+
+          td:nth-child(3) div:nth-child(2) {
+            font-size: 11px;
+            color: var(--text-muted);
+          }
+
+          td:nth-child(3) div:nth-child(3) {
+            display: none; /* Hide address on mobile */
+          }
+
+          /* Smaller fulfillment and status badges */
+          .fulfillment-badge,
+          .status-badge {
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 600;
+          }
+
+          .fulfillment-badge svg,
+          .status-badge svg {
+            display: none; /* Hide icons on small screens */
+          }
+
+          /* Enhanced action buttons for mobile */
+          .btn-view {
+            padding: 8px 12px;
+            font-size: 12px;
+            margin-left: 0;
+            margin-bottom: 4px;
+          }
+
+          .btn-archive {
+            padding: 8px 12px;
+            font-size: 12px;
+            margin-left: 4px;
+          }
+
+          /* Stack action buttons vertically on small screens */
+          td:last-child > div {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 4px;
+          }
+
+          /* Better touch targets */
+          .btn-secondary,
+          .btn-view,
+          .btn-archive,
+          .btn-filter-primary,
+          .btn-filter-secondary {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+          }
+
+          .btn-secondary:active,
+          .btn-view:active,
+          .btn-archive:active,
+          .btn-filter-primary:active,
+          .btn-filter-secondary:active {
+            transform: scale(0.98);
+          }
+
+          /* Table scroll indicators */
+          .section-card > div:last-child::after {
+            content: '← Swipe to see more →';
+            display: block;
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 8px;
+            opacity: 0.7;
+          }
+
+          /* Ensure table scrolls horizontally */
+          .section-card > div:last-child {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -16px;
+            padding: 0 16px;
+          }
+
+          table {
+            min-width: 700px; /* Ensure enough width for content */
+          }
+
+          /* Hide less important columns on mobile */
+          th:nth-child(6), /* Items count */
+          td:nth-child(6) {
+            display: none;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .orders-header {
+            margin-bottom: 16px;
+          }
+
+          .header-title {
+            font-size: 22px;
+          }
+
+          .header-subtitle {
+            font-size: 12px;
+          }
+
+          .filters-section {
+            padding: 14px;
+          }
+
+          .filter-input,
+          .filter-select {
+            padding: 10px 12px;
+            font-size: 16px;
+          }
+
+          /* Hide even more columns on very small screens */
+          th:nth-child(2), /* Date */
+          td:nth-child(2),
+          th:nth-child(4), /* Type */
+          td:nth-child(4) {
+            display: none;
+          }
+
+          th {
+            padding: 10px 6px;
+            font-size: 9px;
+          }
+
+          td {
+            padding: 10px 6px;
+            font-size: 12px;
+          }
+
+          /* Hide customer email on very small screens */
+          td:nth-child(3) div:nth-child(2) {
+            display: none;
+          }
+
+          table {
+            min-width: 500px;
+          }
+        }
+
+        /* Enhanced scrolling styles */
+        .section-card > div:last-child::-webkit-scrollbar {
+          height: 4px;
+        }
+
+        .section-card > div:last-child::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .section-card > div:last-child::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 2px;
+        }
+
+        /* Touch improvements for all screen sizes */
+        @media (max-width: 768px) {
+          tbody tr {
+            touch-action: manipulation;
+          }
+
+          tbody tr:active {
+            background: rgba(110, 193, 255, 0.1);
           }
         }
 
