@@ -174,17 +174,22 @@ export default function ProductEdit() {
     try {
       showToast('info', 'Uploading variant image...');
       const url = await uploadToCloudinary(file);
+      console.log('Variant upload successful, URL:', url);
 
-      const current = form.variants[index];
-      const updated = typeof current === "string"
-        ? { name: current, image: url }
-        : { ...current, image: url };
-
-      updateArr("variants", index, updated);
+      // Force explicit state update
+      setForm(prev => {
+        const next = [...prev.variants];
+        const current = next[index];
+        next[index] = typeof current === "string"
+          ? { name: current, image: url }
+          : { ...current, image: url };
+        return { ...prev, variants: next };
+      });
+      
       showToast('success', 'Variant image uploaded');
     } catch (error) {
-      showToast('error', 'Image upload failed');
       console.error('Variant image upload error:', error);
+      showToast('error', 'Image upload failed');
     }
   };
 
@@ -1330,9 +1335,12 @@ export default function ProductEdit() {
                         try {
                           showToast('info', 'Uploading to Cloudinary...');
                           const url = await uploadToCloudinary(file);
-                          update("thumbnail_url", url);
+                          console.log('Upload successful, URL:', url);
+                          // Force state update with explicit setForm
+                          setForm(prev => ({ ...prev, thumbnail_url: url }));
                           showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {
+                          console.error('Upload error:', err);
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
                         }
                       }}
@@ -1377,9 +1385,12 @@ export default function ProductEdit() {
                         try {
                           showToast('info', 'Uploading to Cloudinary...');
                           const url = await uploadToCloudinary(file);
-                          update("hover_url", url);
+                          console.log('Upload successful, URL:', url);
+                          // Force state update with explicit setForm
+                          setForm(prev => ({ ...prev, hover_url: url }));
                           showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {
+                          console.error('Upload error:', err);
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
                         }
                       }}
