@@ -317,6 +317,25 @@ export default function Products() {
 
         .btn-icon-danger:hover {
           color: #ef4444;
+          background: rgba(239, 68, 68, 0.1);
+          border-color: #ef4444;
+        }
+
+        .btn-icon-danger:active {
+          background: rgba(239, 68, 68, 0.2);
+          border-color: #dc2626;
+        }
+
+        /* Make delete button more prominent on mobile */
+        @media (max-width: 768px) {
+          .btn-icon-danger {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.05);
+          }
+          
+          .btn-icon-danger:hover {
+            background: rgba(239, 68, 68, 0.15);
+          }
         }
 
         .price-cell {
@@ -472,25 +491,37 @@ export default function Products() {
             z-index: 10;
           }
 
-          /* Enhanced action buttons - ensure visibility and spacing */
+          /* Enhanced action buttons - make them very visible on mobile */
           .action-buttons {
-            gap: 8px;
-            min-width: 110px; /* Increase to accommodate buttons with spacing */
-            padding: 6px 0; /* More padding for better touch targets */
+            gap: 10px;
+            min-width: 140px; /* Much more space for buttons */
+            padding: 8px 0; /* More padding */
             display: flex;
             justify-content: flex-start;
             align-items: center;
+            /* Add subtle background to make area more visible */
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 8px;
           }
 
           .btn-icon {
-            min-width: 44px; /* Restore better touch target size */
-            min-height: 44px;
-            width: 44px;
-            height: 44px;
+            min-width: 52px; /* Much larger on mobile */
+            min-height: 52px;
+            width: 52px;
+            height: 52px;
             position: relative;
             z-index: 1; /* Ensure buttons are above other elements */
-            /* Better visual styling for mobile */
-            box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+            /* Much more prominent styling */
+            background: var(--card);
+            border: 2px solid var(--border);
+            box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+            /* Make icons larger too */
+          }
+
+          .btn-icon svg {
+            width: 20px; /* Larger icons */
+            height: 20px;
           }
 
           /* Better touch targets */
@@ -584,19 +615,25 @@ export default function Products() {
             font-size: 18px;
           }
 
-          /* Ensure action buttons remain accessible on very small screens */
+          /* Ensure action buttons remain very visible on very small screens */
           .btn-icon {
-            min-width: 40px; /* Don't make them too small */
-            min-height: 40px;
-            width: 40px;
-            height: 40px;
+            min-width: 48px; /* Still larger than before */
+            min-height: 48px;
+            width: 48px;
+            height: 48px;
+            border: 2px solid var(--border);
+          }
+
+          .btn-icon svg {
+            width: 18px; /* Still larger icons */
+            height: 18px;
           }
 
           /* Ensure action buttons column has enough space */
           .action-buttons {
-            min-width: 90px; /* Keep adequate space for buttons */
-            gap: 6px;
-            padding: 4px 0;
+            min-width: 110px; /* Keep adequate space for larger buttons */
+            gap: 8px;
+            padding: 6px 0;
           }
 
           /* Ensure table scrolls properly */
