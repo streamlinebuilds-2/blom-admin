@@ -8,7 +8,7 @@ const supabase = createClient(
 
 export const handler = async (event) => {
   try {
-    const { productId, delta, reason, costPriceCents } = JSON.parse(event.body || "{}");
+    const { productId, delta, reason, costPriceCents, variantIndex } = JSON.parse(event.body || "{}");
 
     if (!productId || typeof delta !== 'number') {
       return {
@@ -45,44 +45,111 @@ export const handler = async (event) => {
 
     // Adjust stock if delta is not zero
     if (delta !== 0) {
-      const newQty = (product.stock || 0) + delta;
+      let newQty;
+      let updatedProduct;
 
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({ stock: newQty })
-        .eq('id', productId);
+      if (variantIndex !== undefined && variantIndex !== null) {
+        // Handle variant-specific stock update
+        // Get current variant stock
+        const { data: variantStock, error: getStockError } = await supabase
+          .rpc('get_variant_stock', { product_row: product, variant_index: variantIndex });
 
-      if (updateError) {
-        console.error("Error updating stock:", updateError);
-        throw new Error("Failed to update stock");
-      }
+        if (getStockError) {
+          console.error("Error getting variant stock:", getStockError);
+          throw new Error("Failed to get variant stock");
+        }
 
-      // Log stock movement
-      const { error: moveError } = await supabase
-        .from('stock_movements')
-        .insert([{
-          product_id: productId,
-          delta: delta,
-          reason: reason || 'manual_adjustment',
-          product_name: product.name,
-          created_at: new Date().toISOString()
-        }]);
+        const currentVariantStock = variantStock || 0;
+        newQty = currentVariantStock + delta;
 
-      if (moveError) {
-        console.error("Error logging stock movement:", moveError);
-        // Don't fail the whole operation for logging errors
+        // Update variant stock
+        const { data: updatedProductData, error: updateError } = await supabase
+          .rpc('update_variant_stock', { 
+            product_row: product, 
+            variant_index: variantIndex, 
+            new_stock: newQty 
+          });
+
+        if (updateError) {
+          console.error("Error updating variant stock:", updateError);
+          throw new Error("Failed to update variant stock");
+        }
+
+        updatedProduct = updatedProductData;
+
+        // Log stock movement with variant info
+        const { error: moveError } = await supabase
+          .from('stock_movements')
+          .insert([{
+            product_id: productId,
+            delta: delta,
+            reason: reason || 'manual_adjustment',
+            product_name: `${product.name} (Variant ${variantIndex})`,
+            variant_index: variantIndex,
+            created_at: new Date().toISOString()
+          }]);
+
+        if (moveError) {
+          console.error("Error logging stock movement:", moveError);
+          // Don't fail the whole operation for logging errors
+        }
+      } else {
+        // Handle main product stock update
+        newQty = (product.stock || 0) + delta;
+
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ stock: newQty })
+          .eq('id', productId);
+
+        if (updateError) {
+          console.error("Error updating stock:", updateError);
+          throw new Error("Failed to update stock");
+        }
+
+        // Log stock movement
+        const { error: moveError } = await supabase
+          .from('stock_movements')
+          .insert([{
+            product_id: productId,
+            delta: delta,
+            reason: reason || 'manual_adjustment',
+            product_name: product.name,
+            created_at: new Date().toISOString()
+          }]);
+
+        if (moveError) {
+          console.error("Error logging stock movement:", moveError);
+          // Don't fail the whole operation for logging errors
+        }
       }
     }
 
     // Return updated product
-    const { data: updatedProduct, error: fetchError } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', productId)
-      .single();
+    let updatedProduct;
+    
+    if (variantIndex !== undefined && variantIndex !== null) {
+      // For variants, the updated product was already fetched in the update function
+      const { data: fetchedProduct, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .single();
+      
+      if (!fetchError && fetchedProduct) {
+        updatedProduct = fetchedProduct;
+      }
+    } else {
+      // For main products, fetch the updated product
+      const { data: fetchedProduct, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .single();
 
-    if (fetchError) {
-      console.error("Error fetching updated product:", fetchError);
+      if (!fetchError && fetchedProduct) {
+        updatedProduct = fetchedProduct;
+      }
     }
 
     return {
@@ -90,8 +157,8 @@ export const handler = async (event) => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         success: true,
-        product: updatedProduct,
-        message: delta !== 0 ? `Stock adjusted by ${delta}` : 'Cost price updated'
+        product: updatedProduct || product,
+        message: delta !== 0 ? `Stock adjusted by ${delta}${variantIndex !== undefined ? ` for variant ${variantIndex}` : ''}` : 'Cost price updated'
       }),
     };
   } catch (e) {
