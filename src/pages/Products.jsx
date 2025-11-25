@@ -504,12 +504,6 @@ export default function Products() {
         }
 
         @media (max-width: 480px) {
-          /* On very small screens, also hide status column */
-          th:nth-child(2),
-          td:nth-child(2) {
-            display: none;
-          }
-
           .products-header {
             margin-bottom: 16px;
           }
@@ -524,25 +518,31 @@ export default function Products() {
 
           th,
           td {
-            padding: 8px 4px;
-            font-size: 11px;
+            padding: 10px 12px;
+            font-size: 12px;
           }
 
           th {
-            padding: 10px 6px;
-            font-size: 10px;
+            padding: 12px 14px;
+            font-size: 11px;
           }
 
           .products-title {
             font-size: 20px;
           }
 
-          /* Reduce action button size further */
+          /* Keep action buttons at normal size on very small screens */
           .btn-icon {
-            min-width: 36px;
-            min-height: 36px;
-            width: 36px;
-            height: 36px;
+            min-width: 40px;
+            min-height: 40px;
+            width: 40px;
+            height: 40px;
+          }
+
+          /* Ensure action buttons column is wide enough */
+          .action-buttons {
+            min-width: 120px;
+            gap: 10px;
           }
 
           /* Ensure table scrolls properly */
@@ -552,7 +552,7 @@ export default function Products() {
           }
 
           table {
-            min-width: 320px;
+            min-width: 600px;
           }
         }
 

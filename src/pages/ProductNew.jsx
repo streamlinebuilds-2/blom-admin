@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+timport React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import ProductCard from "../components/ProductCard";
