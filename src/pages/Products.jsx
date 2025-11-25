@@ -439,30 +439,34 @@ export default function Products() {
             margin-bottom: 2px;
           }
 
-          /* Better table container - ensure full width access */
+          /* Better table container - force horizontal scrolling */
           .table-container {
             -webkit-overflow-scrolling: touch;
             overflow-x: auto;
             overflow-y: hidden;
             margin: 0 -16px;
             padding: 0 16px 8px;
-            width: 100vw;
+            width: calc(100vw + 32px); /* Account for margins */
             position: relative;
-            /* Ensure we can scroll to see all columns including actions */
-            min-width: 100%;
+            /* Force scrolling by exceeding viewport */
+            min-width: calc(100vw + 32px);
+            /* Ensure scrollable */
+            scroll-snap-type: x proximity;
           }
 
           .products-table {
             border-radius: 12px;
             margin: 0;
-            min-width: 650px; /* Slightly wider to accommodate all columns */
+            min-width: 800px; /* Much wider to force scrolling */
           }
 
           /* Ensure all table columns are visible and properly sized */
           table {
-            min-width: 650px;
+            min-width: 800px; /* Much wider minimum */
             width: 100%;
             border-collapse: collapse;
+            /* Force table to be wider than container */
+            table-layout: fixed;
           }
 
           th, td {
@@ -537,23 +541,52 @@ export default function Products() {
             transform: scale(0.98);
           }
 
-          /* Scroll indicators for table */
+          /* Very prominent scroll indicators */
+          .table-container::before {
+            content: '';
+            position: sticky;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 30px;
+            background: linear-gradient(90deg, var(--card) 0%, transparent 100%);
+            pointer-events: none;
+            z-index: 5;
+          }
+
           .table-container::after {
-            content: '← Swipe to see Actions column →';
+            content: '→ SCROLL RIGHT FOR ACTIONS ←';
             display: block;
             text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
-            padding: 8px 0;
-            opacity: 0.8;
-            font-weight: 500;
-            /* Add a subtle animation to draw attention */
-            animation: pulseHint 2s infinite;
+            font-size: 14px;
+            color: var(--accent);
+            padding: 12px 0;
+            opacity: 1;
+            font-weight: 700;
+            /* Strong pulse animation to demand attention */
+            animation: pulseHint 1.5s infinite;
+            border: 2px dashed var(--accent);
+            border-radius: 8px;
+            margin: 8px 16px;
+            background: rgba(59, 130, 246, 0.1);
           }
 
           @keyframes pulseHint {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
+            0% { 
+              opacity: 0.6; 
+              transform: scale(0.98);
+              background: rgba(59, 130, 246, 0.1);
+            }
+            50% { 
+              opacity: 1; 
+              transform: scale(1.02);
+              background: rgba(59, 130, 246, 0.2);
+            }
+            100% { 
+              opacity: 0.6; 
+              transform: scale(0.98);
+              background: rgba(59, 130, 246, 0.1);
+            }
           }
 
           /* Keep all columns visible - no hiding */
@@ -636,15 +669,21 @@ export default function Products() {
             padding: 6px 0;
           }
 
-          /* Ensure table scrolls properly */
+          /* Force table scrolling on very small screens */
           .table-container {
             margin: 0 -12px;
             padding: 0 12px 6px;
-            width: 100vw; /* Ensure full viewport width */
+            width: calc(100vw + 24px); /* Force wider than viewport */
+            min-width: calc(100vw + 24px);
           }
 
           table {
-            min-width: 600px; /* Keep reasonable minimum width */
+            min-width: 750px; /* Force much wider table */
+            table-layout: fixed;
+          }
+
+          .products-table {
+            min-width: 750px; /* Force wider */
           }
         }
 
