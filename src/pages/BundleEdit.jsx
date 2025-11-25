@@ -5,6 +5,7 @@ import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../components/supabaseClient";
+import { createPageUrl } from "../utils";
 
 const slugify = (value) =>
   value
@@ -114,7 +115,7 @@ export default function BundleEdit() {
     async function loadBundle() {
       if (!id) {
         setLoading(false);
-        navigate('/bundles');
+        navigate(createPageUrl("Bundles"));
         return;
       }
 
@@ -205,7 +206,7 @@ export default function BundleEdit() {
     async function loadProducts() {
       const { data } = await supabase
         .from('products')
-        .select('id, name, price')
+        .select('id, name, price, variants')
         .eq('is_active', true)
         .order('name');
       setAllProducts(data || []);
@@ -552,7 +553,7 @@ export default function BundleEdit() {
       }
 
       showToast("success", "Bundle updated successfully");
-      navigate("/bundles");
+      navigate(createPageUrl("Bundles"));
     } catch (error) {
       const message = error?.message || "Failed to update bundle";
       setServerError(message);
@@ -760,6 +761,7 @@ export default function BundleEdit() {
           background: var(--bg);
           border-radius: 12px;
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          flex-wrap: wrap;
         }
         /* Utility Classes */
         .space-y-1 > * + * { margin-top: 0.25rem; }
@@ -811,7 +813,7 @@ export default function BundleEdit() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
               type="button"
-              onClick={() => navigate('/bundles')}
+              onClick={() => navigate(createPageUrl("Bundles"))}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1186,55 +1188,84 @@ export default function BundleEdit() {
               <p className="text-sm text-[var(--text-muted)]">Select products included in this bundle.</p>
             </header>
             <div className="space-y-3">
-              {form.bundle_products.map((item, index) => (
-                <div key={index} className="bundle-item">
-                  <select
-                    value={item.product_id || ''}
-                    onChange={(e) => {
-                      const updated = [...form.bundle_products];
-                      updated[index] = { ...updated[index], product_id: e.target.value };
-                      setForm(prev => ({ ...prev, bundle_products: updated }));
-                    }}
-                    className="product-form-select flex-1"
-                  >
-                    <option value="">Select product...</option>
-                    {allProducts.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+              {form.bundle_products.map((item, index) => {
+                const selectedProduct = allProducts.find(p => p.id === item.product_id);
+                const productVariants = selectedProduct?.variants || [];
+                const hasVariants = productVariants.length > 0;
+                
+                return (
+                  <div key={index} className="bundle-item">
+                    <select
+                      value={item.product_id || ''}
+                      onChange={(e) => {
+                        const updated = [...form.bundle_products];
+                        updated[index] = { ...updated[index], product_id: e.target.value, variant_id: '' };
+                        setForm(prev => ({ ...prev, bundle_products: updated }));
+                      }}
+                      className="product-form-select flex-1"
+                    >
+                      <option value="">Select product...</option>
+                      {allProducts.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
 
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Qty"
-                    value={item.quantity || 1}
-                    onChange={(e) => {
-                      const updated = [...form.bundle_products];
-                      updated[index] = { ...updated[index], quantity: parseInt(e.target.value) || 1 };
-                      setForm(prev => ({ ...prev, bundle_products: updated }));
-                    }}
-                    className="product-form-input"
-                    style={{ width: '100px' }}
-                  />
+                    {hasVariants && (
+                      <select
+                        value={item.variant_id || ''}
+                        onChange={(e) => {
+                          const updated = [...form.bundle_products];
+                          updated[index] = { ...updated[index], variant_id: e.target.value };
+                          setForm(prev => ({ ...prev, bundle_products: updated }));
+                        }}
+                        className="product-form-select flex-1"
+                        required
+                      >
+                        <option value="">Select variant...</option>
+                        {productVariants.map((variant, vIndex) => {
+                          const variantName = typeof variant === 'string' ? variant : variant.name || variant.label;
+                          return (
+                            <option key={vIndex} value={vIndex}>
+                              {variantName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = form.bundle_products.filter((_, i) => i !== index);
-                      setForm(prev => ({ ...prev, bundle_products: updated }));
-                    }}
-                    className="product-btn-secondary"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Qty"
+                      value={item.quantity || 1}
+                      onChange={(e) => {
+                        const updated = [...form.bundle_products];
+                        updated[index] = { ...updated[index], quantity: parseInt(e.target.value) || 1 };
+                        setForm(prev => ({ ...prev, bundle_products: updated }));
+                      }}
+                      className="product-form-input"
+                      style={{ width: '100px' }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = form.bundle_products.filter((_, i) => i !== index);
+                        setForm(prev => ({ ...prev, bundle_products: updated }));
+                      }}
+                      className="product-btn-secondary"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
 
               <button
                 type="button"
                 onClick={() => setForm(prev => ({
                   ...prev,
-                  bundle_products: [...prev.bundle_products, { product_id: '', quantity: 1 }]
+                  bundle_products: [...prev.bundle_products, { product_id: '', variant_id: '', quantity: 1 }]
                 }))}
                 className="product-btn-add"
               >
@@ -1709,7 +1740,7 @@ export default function BundleEdit() {
             <button
               type="button"
               className="product-btn-secondary"
-              onClick={() => navigate("/bundles")}
+              onClick={() => navigate(createPageUrl("Bundles"))}
               disabled={isSubmitting}
             >
               Cancel
@@ -1847,3 +1878,4 @@ export default function BundleEdit() {
     </>
   );
 }
+
