@@ -2029,8 +2029,7 @@ export default function ProductEdit() {
               <div className="flex gap-2">
                 {[
                   { id: "card", label: "Product Card" },
-                  { id: "page-desktop", label: "Product Page – Desktop" },
-                  { id: "page-mobile", label: "Product Page – Mobile" },
+                  { id: "page", label: "Product Page" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -2090,11 +2089,11 @@ export default function ProductEdit() {
                   )}
                 </div>
               ) : null}
-              {(previewTab === "page-desktop" || previewTab === "page-mobile") ? (
-                <div className={fullscreenPreview ? "desktop-preview" : "preview-container overflow-x-auto max-w-full"}>
+              {previewTab === "page" ? (
+                <div className={fullscreenPreview ? "preview-container" : "preview-container overflow-x-auto max-w-full"}>
                   <div className={`mx-auto overflow-hidden rounded-xl border border-[var(--card)] shadow-sm ${
                     viewMode === 'mobile' 
-                      ? 'max-w-[390px]' 
+                      ? 'w-[390px]' 
                       : fullscreenPreview 
                         ? 'max-w-[1200px]' 
                         : 'min-w-[1200px] max-w-5xl'
