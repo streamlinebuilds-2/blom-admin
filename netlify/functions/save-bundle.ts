@@ -151,6 +151,7 @@ export const handler: Handler = async (event) => {
         .map((item: any) => ({
           bundle_id: bundleId,
           product_id: item.product_id,
+          variant_id: item.variant_id || null, // Save variant selection
           qty: item.quantity || item.qty || 1,
         }));
 

@@ -139,13 +139,14 @@ export default function BundleEdit() {
         if (bundle) {
           const { data: items } = await supabase
             .from('bundle_items')
-            .select('product_id, qty')
+            .select('product_id, qty, variant_id')
             .eq('bundle_id', bundle.id);
 
           if (items && items.length > 0) {
             bundleProducts = items.map(item => ({
               product_id: item.product_id,
               quantity: item.qty || 1,
+              variant_id: item.variant_id !== null ? item.variant_id.toString() : '', // Convert to string for form
             }));
           }
         }
