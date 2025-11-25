@@ -317,9 +317,8 @@ export default function Stock() {
                     if (product.variants && product.variants.length > 0) {
                       return product.variants.map((variant, index) => {
                         const variantName = typeof variant === 'string' ? variant : variant.name;
-                        // For now, use product stock for each variant
-                        // In a real implementation, variants would have their own stock fields
-                        const variantStock = product.stock || 0;
+                        // Use the new getVariantStock function
+                        const variantStock = getVariantStock(product, index);
                         
                         return (
                           <tr key={`${product.id}-variant-${index}`} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
@@ -441,7 +440,8 @@ function AdjustStockModal({ product, onClose, showToast }) {
           productId: product.id,
           delta: qtyChange,
           reason: reason,
-          costPriceCents: costPrice ? Math.round(parseFloat(costPrice) * 100) : undefined
+          costPriceCents: costPrice ? Math.round(parseFloat(costPrice) * 100) : undefined,
+          variantIndex: product.variantIndex !== undefined ? product.variantIndex : undefined
         })
       });
 
