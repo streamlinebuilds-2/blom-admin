@@ -771,13 +771,8 @@ export default function ProductEdit() {
       nextErrors.inventory_quantity = "Inventory must be zero or greater";
     }
 
-    // Validate images - allow either main image or at least one valid image
-    const mainImageValid = isValidImageUrl(form.thumbnail_url?.trim());
-    const hoverImageValid = isValidImageUrl(form.hover_url?.trim());
-    
-    if (!mainImageValid && !hoverImageValid) {
-      nextErrors.images = "Add at least one valid product image";
-    }
+    // Images are now optional - no validation required
+    // Users can add images later if needed for display
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -1573,7 +1568,7 @@ export default function ProductEdit() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="thumbnail_url">
-                  Main Product Image URL <span className="text-red-500">*</span>
+                  Main Product Image URL (optional)
                 </label>
                 <div className="flex gap-2">
                   <input
