@@ -482,7 +482,13 @@ export default function Products() {
           }
 
           th:nth-child(6), td:nth-child(6) {
-            min-width: 100px; /* Actions column - ensure enough space */
+            min-width: 140px; /* Actions column - ensure enough space */
+            /* Make actions column sticky/fixed on right */
+            position: sticky;
+            right: 0;
+            background: var(--card);
+            z-index: 15;
+            border-left: 2px solid var(--border);
           }
 
           th {
