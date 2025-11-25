@@ -402,44 +402,63 @@ export default function Products() {
             padding: 14px 24px;
           }
 
-          th,
-          td {
-            padding: 10px 6px;
-            font-size: 12px;
-            white-space: nowrap;
-          }
-
-          th {
-            padding: 12px 8px;
-            font-size: 11px;
-          }
-
           .products-title {
             font-size: 22px;
             margin-bottom: 4px;
           }
 
+          /* Enhanced table container with full-width scrolling */
           .table-container {
             -webkit-overflow-scrolling: touch;
+            overflow-x: auto;
+            overflow-y: hidden;
             margin: 0 -16px;
             padding: 0 16px;
+            width: 100vw;
+            position: relative;
           }
 
           .products-table {
             border-radius: 12px;
-            margin: 0 -16px;
+            margin: 0;
+            min-width: 700px; /* Ensure table is wide enough to show all columns */
+          }
+
+          /* Ensure all table columns are visible and properly sized */
+          table {
+            min-width: 700px;
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          th, td {
+            padding: 12px 16px;
+            font-size: 13px;
+            white-space: nowrap;
+            min-width: 120px; /* Ensure each column has minimum width */
+          }
+
+          th {
+            padding: 16px;
+            font-size: 12px;
+            font-weight: 700;
+            background: var(--card);
+            position: sticky;
+            top: 0;
+            z-index: 10;
           }
 
           /* Enhanced action buttons for mobile */
           .action-buttons {
-            gap: 6px;
+            gap: 8px;
+            min-width: 100px;
           }
 
           .btn-icon {
-            min-width: 40px;
-            min-height: 40px;
-            width: 40px;
-            height: 40px;
+            min-width: 44px;
+            min-height: 44px;
+            width: 44px;
+            height: 44px;
           }
 
           /* Better touch targets */
@@ -457,26 +476,30 @@ export default function Products() {
 
           /* Scroll indicators for table */
           .table-container::after {
-            content: '← Swipe to see more →';
+            content: '← Swipe to see more columns →';
             display: block;
             text-align: center;
-            font-size: 11px;
+            font-size: 12px;
             color: var(--text-muted);
-            padding: 8px;
-            opacity: 0.7;
+            padding: 8px 0;
+            opacity: 0.8;
+            background: linear-gradient(to right, transparent, var(--card), transparent);
           }
 
-          /* Hide less important columns on mobile */
-          th:nth-child(4),
-          td:nth-child(4),
-          th:nth-child(5),
-          td:nth-child(5) {
-            display: none;
+          /* Keep all columns visible - no hiding */
+          th:nth-child(n),
+          td:nth-child(n) {
+            display: table-cell;
           }
 
-          /* Ensure minimum table width */
-          table {
-            min-width: 400px;
+          /* Enhanced scrolling performance */
+          .table-container {
+            scroll-behavior: smooth;
+          }
+
+          /* Table row hover effects */
+          tbody tr:hover {
+            background: rgba(110, 193, 255, 0.05);
           }
         }
 

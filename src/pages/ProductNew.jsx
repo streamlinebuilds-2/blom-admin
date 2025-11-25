@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+timport React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import ProductCard from "../components/ProductCard";
@@ -1191,13 +1191,26 @@ export default function ProductNew() {
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
                         style={{ flex: 2 }}
-                        value={variant?.name || variant}
+                        value={(() => {
+                          if (typeof variant === 'string') {
+                            return variant;
+                          }
+                          // Handle empty variant objects properly
+                          const name = variant?.name?.trim();
+                          return name || '';
+                        })()}
                         onChange={(e) => {
                           const current = form.variants[index];
                           const updated = typeof current === "string"
                             ? { name: e.target.value, image: "" }
                             : { ...current, name: e.target.value };
                           updateArr("variants", index, updated);
+                        }}
+                        onFocus={(e) => {
+                          // If the field is empty and shows placeholder, ensure it's truly empty
+                          if (!e.target.value && typeof variant === 'object' && !variant?.name?.trim()) {
+                            e.target.value = '';
+                          }
                         }}
                       />
                       <div className="variant-image-upload">

@@ -270,6 +270,10 @@ export default function ProductEdit() {
         const newState = { ...prev, variants: next };
         console.log('🔄 New form state variants:', newState.variants.map((v, i) => ({ index: i, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image })));
         
+        // Mark that images were just uploaded to prevent reload overwrite
+        setLastImageUpload(Date.now());
+        setFormDataVersion(prev => prev + 1);
+        
         return newState;
       });
       
@@ -301,14 +305,16 @@ export default function ProductEdit() {
     loadProducts();
   }, []);
 
-  // Track if this is the initial load to prevent unnecessary reloads
+  // Track if this is the initial load and track image upload timestamps
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [lastImageUpload, setLastImageUpload] = useState(null);
+  const [formDataVersion, setFormDataVersion] = useState(0);
   
   // Load product data for editing
   useEffect(() => {
     async function loadProduct() {
       console.log('🚀 Starting to load product with ID:', id);
-      console.log('🚫 Upload status:', { isUploading, isInitialLoad });
+      console.log('🚫 Upload status:', { isUploading, isInitialLoad, lastImageUpload, uploadLock });
       
       if (!id) {
         console.log('❌ No product ID provided, navigating to products');
@@ -323,9 +329,25 @@ export default function ProductEdit() {
         return;
       }
 
+      // Skip reload if images were recently uploaded (within last 3 seconds)
+      const now = Date.now();
+      const timeSinceUpload = lastImageUpload ? (now - lastImageUpload) : null;
+      console.log('📊 Upload timing check:', {
+        lastImageUpload,
+        timeSinceUpload,
+        threshold: 3000,
+        shouldSkipReload: timeSinceUpload !== null && timeSinceUpload < 3000
+      });
+      
+      if (timeSinceUpload !== null && timeSinceUpload < 3000) {
+        console.log('🚫 Skipping reload - images recently uploaded, time since upload:', timeSinceUpload);
+        setLoading(false);
+        return;
+      }
+
       // Only reload from database if this is the initial load or if we don't have form data yet
-      if (!isInitialLoad && form.id === id && form.thumbnail_url && form.hover_url) {
-        console.log('🚫 Skipping reload - form already has data for this product');
+      if (!isInitialLoad && form.id === id && form.thumbnail_url && form.hover_url && (timeSinceUpload === null || timeSinceUpload >= 3000)) {
+        console.log('🚫 Skipping reload - form already has data for this product, timeSinceUpload:', timeSinceUpload);
         setLoading(false);
         return;
       }
@@ -437,7 +459,7 @@ export default function ProductEdit() {
     }
 
     loadProduct();
-  }, [id, navigate, showToast, isUploading, isInitialLoad, form.id, form.thumbnail_url, form.hover_url]);
+  }, [id, navigate, showToast, isUploading, isInitialLoad, form.id, form.thumbnail_url, form.hover_url, lastImageUpload, formDataVersion]);
 
   const update = (field, value) => {
     // Skip updates during upload locks to prevent interference
@@ -1745,6 +1767,10 @@ export default function ProductEdit() {
                             return newState;
                           });
                           
+                          // Mark that images were just uploaded to prevent reload overwrite
+                          setLastImageUpload(Date.now());
+                          setFormDataVersion(prev => prev + 1);
+                          
                           console.log('✅ Main image state update complete');
                           // Clear the file input to allow re-upload of same file
                           e.target.value = '';
@@ -1845,6 +1871,10 @@ export default function ProductEdit() {
                             return newState;
                           });
                           
+                          // Mark that images were just uploaded to prevent reload overwrite
+                          setLastImageUpload(Date.now());
+                          setFormDataVersion(prev => prev + 1);
+                          
                           console.log('✅ Hover image state update complete');
                           // Clear the file input to allow re-upload of same file
                           e.target.value = '';
@@ -1921,13 +1951,26 @@ export default function ProductEdit() {
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
                         style={{ flex: 2 }}
-                        value={typeof variant === 'string' ? variant : (variant?.name || '')}
+                        value={(() => {
+                          if (typeof variant === 'string') {
+                            return variant;
+                          }
+                          // Handle empty variant objects properly
+                          const name = variant?.name?.trim();
+                          return name || '';
+                        })()}
                         onChange={(e) => {
                           const current = form.variants[index];
                           const updated = typeof current === "string"
                             ? { name: e.target.value, image: "" }
                             : { ...current, name: e.target.value };
                           updateArr("variants", index, updated);
+                        }}
+                        onFocus={(e) => {
+                          // If the field is empty and shows placeholder, ensure it's truly empty
+                          if (!e.target.value && typeof variant === 'object' && !variant?.name?.trim()) {
+                            e.target.value = '';
+                          }
                         }}
                       />
                       <div className="variant-image-upload">
