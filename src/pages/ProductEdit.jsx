@@ -1177,7 +1177,7 @@ export default function ProductEdit() {
 
         <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
           <style>{`
-            /* Enhanced mobile responsiveness for ProductEdit with Horizontal Scrolling */
+            /* Mobile responsive styles - vertical layout */
             @media (max-width: 768px) {
               .topbar {
                 padding: 16px 20px;
@@ -1185,10 +1185,10 @@ export default function ProductEdit() {
               }
 
               .content-area {
-                overflow-x: hidden;
-                padding: 0 16px 16px;
+                padding: 0 16px 32px;
               }
 
+              /* Stack form sections vertically */
               .content-area.grid {
                 grid-template-columns: 1fr !important;
                 gap: 16px !important;
@@ -1197,179 +1197,56 @@ export default function ProductEdit() {
               .product-form-section {
                 padding: 20px !important;
                 margin-bottom: 16px !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                min-width: 320px !important;
-                scroll-behavior: smooth;
               }
 
-              .product-form-section::before {
-                content: '← Swipe to see more form fields →';
-                display: block;
-                text-align: center;
-                font-size: 12px;
-                color: var(--text-muted);
-                margin-bottom: 8px;
-                opacity: 0.7;
-              }
-
+              /* Better form inputs for mobile */
               .product-form-input,
               .product-form-textarea,
               .product-form-select {
                 font-size: 16px !important;
-                padding: 14px 18px !important;
-                min-width: 200px !important;
+                padding: 12px 16px !important;
               }
 
+              /* Stack grid elements vertically */
               .grid.gap-4.md\\:grid-cols-2 {
-                display: flex !important;
-                flex-direction: row !important;
+                grid-template-columns: 1fr !important;
                 gap: 16px !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                padding-bottom: 8px;
               }
 
-              .grid.gap-4.md\\:grid-cols-2 > * {
-                min-width: 280px !important;
-                flex-shrink: 0 !important;
-              }
-
+              /* Stack flex elements vertically */
               .flex.gap-2 {
-                flex-direction: row !important;
+                flex-direction: column !important;
                 gap: 12px !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                padding-bottom: 8px;
               }
 
-              .flex.gap-2 > * {
-                min-width: 200px !important;
-                flex-shrink: 0 !important;
-              }
-
-              /* Enhanced variant row scrolling */
+              /* Better variant rows for mobile */
               .variant-row {
-                display: flex !important;
-                flex-direction: row !important;
+                flex-direction: column !important;
                 gap: 12px !important;
                 padding: 16px !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                min-width: 400px !important;
-                align-items: stretch !important;
-                scroll-behavior: smooth;
               }
 
               .variant-row input,
               .variant-row .product-form-input {
-                min-width: 120px !important;
-                flex: 1 !important;
+                width: 100% !important;
               }
 
               .variant-image-upload {
-                flex-shrink: 0 !important;
+                justify-content: flex-start !important;
+                width: 100% !important;
               }
 
-              .upload-btn {
-                width: auto !important;
-                padding: 10px 16px !important;
-                white-space: nowrap !important;
-              }
-
-              .variant-thumbnail {
-                width: 50px;
-                height: 50px;
-              }
-
-              .product-btn-secondary,
-              .product-btn-add {
-                width: auto !important;
-                min-height: 44px !important;
-                flex-shrink: 0 !important;
-                padding: 12px 18px !important;
-              }
-
+              /* Mobile-friendly buttons */
               .flex.items-center.justify-end.gap-3 {
                 flex-direction: column !important;
                 gap: 12px !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                padding-bottom: 16px !important;
               }
 
               .flex.items-center.justify-end.gap-3 button {
                 width: 100% !important;
-                min-height: 48px !important;
-                flex-shrink: 0 !important;
               }
 
-              /* Preview tabs */
-              .flex.gap-2.justify-between {
-                flex-direction: column !important;
-                gap: 12px !important;
-              }
-
-              .flex.gap-2 button {
-                width: 100% !important;
-                min-height: 44px !important;
-              }
-
-              /* Mobile preview adjustments */
-              .mx-auto.w-\\[390px\\] {
-                width: 100% !important;
-                max-width: 100% !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-              }
-
-              /* Force horizontal scrolling for overflow content */
-              .space-y-6 {
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-              }
-
-              /* Variants container scrolling */
-              .space-y-3 {
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                display: flex !important;
-                flex-direction: row !important;
-                gap: 16px !important;
-              }
-
-              .space-y-3 > * {
-                flex-shrink: 0 !important;
-                min-width: 380px !important;
-              }
-
-              /* Related products scrolling */
-              .space-y-2 {
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                display: flex !important;
-                flex-direction: row !important;
-                gap: 12px !important;
-              }
-
-              .space-y-2 > * {
-                flex-shrink: 0 !important;
-                min-width: 280px !important;
-              }
-
-              /* Array field scrolling */
-              .space-y-2 .flex {
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                gap: 12px !important;
-              }
-
-              .space-y-2 .flex > * {
-                flex-shrink: 0 !important;
-                min-width: 200px !important;
-              }
-
-              /* Touch optimization improvements */
+              /* Touch optimization */
               button,
               input,
               select,
@@ -1386,33 +1263,6 @@ export default function ProductEdit() {
               textarea,
               select {
                 font-size: 16px !important;
-              }
-
-              /* Enhanced button interactions */
-              .product-btn-primary,
-              .product-btn-secondary,
-              .product-btn-add,
-              .upload-btn {
-                transition: all 0.2s ease;
-                -webkit-tap-highlight-color: rgba(0,0,0,0.1);
-              }
-
-              .product-btn-primary:active,
-              .product-btn-secondary:active,
-              .product-btn-add:active,
-              .upload-btn:active {
-                transform: scale(0.98);
-              }
-
-              /* Variants section swipe indicator */
-              .space-y-3::before {
-                content: '← Swipe to see more variants →';
-                display: block;
-                text-align: center;
-                font-size: 12px;
-                color: var(--text-muted);
-                margin-bottom: 12px;
-                opacity: 0.7;
               }
             }
 

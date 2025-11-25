@@ -806,7 +806,7 @@ export default function ProductNew() {
           margin: 0 auto;
         }
 
-        /* Enhanced mobile responsive styles */
+        /* Mobile responsive styles - vertical layout */
         @media (max-width: 768px) {
           .topbar {
             padding: 16px 20px;
@@ -814,187 +814,68 @@ export default function ProductNew() {
           }
 
           .content-area {
-            padding: 0 16px 16px;
-            overflow-x: hidden;
+            padding: 0 16px 32px;
           }
 
+          /* Stack form sections vertically */
           .content-area.grid {
             grid-template-columns: 1fr !important;
             gap: 16px !important;
           }
 
-          /* Form sections with horizontal scrolling for wide content */
           .product-form-section {
             padding: 20px !important;
             margin-bottom: 16px !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            min-width: 320px !important;
-            scroll-behavior: smooth;
           }
 
-          /* Enhanced form inputs for mobile */
+          /* Better form inputs for mobile */
           .product-form-input,
           .product-form-textarea,
           .product-form-select {
             font-size: 16px !important;
-            padding: 14px 18px !important;
-            min-width: 200px !important;
+            padding: 12px 16px !important;
           }
 
-          /* Grid layouts with horizontal scrolling */
+          /* Stack grid elements vertically */
           .grid.gap-4.md\:grid-cols-2 {
-            display: flex !important;
-            flex-direction: row !important;
+            grid-template-columns: 1fr !important;
             gap: 16px !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 8px;
           }
 
-          .grid.gap-4.md\:grid-cols-2 > * {
-            min-width: 280px !important;
-            flex-shrink: 0 !important;
-          }
-
-          /* Flex layouts with horizontal scrolling */
+          /* Stack flex elements vertically */
           .flex.gap-2 {
-            flex-direction: row !important;
+            flex-direction: column !important;
             gap: 12px !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 8px;
           }
 
-          .flex.gap-2 > * {
-            min-width: 200px !important;
-            flex-shrink: 0 !important;
-          }
-
-          /* Enhanced variant row scrolling */
+          /* Better variant rows for mobile */
           .variant-row {
-            display: flex !important;
-            flex-direction: row !important;
+            flex-direction: column !important;
             gap: 12px !important;
             padding: 16px !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            min-width: 400px !important;
-            align-items: stretch !important;
-            scroll-behavior: smooth;
           }
 
           .variant-row input,
           .variant-row .product-form-input {
-            min-width: 120px !important;
-            flex: 1 !important;
+            width: 100% !important;
           }
 
           .variant-image-upload {
-            flex-shrink: 0 !important;
+            justify-content: flex-start !important;
+            width: 100% !important;
           }
 
-          .upload-btn {
-            width: auto !important;
-            padding: 10px 16px !important;
-            white-space: nowrap !important;
-          }
-
-          .variant-thumbnail {
-            width: 50px;
-            height: 50px;
-          }
-
-          /* Button optimizations */
-          .product-btn-secondary,
-          .product-btn-add {
-            width: auto !important;
-            min-height: 44px !important;
-            flex-shrink: 0 !important;
-            padding: 12px 18px !important;
-          }
-
-          /* Action buttons at bottom */
+          /* Mobile-friendly buttons */
           .flex.items-center.justify-end.gap-3 {
             flex-direction: column !important;
             gap: 12px !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 16px !important;
           }
 
           .flex.items-center.justify-end.gap-3 button {
             width: 100% !important;
-            min-height: 48px !important;
-            flex-shrink: 0 !important;
           }
 
-          /* Preview tabs mobile layout */
-          .flex.gap-2.justify-between {
-            flex-direction: column !important;
-            gap: 12px !important;
-          }
-
-          .flex.gap-2 button {
-            width: 100% !important;
-            min-height: 44px !important;
-          }
-
-          /* Mobile preview adjustments */
-          .mx-auto.w-\[390px\] {
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-          }
-
-          /* Force horizontal scrolling for overflow content */
-          .space-y-6 {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-          }
-
-          /* Variants container scrolling */
-          .space-y-3 {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            display: flex !important;
-            flex-direction: row !important;
-            gap: 16px !important;
-          }
-
-          .space-y-3 > * {
-            flex-shrink: 0 !important;
-            min-width: 380px !important;
-          }
-
-          /* Related products scrolling */
-          .space-y-2 {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            display: flex !important;
-            flex-direction: row !important;
-            gap: 12px !important;
-          }
-
-          .space-y-2 > * {
-            flex-shrink: 0 !important;
-            min-width: 280px !important;
-          }
-
-          /* Array field scrolling */
-          .space-y-2 .flex {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            gap: 12px !important;
-          }
-
-          .space-y-2 .flex > * {
-            flex-shrink: 0 !important;
-            min-width: 200px !important;
-          }
-
-          /* Touch optimization improvements */
+          /* Touch optimization */
           button,
           input,
           select,
@@ -1012,122 +893,6 @@ export default function ProductNew() {
           select {
             font-size: 16px !important;
           }
-
-          /* Enhanced button interactions */
-          .product-btn-primary,
-          .product-btn-secondary,
-          .product-btn-add,
-          .upload-btn {
-            transition: all 0.2s ease;
-            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
-          }
-
-          .product-btn-primary:active,
-          .product-btn-secondary:active,
-          .product-btn-add:active,
-          .upload-btn:active {
-            transform: scale(0.98);
-          }
-
-          /* Variants section swipe indicator */
-          .space-y-3::before {
-            content: '← Swipe to see more variants →';
-            display: block;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-            opacity: 0.7;
-          }
-
-          /* Form sections swipe indicator */
-          .product-form-section::before {
-            content: '← Swipe to see more form fields →';
-            display: block;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            opacity: 0.7;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .topbar {
-            padding: 12px 16px;
-          }
-
-          .content-area {
-            padding: 0 12px 12px;
-          }
-
-          .product-form-section {
-            padding: 16px !important;
-            min-width: 280px !important;
-          }
-
-          .variant-row {
-            min-width: 360px !important;
-            padding: 12px !important;
-          }
-
-          .product-form-input,
-          .product-form-textarea,
-          .product-form-select {
-            min-width: 180px !important;
-            font-size: 16px !important;
-          }
-
-          .grid.gap-4.md\:grid-cols-2 > * {
-            min-width: 250px !important;
-          }
-
-          .space-y-3 > * {
-            min-width: 340px !important;
-          }
-
-          .space-y-2 > * {
-            min-width: 240px !important;
-          }
-        }
-
-        /* Enhanced scrolling styles for all screen sizes */
-        .variant-row,
-        .product-form-section,
-        .space-y-3,
-        .space-y-2,
-        .grid.gap-4.md\:grid-cols-2,
-        .flex.gap-2 {
-          scrollbar-width: thin;
-          scrollbar-color: var(--accent) transparent;
-        }
-
-        .variant-row::-webkit-scrollbar,
-        .product-form-section::-webkit-scrollbar,
-        .space-y-3::-webkit-scrollbar,
-        .space-y-2::-webkit-scrollbar,
-        .grid.gap-4.md\:grid-cols-2::-webkit-scrollbar,
-        .flex.gap-2::-webkit-scrollbar {
-          height: 4px;
-        }
-
-        .variant-row::-webkit-scrollbar-track,
-        .product-form-section::-webkit-scrollbar-track,
-        .space-y-3::-webkit-scrollbar-track,
-        .space-y-2::-webkit-scrollbar-track,
-        .grid.gap-4.md\:grid-cols-2::-webkit-scrollbar-track,
-        .flex.gap-2::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .variant-row::-webkit-scrollbar-thumb,
-        .product-form-section::-webkit-scrollbar-thumb,
-        .space-y-3::-webkit-scrollbar-thumb,
-        .space-y-2::-webkit-scrollbar-thumb,
-        .grid.gap-4.md\:grid-cols-2::-webkit-scrollbar-thumb,
-        .flex.gap-2::-webkit-scrollbar-thumb {
-          background: var(--accent);
-          border-radius: 2px;
         }
       `}</style>
       <div className="flex h-full flex-col">

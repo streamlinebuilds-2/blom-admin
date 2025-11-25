@@ -374,73 +374,86 @@ export default function Products() {
           .products-header {
             flex-direction: column;
             align-items: stretch;
-            margin-bottom: 20px;
-            gap: 12px;
+            margin-bottom: 16px;
+            gap: 8px;
           }
 
           .header-actions {
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
           }
 
+          /* Make search box shorter and more compact */
           .search-box {
             width: 100%;
+            max-width: 100%;
           }
 
+          .search-input {
+            padding: 10px 14px 10px 40px;
+            font-size: 16px;
+          }
+
+          .search-icon {
+            left: 12px;
+          }
+
+          /* Make filter select shorter */
           .filter-select {
             flex: 1;
             font-size: 16px;
-            padding: 14px 16px;
+            padding: 10px 16px;
+            min-height: 44px;
           }
 
           .btn-primary {
             flex: 1;
             justify-content: center;
-            min-height: 48px;
-            padding: 14px 24px;
+            min-height: 44px;
+            padding: 12px 20px;
           }
 
           .products-title {
-            font-size: 22px;
-            margin-bottom: 4px;
+            font-size: 20px;
+            margin-bottom: 2px;
           }
 
-          /* Enhanced table container with full-width scrolling */
+          /* Better table container - ensure full width access */
           .table-container {
             -webkit-overflow-scrolling: touch;
             overflow-x: auto;
             overflow-y: hidden;
             margin: 0 -16px;
-            padding: 0 16px;
-            width: 100vw;
+            padding: 0 16px 8px;
+            width: 100%;
             position: relative;
           }
 
           .products-table {
             border-radius: 12px;
             margin: 0;
-            min-width: 700px; /* Ensure table is wide enough to show all columns */
+            min-width: 600px; /* Reduce from 700px */
           }
 
           /* Ensure all table columns are visible and properly sized */
           table {
-            min-width: 700px;
+            min-width: 600px;
             width: 100%;
             border-collapse: collapse;
           }
 
           th, td {
-            padding: 12px 16px;
-            font-size: 13px;
+            padding: 10px 12px;
+            font-size: 12px;
             white-space: nowrap;
-            min-width: 120px; /* Ensure each column has minimum width */
+            min-width: 100px; /* Reduce from 120px */
           }
 
           th {
-            padding: 16px;
-            font-size: 12px;
+            padding: 12px 14px;
+            font-size: 11px;
             font-weight: 700;
             background: var(--card);
             position: sticky;
@@ -448,17 +461,20 @@ export default function Products() {
             z-index: 10;
           }
 
-          /* Enhanced action buttons for mobile */
+          /* Enhanced action buttons - ensure visibility and spacing */
           .action-buttons {
-            gap: 8px;
-            min-width: 100px;
+            gap: 6px;
+            min-width: 90px; /* Reduce from 100px */
+            padding: 4px 0; /* Add some padding */
           }
 
           .btn-icon {
-            min-width: 44px;
-            min-height: 44px;
-            width: 44px;
-            height: 44px;
+            min-width: 40px; /* Reduce from 44px */
+            min-height: 40px;
+            width: 40px;
+            height: 40px;
+            position: relative;
+            z-index: 1; /* Ensure buttons are above other elements */
           }
 
           /* Better touch targets */
@@ -479,11 +495,10 @@ export default function Products() {
             content: '← Swipe to see more columns →';
             display: block;
             text-align: center;
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
-            padding: 8px 0;
-            opacity: 0.8;
-            background: linear-gradient(to right, transparent, var(--card), transparent);
+            padding: 6px 0;
+            opacity: 0.6;
           }
 
           /* Keep all columns visible - no hiding */
@@ -505,54 +520,69 @@ export default function Products() {
 
         @media (max-width: 480px) {
           .products-header {
-            margin-bottom: 16px;
+            margin-bottom: 12px;
           }
 
           .header-actions {
-            gap: 8px;
+            gap: 6px;
           }
 
+          /* Even shorter search and filter bars */
           .search-input {
-            font-size: 16px; /* Prevent zoom on iOS */
+            font-size: 16px;
+            padding: 8px 12px 8px 36px;
+          }
+
+          .filter-select {
+            font-size: 16px;
+            padding: 8px 12px;
+            min-height: 40px;
+          }
+
+          .btn-primary {
+            min-height: 40px;
+            padding: 10px 16px;
           }
 
           th,
           td {
-            padding: 10px 12px;
-            font-size: 12px;
+            padding: 8px 10px;
+            font-size: 11px;
+            min-width: 90px; /* Further reduce for very small screens */
           }
 
           th {
-            padding: 12px 14px;
-            font-size: 11px;
+            padding: 10px 12px;
+            font-size: 10px;
           }
 
           .products-title {
-            font-size: 20px;
+            font-size: 18px;
           }
 
-          /* Keep action buttons at normal size on very small screens */
+          /* Ensure action buttons are visible and properly sized */
           .btn-icon {
-            min-width: 40px;
-            min-height: 40px;
-            width: 40px;
-            height: 40px;
+            min-width: 36px; /* Smaller on very small screens */
+            min-height: 36px;
+            width: 36px;
+            height: 36px;
           }
 
-          /* Ensure action buttons column is wide enough */
+          /* Ensure action buttons column has enough space */
           .action-buttons {
-            min-width: 120px;
-            gap: 10px;
+            min-width: 80px; /* Smaller but sufficient */
+            gap: 4px;
+            padding: 2px 0;
           }
 
           /* Ensure table scrolls properly */
           .table-container {
             margin: 0 -12px;
-            padding: 0 12px;
+            padding: 0 12px 6px;
           }
 
           table {
-            min-width: 600px;
+            min-width: 550px; /* Reduce from 600px for very small screens */
           }
         }
 
