@@ -31,25 +31,28 @@ export default function Stock() {
   const [searchTerm, setSearchTerm] = useState('');
   const { showToast } = useToast();
 
-  // Fetch only ACTIVE products for stock management
-  const { data: products, isLoading } = useQuery({
+  // Fetch only ACTIVE products for stock management using the same API as Products page
+  const { data: productsResponse, isLoading } = useQuery({
     queryKey: ['products-stock'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, stock, category, stock_type, cost_price_cents, variants, status')
-        .eq('status', 'active')
-        .order('name');
-
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api.listProducts(),
   });
 
-  // Filter logic: Hide furniture/courses/unlimited items, apply search
+  // Transform the response to match Stock page expectations
+  const products = productsResponse?.map(product => ({
+    ...product,
+    // Ensure we have the fields Stock page expects
+    cost_price_cents: product.cost_price_cents || 0,
+    stock_type: getStockType(product),
+    status: product.status || 'active'
+  })) || [];
+
+  // Filter logic: Hide furniture/courses/unlimited items, only show active products, apply search
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     return products.filter(product => {
+      // Only show active products
+      if (product.status !== 'active') return false;
+
       const cat = (product.category || '').toLowerCase();
       const stockType = getStockType(product);
       
@@ -420,9 +423,9 @@ function AdjustStockModal({ product, onClose, showToast }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: product.id,
-          delta: qtyChange,
+          quantityChange: qtyChange,
           reason: reason,
-          costPriceCents: costPrice ? Math.round(parseFloat(costPrice) * 100) : undefined
+          costPrice: costPrice ? parseFloat(costPrice) : undefined
         })
       });
 

@@ -427,19 +427,21 @@ export default function Products() {
             overflow-y: hidden;
             margin: 0 -16px;
             padding: 0 16px 8px;
-            width: 100%;
+            width: 100vw;
             position: relative;
+            /* Ensure we can scroll to see all columns including actions */
+            min-width: 100%;
           }
 
           .products-table {
             border-radius: 12px;
             margin: 0;
-            min-width: 600px; /* Reduce from 700px */
+            min-width: 650px; /* Slightly wider to accommodate all columns */
           }
 
           /* Ensure all table columns are visible and properly sized */
           table {
-            min-width: 600px;
+            min-width: 650px;
             width: 100%;
             border-collapse: collapse;
           }
@@ -448,7 +450,16 @@ export default function Products() {
             padding: 10px 12px;
             font-size: 12px;
             white-space: nowrap;
-            min-width: 100px; /* Reduce from 120px */
+            min-width: 80px; /* Reduce column width */
+          }
+
+          /* Give more space to important columns */
+          th:first-child, td:first-child {
+            min-width: 120px; /* Product name column */
+          }
+
+          th:nth-child(6), td:nth-child(6) {
+            min-width: 100px; /* Actions column - ensure enough space */
           }
 
           th {
@@ -463,18 +474,23 @@ export default function Products() {
 
           /* Enhanced action buttons - ensure visibility and spacing */
           .action-buttons {
-            gap: 6px;
-            min-width: 90px; /* Reduce from 100px */
-            padding: 4px 0; /* Add some padding */
+            gap: 8px;
+            min-width: 110px; /* Increase to accommodate buttons with spacing */
+            padding: 6px 0; /* More padding for better touch targets */
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
           }
 
           .btn-icon {
-            min-width: 40px; /* Reduce from 44px */
-            min-height: 40px;
-            width: 40px;
-            height: 40px;
+            min-width: 44px; /* Restore better touch target size */
+            min-height: 44px;
+            width: 44px;
+            height: 44px;
             position: relative;
             z-index: 1; /* Ensure buttons are above other elements */
+            /* Better visual styling for mobile */
+            box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
           }
 
           /* Better touch targets */
@@ -492,13 +508,21 @@ export default function Products() {
 
           /* Scroll indicators for table */
           .table-container::after {
-            content: '← Swipe to see more columns →';
+            content: '← Swipe to see Actions column →';
             display: block;
             text-align: center;
-            font-size: 11px;
+            font-size: 12px;
             color: var(--text-muted);
-            padding: 6px 0;
-            opacity: 0.6;
+            padding: 8px 0;
+            opacity: 0.8;
+            font-weight: 500;
+            /* Add a subtle animation to draw attention */
+            animation: pulseHint 2s infinite;
+          }
+
+          @keyframes pulseHint {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
           }
 
           /* Keep all columns visible - no hiding */
@@ -560,29 +584,30 @@ export default function Products() {
             font-size: 18px;
           }
 
-          /* Ensure action buttons are visible and properly sized */
+          /* Ensure action buttons remain accessible on very small screens */
           .btn-icon {
-            min-width: 36px; /* Smaller on very small screens */
-            min-height: 36px;
-            width: 36px;
-            height: 36px;
+            min-width: 40px; /* Don't make them too small */
+            min-height: 40px;
+            width: 40px;
+            height: 40px;
           }
 
           /* Ensure action buttons column has enough space */
           .action-buttons {
-            min-width: 80px; /* Smaller but sufficient */
-            gap: 4px;
-            padding: 2px 0;
+            min-width: 90px; /* Keep adequate space for buttons */
+            gap: 6px;
+            padding: 4px 0;
           }
 
           /* Ensure table scrolls properly */
           .table-container {
             margin: 0 -12px;
             padding: 0 12px 6px;
+            width: 100vw; /* Ensure full viewport width */
           }
 
           table {
-            min-width: 550px; /* Reduce from 600px for very small screens */
+            min-width: 600px; /* Keep reasonable minimum width */
           }
         }
 
