@@ -877,7 +877,7 @@ export default function Dashboard() {
         <QuickLink
           title="Finance"
           description="View financial reports and metrics"
-          url="finance"
+          url="Finance"
           icon={DollarSign}
         />
       </div>
