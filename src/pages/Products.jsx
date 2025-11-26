@@ -52,7 +52,7 @@ export default function Products() {
       const response = await fetch('/.netlify/functions/delete-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+        body: JSON.stringify({ id, forceDelete: true })
       });
 
       const result = await response.json();
@@ -64,7 +64,9 @@ export default function Products() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       if (result.archived) {
-        showToast('info', result.message || 'Product archived (has existing orders)');
+        showToast('info', result.message || 'Product could not be permanently deleted and was archived instead (has existing orders)');
+      } else if (result.deleted) {
+        showToast('success', 'Product permanently deleted successfully');
       } else {
         showToast('success', 'Product deleted successfully');
       }
