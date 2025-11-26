@@ -98,16 +98,6 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (!formData.name) {
-      alert('Bundle name is required');
-      return;
-    }
-    
-    if (items.length === 0) {
-      alert('Bundle must have at least one product');
-      return;
-    }
-
     onSave({
       ...formData,
       items,
@@ -425,14 +415,13 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
                 <h3 className="section-title">Core</h3>
                 
                 <div className="form-group">
-                  <label className="form-label">Bundle Name *</label>
+                  <label className="form-label">Bundle Name</label>
                   <input
                     type="text"
                     className="form-input"
                     value={formData.name}
                     onChange={(e) => updateField('name', e.target.value)}
                     onBlur={handleNameBlur}
-                    required
                   />
                 </div>
 
@@ -610,13 +599,12 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
 
                 {pricingMode === 'manual' && (
                   <div className="form-group" style={{ marginTop: '16px' }}>
-                    <label className="form-label">Price (cents) *</label>
+                    <label className="form-label">Price (cents)</label>
                     <input
                       type="number"
                       className="form-input"
                       value={formData.price_cents}
                       onChange={(e) => updateField('price_cents', parseInt(e.target.value) || 0)}
-                      required
                       min="1"
                     />
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>

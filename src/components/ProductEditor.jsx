@@ -669,14 +669,13 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
               <div className="form-section">
                 <h3 className="section-title">Core Details</h3>
                 <div className="form-group">
-                  <label className="form-label">Product Name *</label>
+                  <label className="form-label">Product Name</label>
                   <input
                     type="text"
                     className="form-input"
                     value={formData.name}
                     onChange={(e) => updateField('name', e.target.value)}
                     onBlur={handleNameBlur}
-                    required
                   />
                 </div>
 
@@ -728,7 +727,6 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                       className="form-input"
                       value={formData.price}
                       onChange={(e) => updateField('price', parseFloat(e.target.value) || 0)}
-                      required
                     />
                   </div>
                   <div className="form-group">
