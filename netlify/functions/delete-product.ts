@@ -16,7 +16,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = event.body ? JSON.parse(event.body) : {};
-    const { id, slug } = body;
+    const { id, slug, forceDelete = false } = body;
     
     if (!id && !slug) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Provide id or slug' }) };
@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-    // Check if product has any order items (foreign key constraint)
+    // Check if product has any order items
     const { data: orderItems, error: checkError } = await supabase
       .from('order_items')
       .select('id')
@@ -35,8 +35,8 @@ export const handler: Handler = async (event) => {
       console.error('Error checking order items:', checkError);
     }
 
-    // If product has order items, soft delete (archive) instead of hard delete
-    if (orderItems && orderItems.length > 0) {
+    // If product has order items and forceDelete is not explicitly true, archive instead
+    if (orderItems && orderItems.length > 0 && !forceDelete) {
       const { data, error } = await supabase
         .from('products')
         .update({ 
@@ -58,46 +58,61 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({ 
           ok: true, 
           archived: true,
-          message: 'Product has existing orders and was archived instead of deleted',
+          message: 'Product has existing orders and was archived. Use forceDelete=true to permanently delete.',
           product: data
         }),
       };
     }
 
-    // No order items, safe to hard delete
+    // Try to hard delete (will cascade delete order items if constraints allow)
     const { error } = await supabase
       .from('products')
       .delete()
       .match(id ? { id } : { slug });
     
     if (error) {
-      // If we still get a foreign key error, fall back to archiving
+      // If we get a foreign key constraint error and forceDelete is true, 
+      // provide information about dependencies
       if (error.message.includes('foreign key constraint') || error.code === '23503') {
-        const { data, error: archiveError } = await supabase
-          .from('products')
-          .update({ 
-            status: 'archived', 
-            is_active: false,
-            updated_at: new Date().toISOString()
-          })
-          .match(id ? { id } : { slug })
-          .select('*')
-          .single();
-        
-        if (archiveError) {
-          return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${archiveError.message}` }) };
-        }
+        if (forceDelete) {
+          return { 
+            statusCode: 409, 
+            headers, 
+            body: JSON.stringify({ 
+              ok: false, 
+              error: 'Cannot delete product due to foreign key constraints. Product has existing orders.',
+              dependencies: 'order_items',
+              message: 'This product cannot be deleted because it has associated order records. Please contact support to manually resolve dependencies.'
+            }) 
+          };
+        } else {
+          // Fall back to archiving
+          const { data, error: archiveError } = await supabase
+            .from('products')
+            .update({ 
+              status: 'archived', 
+              is_active: false,
+              updated_at: new Date().toISOString()
+            })
+            .match(id ? { id } : { slug })
+            .select('*')
+            .single();
+          
+          if (archiveError) {
+            return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${archiveError.message}` }) };
+          }
 
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ 
-            ok: true, 
-            archived: true,
-            message: 'Product has dependencies and was archived instead of deleted',
-            product: data
-          }),
-        };
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ 
+              ok: true, 
+              archived: true,
+              message: 'Product has dependencies and was archived instead of deleted',
+              product: data
+            }),
+          };
+        }
       }
       
       return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
@@ -106,7 +121,11 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, deleted: true }),
+      body: JSON.stringify({ 
+        ok: true, 
+        deleted: true,
+        message: forceDelete ? 'Product permanently deleted' : 'Product deleted'
+      }),
     };
   } catch (err: any) {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: err?.message || 'Delete failed' }) };
