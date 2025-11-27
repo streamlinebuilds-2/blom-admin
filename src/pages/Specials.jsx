@@ -868,7 +868,7 @@ export default function Specials() {
                         </td>
                         <td>{normalizeCouponType(coupon.type) === 'percent' ? 'Percentage' : 'Fixed Amount'}</td>
                         <td>
-                          {normalizeCouponType(coupon.type) === 'percentage'
+                          {normalizeCouponType(coupon.type) === 'percent'
                             ? `${coupon.value}%`
                             : `R${Number(coupon.value).toFixed(2)}`}
                         </td>
