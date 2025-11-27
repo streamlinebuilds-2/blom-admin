@@ -15,19 +15,19 @@ const normalizeCouponType = (type) => {
 };
 
 // Calculate discount amount in cents
-function calculateDiscountAmount(coupon, cartTotalCents) {
-  if (!coupon || !cartTotalCents) return 0;
+function calculateDiscountAmount(validation, cartTotalCents) {
+  if (!validation || !cartTotalCents) return 0;
 
-  const normalizedType = normalizeCouponType(coupon.type);
-  const value = Number(coupon.value) || 0;
+  const normalizedType = normalizeCouponType(validation.discount_type);
+  const value = Number(validation.discount_value) || 0;
 
   if (normalizedType === 'percent') {
     // Percentage discount
     const discount = Math.floor((cartTotalCents * value) / 100);
     
     // Apply maximum discount limit if set
-    if (coupon.max_discount_cents && discount > coupon.max_discount_cents) {
-      return coupon.max_discount_cents;
+    if (validation.max_discount_cents && discount > validation.max_discount_cents) {
+      return validation.max_discount_cents;
     }
     
     return Math.max(0, discount);
@@ -69,52 +69,49 @@ export const handler: Handler = async (event) => {
       auth: { persistSession: false }
     });
 
-    // Fetch coupon from database
-    const { data: coupon, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('code', couponCode.toUpperCase())
-      .eq('is_active', true)
-      .single();
+    // Extract product IDs from cart items for exclusion checking
+    const productIds = cartItems?.map(item => item.product_id).filter(Boolean) || [];
 
-    if (error || !coupon) {
+    // Use the improved database validation function that includes product exclusions
+    const { data: validationResult, error: validationError } = await supabase
+      .rpc('validate_coupon', {
+        p_code: couponCode,
+        p_order_total_cents: cartTotalCents,
+        p_product_ids: productIds
+      });
+
+    if (validationError) {
+      console.error('Validation function error:', validationError);
       return {
-        statusCode: 400,
+        statusCode: 500,
         headers,
-        body: JSON.stringify({ ok: false, error: 'Invalid or inactive coupon code' })
+        body: JSON.stringify({ ok: false, error: 'Failed to validate coupon' })
       };
     }
 
-    // Check if coupon has expired
-    if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+    if (!validationResult || validationResult.length === 0) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ ok: false, error: 'Coupon has expired' })
+        body: JSON.stringify({ ok: false, error: 'Invalid coupon code' })
       };
     }
 
-    // Check minimum spend requirement
-    if (coupon.min_order_cents && cartTotalCents < coupon.min_order_cents) {
-      const minSpend = (coupon.min_order_cents / 100).toFixed(2);
+    const validation = validationResult[0];
+    
+    if (!validation.valid) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ ok: false, error: `Minimum spend of R${minSpend} required for this coupon` })
+        body: JSON.stringify({ 
+          ok: false, 
+          error: validation.error_message || 'Coupon validation failed' 
+        })
       };
     }
 
-    // Check usage limits
-    if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ ok: false, error: 'Coupon usage limit has been reached' })
-      };
-    }
-
-    // Calculate discount amount
-    const discountCents = calculateDiscountAmount(coupon, cartTotalCents);
+    // Use the validated coupon data from the database function
+    const discountCents = calculateDiscountAmount(validation, cartTotalCents);
 
     return {
       statusCode: 200,
@@ -122,11 +119,11 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         ok: true,
         coupon: {
-          id: coupon.id,
-          code: coupon.code,
-          type: coupon.type,
-          value: coupon.value,
-          description: coupon.notes
+          id: validation.coupon_id,
+          code: couponCode.toUpperCase(),
+          type: validation.discount_type,
+          value: validation.discount_value,
+          description: 'Validated coupon'
         },
         discountCents,
         finalTotalCents: cartTotalCents - discountCents

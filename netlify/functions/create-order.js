@@ -165,20 +165,17 @@ export const handler = async (event) => {
     // Update coupon usage count if a coupon was used
     if (orderData.coupon_code && discount_cents > 0) {
       try {
-        const { data: coupon } = await supabase
-          .from('coupons')
-          .select('id')
-          .eq('code', orderData.coupon_code.toUpperCase())
-          .single();
+        // Use the database function to safely increment usage
+        const { data: usageResult, error: usageError } = await supabase
+          .rpc('mark_coupon_used', {
+            p_code: orderData.coupon_code.toUpperCase()
+          });
         
-        if (coupon) {
-          await supabase
-            .from('coupons')
-            .update({ 
-              used_count: supabase.raw('used_count + 1'),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', coupon.id);
+        if (usageError) {
+          console.error('Failed to mark coupon as used:', usageError);
+          // Log the issue but don't fail the order creation
+        } else if (!usageResult) {
+          console.warn('Coupon was not marked as used - may have reached limit');
         }
       } catch (error) {
         console.error('Failed to update coupon usage count:', error);
