@@ -82,10 +82,25 @@ export const handler: Handler = async (e) => {
 
     if (updateErr) throw updateErr;
 
+    // 5. CRITICAL: Deduct stock when order is marked as "paid"
+    if (status === 'paid' && currentStatus !== 'paid') {
+      console.log(`Deducting stock for order ${id} - marked as paid by admin`);
+      const { error: rpcError } = await s.rpc('adjust_stock_for_order', {
+        p_order_id: id
+      });
+      
+      if (rpcError) {
+        console.error(`ERROR: Failed to deduct stock for order ${id}:`, rpcError.message);
+        // Don't throw error here to avoid blocking the status update
+      } else {
+        console.log(`✅ Stock successfully deducted for order ${id}`);
+      }
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, order: updated })
+      body: JSON.stringify({ ok: true, order: updated, stockDeducted: status === 'paid' && currentStatus !== 'paid' })
     };
 
   } catch (err: any) {
