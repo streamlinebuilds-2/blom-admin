@@ -30,7 +30,16 @@ Your coupon system had several critical issues that have been resolved:
 
 ### 1. **Run the Database Migration** ⚠️ **URGENT**
 
-You need to run this SQL migration in your Supabase database:
+**Option A: Simple Fix (Recommended First)**
+Run this file first to fix the core issue:
+
+```sql
+-- Copy and run this entire file content in your Supabase SQL Editor:
+-- db/migrations/fix_coupon_types_simple.sql
+```
+
+**Option B: Complete Fix (If Simple Fix Works)**
+After the simple fix succeeds, run this for full functionality:
 
 ```sql
 -- Copy and run this entire file content in your Supabase SQL Editor:
@@ -40,8 +49,8 @@ You need to run this SQL migration in your Supabase database:
 **Steps:**
 1. Go to your Supabase dashboard
 2. Navigate to SQL Editor  
-3. Copy the contents of `db/migrations/fix_coupon_system_complete.sql`
-4. Run the migration
+3. Start with `fix_coupon_types_simple.sql`
+4. If successful, run `fix_coupon_system_complete.sql`
 5. Verify no errors occurred
 
 ### 2. **Create Customer-Facing Checkout Page** 📋
