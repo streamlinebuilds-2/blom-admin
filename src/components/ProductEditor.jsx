@@ -730,14 +730,25 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Compare At (R)</label>
+                    <label className="form-label">Cost Price (R)</label>
                     <input
                       type="number"
                       className="form-input"
-                      value={formData.compare_at_price || ''}
-                      onChange={(e) => updateField('compare_at_price', e.target.value ? parseFloat(e.target.value) : null)}
+                      value={formData.cost_price_cents ? (formData.cost_price_cents / 100).toFixed(2) : ''}
+                      onChange={(e) => updateField('cost_price_cents', e.target.value ? Math.round(parseFloat(e.target.value) * 100) : 0)}
+                      placeholder="0.00"
+                      step="0.01"
                     />
                   </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Compare At (R)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.compare_at_price || ''}
+                    onChange={(e) => updateField('compare_at_price', e.target.value ? parseFloat(e.target.value) : null)}
+                  />
                 </div>
                 <PriceDropdown
                   currentPrice={formData.price}

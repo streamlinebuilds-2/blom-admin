@@ -33,7 +33,7 @@ export default function Stock() {
 
   // Fetch only ACTIVE products for stock management using the same API as Products page
   const { data: productsResponse, isLoading } = useQuery({
-    queryKey: ['products-stock'],
+    queryKey: ['products'],
     queryFn: () => api.listProducts(),
   });
 
@@ -453,9 +453,8 @@ function AdjustStockModal({ product, onClose, showToast }) {
       const result = await response.json();
       showToast('success', result.message || 'Stock updated successfully');
 
-      // CRITICAL: Invalidate BOTH queries
-      queryClient.invalidateQueries({ queryKey: ['products-stock'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] }); // ← Products page update
+      // CRITICAL: Invalidate the unified products query
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
 
       onClose();
