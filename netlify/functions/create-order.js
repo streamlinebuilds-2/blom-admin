@@ -62,13 +62,48 @@ export const handler = async (event) => {
       }
     }
 
-    // Calculate totals (all in cents)
+    // Calculate subtotal (all in cents)
     const subtotal_cents = orderData.items?.reduce((sum, item) => {
       return sum + (item.unit_price_cents * item.qty);
     }, 0) || 0;
 
+    // Validate and apply coupon discount if provided
+    let discount_cents = 0;
+    if (orderData.coupon_code) {
+      try {
+        // Call the validate-coupon function
+        const validationResponse = await fetch(`${process.env.URL}/.netlify/functions/validate-coupon`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            couponCode: orderData.coupon_code,
+            cartTotalCents: subtotal_cents,
+            cartItems: orderData.items || []
+          })
+        });
+
+        const validationResult = await validationResponse.json();
+        
+        if (validationResult.ok) {
+          discount_cents = validationResult.discountCents || 0;
+        } else {
+          // If coupon is invalid, return error instead of creating order
+          return {
+            statusCode: 400,
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ error: validationResult.error || 'Invalid coupon' })
+          };
+        }
+      } catch (error) {
+        console.error('Coupon validation failed:', error);
+        // Continue without discount if validation fails
+        discount_cents = 0;
+      }
+    }
+
     const shipping_cents = orderData.shipping_cents || 0;
-    const discount_cents = orderData.discount_cents || 0;
     const tax_cents = orderData.tax_cents || 0;
     const total_cents = subtotal_cents + shipping_cents - discount_cents + tax_cents;
 
@@ -124,6 +159,30 @@ export const handler = async (event) => {
       if (itemsError) {
         console.error("Error creating order items:", itemsError);
         // Order is created, items failed - log but continue
+      }
+    }
+
+    // Update coupon usage count if a coupon was used
+    if (orderData.coupon_code && discount_cents > 0) {
+      try {
+        const { data: coupon } = await supabase
+          .from('coupons')
+          .select('id')
+          .eq('code', orderData.coupon_code.toUpperCase())
+          .single();
+        
+        if (coupon) {
+          await supabase
+            .from('coupons')
+            .update({ 
+              used_count: supabase.raw('used_count + 1'),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', coupon.id);
+        }
+      } catch (error) {
+        console.error('Failed to update coupon usage count:', error);
+        // Don't fail the order creation for this
       }
     }
 
