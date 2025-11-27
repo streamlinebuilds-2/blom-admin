@@ -33,14 +33,20 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Normalize and validate coupon type
+    // Normalize and validate coupon type - strictly enforce database constraint values
     const normalizedType = String(body.type).toLowerCase().trim();
-    const validTypes = ['percentage', 'fixed'];
-    if (!validTypes.includes(normalizedType)) {
+    
+    // Map various inputs to valid database constraint values
+    let finalType;
+    if (normalizedType === 'percentage' || normalizedType === 'percent' || normalizedType === '%') {
+      finalType = 'percentage';
+    } else if (normalizedType === 'fixed' || normalizedType === 'amount' || normalizedType === 'rand' || normalizedType === 'r') {
+      finalType = 'fixed';
+    } else {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ ok: false, error: `Invalid coupon type: ${body.type}. Must be 'percentage' or 'fixed'` })
+        body: JSON.stringify({ ok: false, error: `Invalid coupon type: ${body.type}. Must be 'percentage' (for %) or 'fixed' (for R)` })
       };
     }
 
@@ -52,7 +58,7 @@ export const handler: Handler = async (event) => {
       notes: body.description, // Map description -> notes
       is_active: body.is_active ?? true,
 
-      type: normalizedType, // 'percentage' or 'fixed' (normalized)
+      type: finalType, // 'percentage' or 'fixed' (validated and mapped)
       value: parseFloat(body.value), // The % or R value
 
       // Limitations (convert Rands from form to Cents for DB)
