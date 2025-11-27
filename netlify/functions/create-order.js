@@ -150,6 +150,7 @@ export const handler = async (event) => {
         quantity: item.qty,
         unit_price_cents: item.unit_price_cents,
         line_total_cents: item.unit_price_cents * item.qty,
+        variant_index: item.variant_index !== undefined ? item.variant_index : null,
       }));
 
       const { error: itemsError } = await supabase

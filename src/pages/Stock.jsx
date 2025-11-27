@@ -438,9 +438,9 @@ function AdjustStockModal({ product, onClose, showToast }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: product.id,
-          delta: qtyChange,
+          quantityChange: qtyChange,
           reason: reason,
-          costPriceCents: costPrice ? Math.round(parseFloat(costPrice) * 100) : undefined,
+          costPrice: costPrice ? parseFloat(costPrice) : undefined,
           variantIndex: product.variantIndex !== undefined ? product.variantIndex : undefined
         })
       });

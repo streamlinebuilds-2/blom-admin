@@ -18,7 +18,10 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { productId, quantityChange, reason, costPrice } = JSON.parse(event.body || '{}');
+    const { productId, delta, quantityChange, reason, costPrice } = JSON.parse(event.body || '{}');
+
+    // Support both 'delta' and 'quantityChange' parameters for backward compatibility
+    const quantityChangeValue = quantityChange !== undefined ? quantityChange : delta;
 
     if (!productId) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing productId' }) };
@@ -28,10 +31,10 @@ export const handler: Handler = async (event) => {
     const promises = [];
 
     // 1. Update Stock (if quantity changed)
-    if (quantityChange && quantityChange !== 0) {
+    if (quantityChangeValue && quantityChangeValue !== 0) {
       // Invert logic: Input 5 means ADD 5. RPC takes "quantity_to_reduce".
       // So to ADD, we reduce by -5.
-      const reduceBy = -quantityChange;
+      const reduceBy = -quantityChangeValue;
 
       const stockPromise = supabase.rpc('adjust_stock', {
         product_uuid: productId,
@@ -42,7 +45,7 @@ export const handler: Handler = async (event) => {
         // Log movement
         const { error: logError } = await supabase.from('stock_movements').insert({
           product_id: productId,
-          delta: quantityChange,
+          delta: quantityChangeValue,
           reason: reason || 'manual_adjustment',
           product_name: 'Manual Update' // Will be filled by trigger or ignored, mostly for ref
         });
