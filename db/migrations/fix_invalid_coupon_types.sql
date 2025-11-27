@@ -12,17 +12,17 @@ BEGIN
     RAISE NOTICE 'Starting to fix invalid coupon types...';
     
     -- Update coupons with invalid types to valid ones
-    -- Map old invalid types to valid database constraint values
+    -- Map old invalid types to valid database constraint values ('percent', 'fixed')
     UPDATE coupons 
     SET 
         type = CASE 
-            WHEN type = 'percent' THEN 'percentage'
+            WHEN type = 'percentage' THEN 'percent'
+            WHEN type = '%' THEN 'percent'
             WHEN type = 'amount' THEN 'fixed'
-            WHEN type = '%' THEN 'percentage'
-            ELSE type -- Keep as-is if already valid
+            ELSE type -- Keep as-is if already valid ('percent' or 'fixed')
         END,
         updated_at = now()
-    WHERE type NOT IN ('percentage', 'fixed');
+    WHERE type NOT IN ('percent', 'fixed');
     
     GET DIAGNOSTICS fixed_count = ROW_COUNT;
     
@@ -32,7 +32,7 @@ BEGIN
     FOR invalid_coupon IN 
         SELECT DISTINCT type, COUNT(*) as count
         FROM coupons 
-        WHERE type NOT IN ('percentage', 'fixed')
+        WHERE type NOT IN ('percent', 'fixed')
         GROUP BY type
     LOOP
         RAISE WARNING 'Found % coupons with invalid type: %', invalid_coupon.count, invalid_coupon.type;

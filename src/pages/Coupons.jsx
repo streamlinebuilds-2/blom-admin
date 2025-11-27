@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+daimport React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit, Trash2, TrendingUp, X, Search } from 'lucide-react';
@@ -17,15 +17,15 @@ const isSignupCoupon = (code) => {
 
 // Helper to normalize coupon type to valid database values
 const normalizeCouponType = (type) => {
-  if (!type) return 'percentage';
+  if (!type) return 'percent';
   const lowerType = String(type).toLowerCase().trim();
   if (lowerType === 'percentage' || lowerType === 'percent' || lowerType === '%' || lowerType.includes('percent')) {
-    return 'percentage';
+    return 'percent';
   }
   if (lowerType === 'fixed' || lowerType === 'r' || lowerType === 'rand' || lowerType === 'amount' || lowerType.includes('fixed')) {
     return 'fixed';
   }
-  return 'percentage'; // Default fallback
+  return 'percent'; // Default fallback
 };
 
 // Main component for the Specials/Coupons page
@@ -231,7 +231,7 @@ export default function Coupons() {
                   <td className="p-3 font-mono">{coupon.code}</td>
                   <td className="p-3">{coupon.type}</td>
                   <td className="p-3">
-                    {normalizeCouponType(coupon.type) === 'percentage'
+                    {normalizeCouponType(coupon.type) === 'percent'
                       ? `${coupon.value}%`
                       : `R${Number(coupon.value).toFixed(2)}`}
                   </td>
@@ -284,15 +284,15 @@ export default function Coupons() {
 function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false }) {
   // Reuse the same normalizeCouponType function
   const normalizeCouponType = (type) => {
-    if (!type) return 'percentage';
+    if (!type) return 'percent';
     const lowerType = String(type).toLowerCase().trim();
     if (lowerType === 'percentage' || lowerType === 'percent' || lowerType === '%' || lowerType.includes('percent')) {
-      return 'percentage';
+      return 'percent';
     }
     if (lowerType === 'fixed' || lowerType === 'r' || lowerType === 'rand' || lowerType === 'amount' || lowerType.includes('fixed')) {
       return 'fixed';
     }
-    return 'percentage'; // Default fallback
+    return 'percent'; // Default fallback
   };
   const queryClient = useQueryClient();
   const [formState, setFormState] = useState({
@@ -300,7 +300,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false 
     code: coupon?.code || '',
     description: coupon?.notes || '', // Read from 'notes'
     is_active: coupon?.is_active ?? true,
-    type: normalizeCouponType(coupon?.type) || 'percentage', // Use 'type' with normalization
+    type: normalizeCouponType(coupon?.type) || 'percent', // Use 'type' with normalization
     value: coupon?.value || 0, // Use 'value'
     min_spend: coupon ? (coupon.min_order_cents / 100).toFixed(2) : '0.00', // Read from 'min_order_cents'
     max_discount: coupon ? (coupon.max_discount_cents ? (coupon.max_discount_cents / 100).toFixed(2) : '') : '',

@@ -36,17 +36,17 @@ export const handler: Handler = async (event) => {
     // Normalize and validate coupon type - strictly enforce database constraint values
     const normalizedType = String(body.type).toLowerCase().trim();
     
-    // Map various inputs to valid database constraint values
+    // Map various inputs to valid database constraint values ('percent', 'fixed')
     let finalType;
     if (normalizedType === 'percentage' || normalizedType === 'percent' || normalizedType === '%') {
-      finalType = 'percentage';
+      finalType = 'percent';
     } else if (normalizedType === 'fixed' || normalizedType === 'amount' || normalizedType === 'rand' || normalizedType === 'r') {
       finalType = 'fixed';
     } else {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ ok: false, error: `Invalid coupon type: ${body.type}. Must be 'percentage' (for %) or 'fixed' (for R)` })
+        body: JSON.stringify({ ok: false, error: `Invalid coupon type: ${body.type}. Must be 'percent' (for %) or 'fixed' (for R)` })
       };
     }
 

@@ -5,23 +5,37 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 export const handler: Handler = async (e) => {
   try {
-    // 1. Get Date Range (default to last 30 days)
+    // 1. Get Date Range (default to last 30 days, or from query params)
     const now = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(now.getDate() - 30);
-    const fromIso = thirtyDaysAgo.toISOString();
+    let days = 30; // Default to 30 days
+    
+    // Parse query parameters if provided
+    const url = new URL(e.rawUrl);
+    const period = url.searchParams.get('period');
+    if (period === 'today') days = 1;
+    else if (period === 'week') days = 7;
+    else if (period === 'month') days = 30;
+    else if (period && !isNaN(Number(period))) days = Math.max(1, Math.min(365, Number(period)));
+    
+    const fromDate = new Date();
+    fromDate.setDate(now.getDate() - days);
+    const fromIso = fromDate.toISOString();
 
     // 2. Fetch Orders (Revenue)
     // Status: paid, packed, collected, out_for_delivery, delivered
     const { data: orders, error: oErr } = await s
       .from("orders")
-      .select("id, total_cents, created_at, status")
+      .select("id, total_cents, created_at, status, subtotal_cents, discount_cents, shipping_cost_cents")
       .gte("created_at", fromIso)
       .in("status", ["paid", "packed", "collected", "out_for_delivery", "delivered"]);
     
     if (oErr) throw oErr;
 
+    // Calculate revenue and additional financial metrics
     const revenueCents = (orders || []).reduce((sum, o) => sum + (o.total_cents || 0), 0);
+    const totalDiscountsCents = (orders || []).reduce((sum, o) => sum + (o.discount_cents || 0), 0);
+    const totalShippingCostsCents = (orders || []).reduce((sum, o) => sum + (o.shipping_cost_cents || 0), 0);
+    const grossRevenueCents = (orders || []).reduce((sum, o) => sum + ((o.subtotal_cents || o.total_cents || 0) + (o.discount_cents || 0)), 0);
 
     // 3. Fetch Operating Costs (Expenses)
     const { data: expenses, error: eErr } = await s
@@ -80,6 +94,10 @@ export const handler: Handler = async (e) => {
     // 5. Recent Expenses (Last 5)
     const recentExpenses = (expenses || []).slice(0, 5);
 
+    // 6. Calculate Net Profit with all factors:
+    // Net Profit = Total Revenue - Cost of Goods Sold - Operating Expenses - Shipping Costs
+    const netProfit = (revenueCents - cogsCents) / 100 - expensesTotal - (totalShippingCostsCents / 100);
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -87,9 +105,12 @@ export const handler: Handler = async (e) => {
         ok: true,
         data: {
           revenue: revenueCents / 100, // Convert to main currency unit
+          grossRevenue: grossRevenueCents / 100,
+          totalDiscounts: totalDiscountsCents / 100,
+          totalShippingCosts: totalShippingCostsCents / 100,
           expenses: expensesTotal,
           cogs: cogsCents / 100,
-          profit: (revenueCents - cogsCents) / 100 - expensesTotal,
+          profit: netProfit,
           recentExpenses
         }
       })

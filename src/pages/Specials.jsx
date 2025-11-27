@@ -16,15 +16,15 @@ const formatRands = (cents) => {
 
 // Helper to normalize coupon type to valid database values
 const normalizeCouponType = (type) => {
-  if (!type) return 'percentage';
+  if (!type) return 'percent';
   const lowerType = String(type).toLowerCase().trim();
   if (lowerType === 'percentage' || lowerType === 'percent' || lowerType === '%' || lowerType.includes('percent')) {
-    return 'percentage';
+    return 'percent';
   }
   if (lowerType === 'fixed' || lowerType === 'r' || lowerType === 'rand' || lowerType === 'amount' || lowerType.includes('fixed')) {
     return 'fixed';
   }
-  return 'percentage'; // Default fallback
+  return 'percent'; // Default fallback
 };
 
 export default function Specials() {
@@ -866,7 +866,7 @@ export default function Specials() {
                             {isSignupCoupon(coupon.code) ? 'Sign-up' : 'Created'}
                           </span>
                         </td>
-                        <td>{normalizeCouponType(coupon.type) === 'percentage' ? 'Percentage' : 'Fixed Amount'}</td>
+                        <td>{normalizeCouponType(coupon.type) === 'percent' ? 'Percentage' : 'Fixed Amount'}</td>
                         <td>
                           {normalizeCouponType(coupon.type) === 'percentage'
                             ? `${coupon.value}%`

@@ -20,11 +20,12 @@ const getPeriodLabel = (days) => {
 export default function Payments() {
   const [selectedPeriod, setSelectedPeriod] = useState(30);
 
-  // Fetch finance stats from our existing function
+  // Fetch finance stats from our existing function with period parameter
   const { data: financeStats, isLoading: financeLoading } = useQuery({
-    queryKey: ['financeStats'],
+    queryKey: ['financeStats', selectedPeriod],
     queryFn: async () => {
-      const res = await fetch('/.netlify/functions/admin-finance-stats');
+      const periodParam = selectedPeriod === 1 ? 'today' : selectedPeriod === 7 ? 'week' : 'month';
+      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${periodParam}`);
       if (!res.ok) throw new Error('Failed to fetch finance stats');
       const json = await res.json();
       return json.data;
