@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Package, MapPin, FileText, CheckCircle,
-  Truck, User, Clock, CreditCard, AlertCircle
+  Truck, User, Clock, CreditCard, AlertCircle, Download, Printer
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -85,6 +85,202 @@ export default function OrderDetail() {
   if (isLoading) return <div className="order-loading">Loading order details...</div>;
   if (error) return <div className="order-error">Error: {error.message}</div>;
   if (!order) return <div className="order-not-found">Order not found</div>;
+
+  // Receipt generation function
+  const downloadReceipt = () => {
+    const receiptWindow = window.open('', '_blank');
+    const formatMoney = (amount) => `R${(amount / 100).toFixed(2)}`;
+    
+    // Check if order has free shipping threshold
+    const hasFreeShipping = order.subtotal_cents >= 200000; // R2000 in cents
+    
+    receiptWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - Order ${order.order_number || '#' + order.id.slice(0,8)}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            color: #333;
+            background: white;
+          }
+          .receipt-header {
+            text-align: center;
+            margin-bottom: 40px;
+          }
+          .company-name {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 8px;
+          }
+          .receipt-title {
+            font-size: 20px;
+            color: #666;
+            margin-bottom: 20px;
+          }
+          .order-info {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+          }
+          .order-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+          }
+          .order-info-label {
+            font-weight: bold;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+          }
+          th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+          }
+          th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+            font-size: 12px;
+          }
+          .text-right {
+            text-align: right;
+          }
+          .summary {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #333;
+          }
+          .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            color: #333;
+          }
+          .summary-total {
+            font-weight: bold;
+            font-size: 18px;
+            border-top: 2px solid #333;
+            padding-top: 15px;
+            margin-top: 10px;
+            color: #333;
+          }
+          .free-shipping {
+            color: #000;
+            font-weight: bold;
+          }
+          .coupon-discount {
+            color: #000;
+            font-weight: bold;
+          }
+          .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+          }
+          .print-btn:hover {
+            background: #0056b3;
+          }
+          @media print {
+            .print-btn { display: none; }
+            body { margin: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <button class="print-btn" onclick="window.print()">🖨️ Print</button>
+        <div class="receipt-header">
+          <div class="company-name">BLOM COSMETICS</div>
+          <div class="receipt-title">ORDER RECEIPT</div>
+        </div>
+        
+        <div class="order-info">
+          <div class="order-info-row">
+            <span class="order-info-label">Order Number:</span>
+            <span>${order.order_number || '#' + order.id.slice(0,8)}</span>
+          </div>
+          <div class="order-info-row">
+            <span class="order-info-label">Date:</span>
+            <span>${new Date(order.created_at).toLocaleDateString()}</span>
+          </div>
+          <div class="order-info-row">
+            <span class="order-info-label">Customer:</span>
+            <span>${order.buyer_name || order.customer_name || 'Guest'}</span>
+          </div>
+          <div class="order-info-row">
+            <span class="order-info-label">Email:</span>
+            <span>${order.buyer_email || order.customer_email || '-'}</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="text-right">Qty</th>
+              <th class="text-right">Price</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(item => `
+              <tr>
+                <td>
+                  <div style="font-weight: 600;">${item.name || item.product_name || 'Unknown Item'}</div>
+                  ${item.variant ? `<div style="font-size: 12px; color: #666;">${item.variant}</div>` : ''}
+                </td>
+                <td class="text-right">${item.quantity || 0}</td>
+                <td class="text-right">${formatMoney(item.unit_price_cents || 0)}</td>
+                <td class="text-right">${formatMoney(item.line_total_cents || (item.unit_price_cents * item.quantity) || 0)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          ${order.shipping_cents > 0 ? `
+            <div class="summary-row">
+              <span>Shipping:</span>
+              <span>${formatMoney(order.shipping_cents)}</span>
+            </div>
+          ` : ''}
+          ${hasFreeShipping ? `
+            <div class="summary-row free-shipping">
+              <span>FREE SHIPPING - Order over R2000</span>
+              <span></span>
+            </div>
+          ` : ''}
+          ${order.discount_cents > 0 ? `
+            <div class="summary-row coupon-discount">
+              <span>Coupon Discount:</span>
+              <span>-${formatMoney(order.discount_cents)}</span>
+            </div>
+          ` : ''}
+          <div class="summary-row summary-total">
+            <span>TOTAL:</span>
+            <span>${formatMoney(order.total_cents)}</span>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    receiptWindow.document.close();
+  };
 
   // Base44 styling CSS
   const base44Styles = `

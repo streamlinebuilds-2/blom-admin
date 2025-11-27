@@ -1,4 +1,4 @@
-daimport React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit, Trash2, TrendingUp, X, Search } from 'lucide-react';
@@ -26,6 +26,27 @@ const normalizeCouponType = (type) => {
     return 'fixed';
   }
   return 'percent'; // Default fallback
+};
+
+// Helper to get display label for coupon type
+const getCouponTypeLabel = (type) => {
+  const normalizedType = normalizeCouponType(type);
+  return normalizedType === 'percent' ? 'Percentage' : 'Fixed Amount';
+};
+
+// Helper to format coupon value for display
+const formatCouponValue = (type, value) => {
+  if (!value && value !== 0) return '0';
+  const numValue = Number(value);
+  if (isNaN(numValue)) return '0';
+  
+  const normalizedType = normalizeCouponType(type);
+  if (normalizedType === 'percent') {
+    return `${numValue}%`;
+  } else {
+    // For fixed amount, the value is stored as Rands, not cents
+    return `R${numValue.toFixed(2)}`;
+  }
 };
 
 // Main component for the Specials/Coupons page
@@ -229,11 +250,12 @@ export default function Coupons() {
                     />
                   </td>
                   <td className="p-3 font-mono">{coupon.code}</td>
-                  <td className="p-3">{coupon.type}</td>
+                  <td className="p-3">{getCouponTypeLabel(coupon.type)}</td>
                   <td className="p-3">
-                    {normalizeCouponType(coupon.type) === 'percent'
-                      ? `${coupon.value}%`
-                      : `R${Number(coupon.value).toFixed(2)}`}
+                    {isSignupCoupon(coupon.code) 
+                      ? '10%'  // All signup coupons should display as 10%
+                      : formatCouponValue(coupon.type, coupon.value)
+                    }
                   </td>
                   <td className="p-3">{formatRands(coupon.min_order_cents)}</td>
                   <td className="p-3">{formatRands(coupon.max_discount_cents)}</td>
@@ -427,7 +449,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false 
               onChange={handleChange}
               className="select"
             >
-              <option value="percentage">Percentage (%)</option>
+              <option value="percent">Percentage (%)</option>
               <option value="fixed">Fixed Amount (R)</option>
             </select>
           </div>
