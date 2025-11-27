@@ -96,7 +96,8 @@ export const handler: Handler = async (e) => {
 
     // 6. Calculate Net Profit with all factors:
     // Net Profit = Total Revenue - Cost of Goods Sold - Operating Expenses - Shipping Costs
-    const netProfit = (revenueCents - cogsCents) / 100 - expensesTotal - (totalShippingCostsCents / 100);
+    // All calculations in Rands (decimal) for consistency
+    const netProfit = (revenueCents - cogsCents - totalShippingCostsCents) / 100 - expensesTotal;
 
     return {
       statusCode: 200,

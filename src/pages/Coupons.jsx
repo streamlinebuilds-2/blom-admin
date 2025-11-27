@@ -455,7 +455,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false 
           </div>
           <div className="form-group">
             <label htmlFor="value">
-              Value ({formState.type === 'percentage' ? '%' : 'R'})
+              Value ({formState.type === 'percent' ? '%' : 'R'})
             </label>
             <input
               type="number"
@@ -482,7 +482,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false 
               disabled={formState.type === 'fixed'}
             />
             <small className="text-text-muted">
-              {formState.type === 'percentage'
+              {formState.type === 'percent'
                 ? 'Max R value off for % discounts. Leave empty for no limit.'
                 : 'Not needed for fixed discounts.'}
             </small>

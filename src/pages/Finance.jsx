@@ -5,10 +5,19 @@ import { DollarSign, TrendingDown, TrendingUp, Plus, Calendar } from 'lucide-rea
 import { moneyZAR } from '../components/formatUtils';
 import { useToast } from "@/components/ui/use-toast";
 
+// Helper to get period label
+const getPeriodLabel = (days) => {
+  if (days === 1) return 'Today';
+  if (days === 7) return 'Last 7 Days';
+  if (days === 30) return 'Last 30 Days';
+  return `Last ${days} Days`;
+};
+
 export default function Finance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState(30);
   const [newExpense, setNewExpense] = useState({
     amount: '',
     category: 'marketing',
@@ -18,9 +27,10 @@ export default function Finance() {
 
   // Fetch finance stats from Netlify function
   const { data: statsData, isLoading } = useQuery({
-    queryKey: ['financeStats'],
+    queryKey: ['financeStats', selectedPeriod],
     queryFn: async () => {
-      const res = await fetch('/.netlify/functions/admin-finance-stats');
+      const periodParam = selectedPeriod === 1 ? 'today' : selectedPeriod === 7 ? 'week' : 'month';
+      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${periodParam}`);
       if (!res.ok) throw new Error('Failed to fetch finance stats');
       const json = await res.json();
       return json.data;
@@ -260,6 +270,34 @@ export default function Finance() {
           font-weight: 500;
           cursor: pointer;
         }
+
+        .period-selector {
+          display: flex;
+          gap: 8px;
+          margin-top: 16px;
+        }
+
+        .period-btn {
+          padding: 8px 16px;
+          border-radius: 8px;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          border: 1px solid var(--border);
+          transition: all 0.2s ease;
+        }
+
+        .period-btn.active {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+
+        .period-btn:hover {
+          opacity: 0.8;
+        }
       `}</style>
 
       <div className="finance-page">
@@ -275,6 +313,18 @@ export default function Finance() {
             <Plus className="w-4 h-4" />
             Add Expense
           </button>
+        </div>
+
+        <div className="period-selector">
+          {[1, 7, 30].map(days => (
+            <button
+              key={days}
+              className={`period-btn ${selectedPeriod === days ? 'active' : ''}`}
+              onClick={() => setSelectedPeriod(days)}
+            >
+              {getPeriodLabel(days)}
+            </button>
+          ))}
         </div>
 
         <div className="stats-grid">
