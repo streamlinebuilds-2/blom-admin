@@ -39,7 +39,8 @@ export default function Payments() {
       const res = await fetch('/.netlify/functions/admin-orders');
       const json = await res.json();
       return json.ok ? json.data : [];
-    }
+    },
+    refetchInterval: 30000 // Refetch every 30 seconds for real-time updates
   });
 
   // Calculate additional metrics
@@ -365,7 +366,7 @@ export default function Payments() {
               <div className="metric-info">
                 <div className="metric-label">Net Profit</div>
                 <div className={`metric-value ${stats.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
-                  {moneyZAR(stats.revenue - stats.cogs - stats.expenses)}
+                  {moneyZAR(stats.profit)}
                 </div>
                 <div className="metric-subtitle">Last 30 days</div>
               </div>

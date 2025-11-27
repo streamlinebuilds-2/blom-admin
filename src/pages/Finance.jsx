@@ -84,6 +84,8 @@ export default function Finance() {
   }
 
   const stats = statsData || { revenue: 0, cogs: 0, expenses: 0, profit: 0, recentExpenses: [] };
+  
+  console.log('Finance stats data:', stats); // Debug logging
 
   return (
     <>

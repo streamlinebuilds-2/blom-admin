@@ -105,14 +105,14 @@ export const handler: Handler = async (e) => {
       body: JSON.stringify({
         ok: true,
         data: {
-          revenue: revenueCents / 100, // Convert to main currency unit
-          grossRevenue: grossRevenueCents / 100,
-          totalDiscounts: totalDiscountsCents / 100,
-          totalShippingCosts: totalShippingCostsCents / 100,
-          expenses: expensesTotal,
-          cogs: cogsCents / 100,
-          profit: netProfit,
-          recentExpenses
+          revenue: revenueCents, // Keep in cents for consistency
+          grossRevenue: grossRevenueCents,
+          totalDiscounts: totalDiscountsCents,
+          totalShippingCosts: totalShippingCostsCents,
+          expenses: expensesTotal * 100, // Convert to cents
+          cogs: cogsCents,
+          profit: netProfit * 100, // Convert to cents
+          recentExpenses: recentExpenses.map(exp => ({...exp, amount: exp.amount * 100}))
         }
       })
     };
