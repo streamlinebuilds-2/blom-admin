@@ -16,15 +16,24 @@ WHERE type = 'percentage';
 ALTER TABLE coupons ADD CONSTRAINT coupons_type_check 
 CHECK (type IN ('percent', 'fixed'));
 
--- Step 2: Fix usage tracking function
--- The current mark_coupon_used function might have issues
+-- Step 2: Clean up existing functions that might conflict
+-- Drop all existing redeem_coupon function overloads
+DROP FUNCTION IF EXISTS public.redeem_coupon(text);
+DROP FUNCTION IF EXISTS public.redeem_coupon(text, text);
+DROP FUNCTION IF EXISTS public.redeem_coupon(text, text, integer);
+DROP FUNCTION IF EXISTS public.redeem_coupon(text, text, integer, jsonb);
+DROP FUNCTION IF EXISTS public.redeem_coupon(text, text, integer, text);
+DROP FUNCTION IF EXISTS public.redeem_coupon(text, text, integer, text, text);
+
+-- Also clean up mark_coupon_used function
 DROP FUNCTION IF EXISTS public.mark_coupon_used(text);
 
+-- Create the usage tracking function
 CREATE OR REPLACE FUNCTION public.mark_coupon_used(p_code text)
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $
 DECLARE
   v_updated boolean;
 BEGIN
@@ -39,7 +48,7 @@ BEGIN
   GET DIAGNOSTICS v_updated = ROW_COUNT;
   RETURN v_updated > 0;
 END;
-$$;
+$;
 
 -- Step 3: Add product exclusion validation to the main validation function
 CREATE OR REPLACE FUNCTION public.validate_coupon(
