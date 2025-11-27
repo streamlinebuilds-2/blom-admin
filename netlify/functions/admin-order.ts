@@ -34,22 +34,29 @@ export const handler: Handler = async (e) => {
       return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing id" }) };
     }
 
-    // 1. Get Order with specific columns
+    // 1. Get Order with specific columns - include all pricing fields
     const { data: order, error: oErr } = await s.from("orders")
       .select(`
         *,
         shipping_address,
         fulfillment_type,
         buyer_name, buyer_email, buyer_phone,
-        customer_name, customer_email, customer_phone
+        customer_name, customer_email, customer_phone,
+        total_cents, subtotal_cents, shipping_cents, discount_cents,
+        total, subtotal, shipping, discount
       `)
       .eq("id", id).single();
 
     if (oErr) throw oErr;
 
-    // 2. Get Items
+    // 2. Get Items with fallback pricing fields
     const { data: items, error: iErr } = await s.from("order_items")
-      .select("name, product_name, quantity, unit_price_cents, line_total_cents, variant, sku")
+      .select(`
+        name, product_name, quantity, 
+        unit_price_cents, line_total_cents, 
+        price, total, unit_price, line_total,
+        variant, sku
+      `)
       .eq("order_id", id)
       .order("name", { ascending: true });
 

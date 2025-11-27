@@ -9,12 +9,19 @@ import { useToast } from "../components/ui/ToastProvider";
 
 // Helper: Format currency safely (handles cents vs rands)
 const formatMoney = (amount) => {
-  if (amount === undefined || amount === null) return 'R0.00';
-  // If it seems large (>1000), assume it's cents, otherwise rands?
-  // Let's assume your DB uses cents consistently for totals, but maybe Rands for item price.
-  // Safer check: Just assume cents if > 100, else it's weird.
-  // Actually, let's stick to the standard: Input is CENTS.
-  return `R${(amount / 100).toFixed(2)}`;
+  // Handle null, undefined, or invalid values
+  if (amount === undefined || amount === null || isNaN(amount) || amount === '') {
+    return 'R0.00';
+  }
+  
+  // Convert to number if it's a string
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  
+  // If the amount is very large (> 10000), assume it's already in cents
+  // If it's smaller, it might be in rands, convert to cents
+  const centsAmount = numAmount > 10000 ? numAmount : numAmount * 100;
+  
+  return `R${(centsAmount / 100).toFixed(2)}`;
 };
 
 export default function OrderDetail() {
@@ -45,7 +52,10 @@ export default function OrderDetail() {
     order,
     items,
     itemsLength: items.length,
-    hasItems: items && items.length > 0
+    hasItems: items && items.length > 0,
+    shippingAddress: order?.shipping_address,
+    deliveryAddress: order?.delivery_address,
+    fulfillmentType: order?.fulfillment_type
   });
 
   useEffect(() => {
@@ -92,7 +102,14 @@ export default function OrderDetail() {
     const formatMoney = (amount) => `R${(amount / 100).toFixed(2)}`;
     
     // Check if order has free shipping threshold
-    const hasFreeShipping = order.subtotal_cents >= 200000; // R2000 in cents
+    const subtotalForThreshold = order.subtotal_cents || order.subtotal || 0;
+    const hasFreeShipping = subtotalForThreshold >= 200000; // R2000 in cents
+    
+    // Extract order values safely
+    const subtotalCents = order.subtotal_cents || order.subtotal || 0;
+    const shippingCents = order.shipping_cents || order.shipping || 0;
+    const discountCents = order.discount_cents || order.discount || 0;
+    const totalCents = order.total_cents || order.total || 0;
     
     receiptWindow.document.write(`
       <!DOCTYPE html>
@@ -245,18 +262,27 @@ export default function OrderDetail() {
                   ${item.variant ? `<div style="font-size: 12px; color: #666;">${item.variant}</div>` : ''}
                 </td>
                 <td class="text-right">${item.quantity || 0}</td>
-                <td class="text-right">${formatMoney(item.unit_price_cents || 0)}</td>
-                <td class="text-right">${formatMoney(item.line_total_cents || (item.unit_price_cents * item.quantity) || 0)}</td>
+                <td class="text-right">${formatMoney(
+                  item.unit_price_cents || 
+                  item.price || 
+                  (item.unit_price ? item.unit_price * 100 : 0)
+                )}</td>
+                <td class="text-right">${formatMoney(
+                  item.line_total_cents || 
+                  item.total || 
+                  item.line_total || 
+                  ((item.unit_price_cents || item.price || 0) * (item.quantity || 0))
+                )}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
 
         <div class="summary">
-          ${order.shipping_cents > 0 ? `
+          ${shippingCents > 0 ? `
             <div class="summary-row">
               <span>Shipping:</span>
-              <span>${formatMoney(order.shipping_cents)}</span>
+              <span>${formatMoney(shippingCents)}</span>
             </div>
           ` : ''}
           ${hasFreeShipping ? `
@@ -265,15 +291,15 @@ export default function OrderDetail() {
               <span></span>
             </div>
           ` : ''}
-          ${order.discount_cents > 0 ? `
+          ${discountCents > 0 ? `
             <div class="summary-row coupon-discount">
               <span>Coupon Discount:</span>
-              <span>-${formatMoney(order.discount_cents)}</span>
+              <span>-${formatMoney(discountCents)}</span>
             </div>
           ` : ''}
           <div class="summary-row summary-total">
             <span>TOTAL:</span>
-            <span>${formatMoney(order.total_cents)}</span>
+            <span>${formatMoney(totalCents)}</span>
           </div>
         </div>
       </body>
@@ -866,11 +892,17 @@ export default function OrderDetail() {
                 </thead>
                 <tbody>
                   {items.map((item, i) => {
-                    // FIX: Use the correct field names from database
-                    // Database has: unit_price_cents, line_total_cents, quantity
-                    const unitPriceCents = item.unit_price_cents || 0;
+                    // ROBUST: Handle multiple field name variations for pricing
+                    const unitPriceCents = 
+                      item.unit_price_cents || 
+                      item.price || 
+                      (item.unit_price ? item.unit_price * 100 : 0);
                     const quantity = item.quantity || 0;
-                    const totalCents = item.line_total_cents || (unitPriceCents * quantity);
+                    const totalCents = 
+                      item.line_total_cents || 
+                      item.total || 
+                      item.line_total || 
+                      (unitPriceCents * quantity);
 
                     return (
                       <tr key={i} className="item-row">
@@ -888,23 +920,31 @@ export default function OrderDetail() {
                 <tfoot>
                   <tr>
                     <td colSpan="3" className="summary-label">Subtotal:</td>
-                    <td className="summary-value">{formatMoney(order.subtotal_cents)}</td>
+                    <td className="summary-value">{formatMoney(
+                      order.subtotal_cents || order.subtotal || 0
+                    )}</td>
                   </tr>
-                  {order.shipping_cents > 0 && (
+                  {((order.shipping_cents || order.shipping || 0) > 0) && (
                     <tr>
                       <td colSpan="3" className="summary-label">Shipping:</td>
-                      <td className="summary-value">{formatMoney(order.shipping_cents)}</td>
+                      <td className="summary-value">{formatMoney(
+                        order.shipping_cents || order.shipping || 0
+                      )}</td>
                     </tr>
                   )}
-                   {order.discount_cents > 0 && (
+                   {((order.discount_cents || order.discount || 0) > 0) && (
                     <tr>
                       <td colSpan="3" className="summary-label">Discount:</td>
-                      <td className="summary-value discount">-{formatMoney(order.discount_cents)}</td>
+                      <td className="summary-value discount">-{formatMoney(
+                        order.discount_cents || order.discount || 0
+                      )}</td>
                     </tr>
                   )}
                   <tr className="total-row">
                     <td colSpan="3" className="total-label">Total:</td>
-                    <td className="total-value">{formatMoney(order.total_cents)}</td>
+                    <td className="total-value">{formatMoney(
+                      order.total_cents || order.total || 0
+                    )}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -1008,7 +1048,10 @@ export default function OrderDetail() {
                  <div>
                    <div className="text-[var(--text-muted)] text-xs uppercase font-bold">Shipping Address</div>
                    <div className="whitespace-pre-wrap mt-1 leading-relaxed">
-                     {order.shipping_address || 'No delivery address provided'}
+                     {order.shipping_address || 
+                      order.delivery_address || 
+                      order.ship_to_address ||
+                      'No delivery address provided - Please contact customer for address details'}
                    </div>
                  </div>
               ) : (
