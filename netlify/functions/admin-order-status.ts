@@ -1,9 +1,8 @@
-import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
 const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-export const handler: Handler = async (e) => {
+export const handler = async (e: any) => {
   if (e.httpMethod !== "POST") {
     return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: "Method Not Allowed" };
   }
@@ -83,6 +82,7 @@ export const handler: Handler = async (e) => {
     if (updateErr) throw updateErr;
 
     // 5. CRITICAL: Deduct stock when order is marked as "paid"
+    let stockDeducted = false;
     if (status === 'paid' && currentStatus !== 'paid') {
       console.log(`Deducting stock for order ${id} - marked as paid by admin`);
       
@@ -193,6 +193,7 @@ export const handler: Handler = async (e) => {
           }
           
           console.log(`✅ Enhanced stock deduction complete: ${successful}/${orderItems.length} successful, ${fallbackUsed} used fallback`);
+          stockDeducted = successful > 0;
         }
         
       } catch (error: any) {
@@ -208,14 +209,137 @@ export const handler: Handler = async (e) => {
           console.error(`ERROR: Both enhanced and fallback stock deduction failed:`, rpcError.message);
         } else {
           console.log(`✅ Fallback stock deduction successful for order ${id}`);
+          stockDeducted = true;
         }
       }
+    }
+
+    // 6. CRITICAL: Send webhook notifications for status changes
+    console.log(`📡 Sending webhook notifications for order ${id} status change: ${currentStatus} -> ${status}`);
+    
+    let webhookCalled = false;
+    let webhookOk = false;
+    let webhookError: string | null = null;
+
+    try {
+      // Get order details for webhook
+      const { data: fullOrderData } = await s
+        .from('orders')
+        .select(`
+          id, order_number, buyer_name, buyer_email, buyer_phone,
+          status, fulfillment_type, total_cents, subtotal_cents,
+          shipping_cents, discount_cents, created_at
+        `)
+        .eq('id', id)
+        .single();
+
+      if (!fullOrderData) {
+        throw new Error('Order data not found for webhook');
+      }
+
+      const { data: orderItems } = await s
+        .from('order_items')
+        .select('name, product_name, quantity, unit_price_cents, line_total_cents')
+        .eq('order_id', id);
+
+      // Format order data for webhook
+      const orderData = {
+        order_id: fullOrderData.id,
+        order_number: fullOrderData.order_number,
+        customer_name: fullOrderData.buyer_name,
+        customer_email: fullOrderData.buyer_email,
+        customer_phone: fullOrderData.buyer_phone,
+        status: status,
+        fulfillment_type: fullOrderData.fulfillment_type,
+        total_cents: fullOrderData.total_cents,
+        subtotal_cents: fullOrderData.subtotal_cents,
+        shipping_cents: fullOrderData.shipping_cents,
+        discount_cents: fullOrderData.discount_cents,
+        order_items: orderItems || [],
+        status_changed_at: new Date().toISOString(),
+        previous_status: currentStatus
+      };
+
+      // Send to main webhook
+      const webhookUrl = process.env.WEBHOOK_URL || 'https://hooks.zapier.com/hooks/catch/your-webhook-id/';
+      console.log(`📡 Sending webhook to: ${webhookUrl}`);
+
+      const webhookResponse = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'BLOM-Admin/1.0'
+        },
+        body: JSON.stringify({
+          event: 'order_status_changed',
+          timestamp: new Date().toISOString(),
+          order: orderData
+        })
+      });
+
+      webhookCalled = true;
+      
+      if (webhookResponse.ok) {
+        webhookOk = true;
+        console.log(`✅ Webhook sent successfully for order ${id}`);
+      } else {
+        const errorText = await webhookResponse.text();
+        webhookError = `HTTP ${webhookResponse.status}: ${errorText}`;
+        console.error(`❌ Webhook failed for order ${id}:`, webhookError);
+      }
+
+      // Send to additional notification webhook if configured
+      const notificationUrl = process.env.NOTIFICATION_WEBHOOK_URL;
+      if (notificationUrl) {
+        try {
+          const notificationResponse = await fetch(notificationUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'BLOM-Admin/1.0'
+            },
+            body: JSON.stringify({
+              event: 'order_status_notification',
+              timestamp: new Date().toISOString(),
+              order_id: id,
+              order_number: fullOrderData.order_number,
+              customer_name: fullOrderData.buyer_name,
+              status: status,
+              fulfillment_type: fullOrderData.fulfillment_type
+            })
+          });
+
+          if (notificationResponse.ok) {
+            console.log(`✅ Notification webhook sent for order ${id}`);
+          } else {
+            console.warn(`⚠️ Notification webhook failed for order ${id}: HTTP ${notificationResponse.status}`);
+          }
+        } catch (notifError: any) {
+          console.warn(`⚠️ Notification webhook error for order ${id}:`, notifError.message);
+        }
+      }
+
+    } catch (webhookErr: any) {
+      webhookError = webhookErr.message;
+      console.error(`❌ Webhook system error for order ${id}:`, webhookErr.message);
     }
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, order: updated, stockDeducted: status === 'paid' && currentStatus !== 'paid' })
+      body: JSON.stringify({ 
+        ok: true, 
+        order: updated, 
+        stockDeducted,
+        webhookCalled,
+        webhookOk,
+        webhookError,
+        statusChange: {
+          from: currentStatus,
+          to: status,
+          timestamp: new Date().toISOString()
+        }
+      })
     };
 
   } catch (err: any) {
