@@ -5,7 +5,7 @@
 
 echo "🔄 Updating order BL-MIJA07IB to 'paid' status..."
 
-curl -X POST "http://localhost:8888/.netlify/functions/simple-order-status" \
+curl -X POST "https://blom-cosmetics.co.za/.netlify/functions/simple-order-status" \
   -H "Content-Type: application/json" \
   -d '{
     "id": "3b360af7-5b6a-48d8-aaf2-f8000e84b414",
