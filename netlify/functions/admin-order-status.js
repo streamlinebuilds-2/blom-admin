@@ -2,10 +2,157 @@ import { createClient } from "@supabase/supabase-js";
 
 const s = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Force redeploy - Order Status API v1.2
+// Helper function to safely extract order data
+function extractOrderData(order) {
+  if (!order) return null;
+  
+  return {
+    id: order.id,
+    order_number: order.order_number,
+    buyer_name: order.buyer_name,
+    buyer_email: order.buyer_email,
+    buyer_phone: order.buyer_phone,
+    shipping_address: order.shipping_address,
+    delivery_address: order.delivery_address,
+    fulfillment_type: order.fulfillment_type || 'delivery',
+    total_cents: order.total_cents || 0,
+    subtotal_cents: order.subtotal_cents || 0,
+    shipping_cents: order.shipping_cents || 0,
+    discount_cents: order.discount_cents || 0,
+    created_at: order.created_at,
+    notes: order.notes,
+    status: order.status
+  };
+}
+
+// Helper function to safely extract order items
+function extractOrderItems(items) {
+  if (!items || !Array.isArray(items)) return [];
+  
+  return items.map(item => ({
+    name: item.name,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    unit_price_cents: item.unit_price_cents,
+    line_total_cents: item.line_total_cents,
+    variant: item.variant,
+    sku: item.sku
+  }));
+}
+
+// Main webhook function
+async function sendStatusWebhook(orderData, newStatus, currentStatus, orderItems) {
+  console.log(`📡 Starting webhook for status change: ${currentStatus} -> ${newStatus}`);
+  
+  // Determine webhook URL based on status
+  let webhookUrl = null;
+  let webhookType = '';
+  
+  if (newStatus === 'packed' && orderData.fulfillment_type === 'collection') {
+    webhookUrl = 'https://dockerfile-1n82.onrender.com/webhook/ready-for-collection';
+    webhookType = 'ready_for_collection';
+  } else if (newStatus === 'packed' && orderData.fulfillment_type === 'delivery') {
+    webhookUrl = 'https://dockerfile-1n82.onrender.com/webhook/ready-for-delivery';
+    webhookType = 'ready_for_delivery';
+  } else if (newStatus === 'out_for_delivery') {
+    webhookUrl = 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery';
+    webhookType = 'out_for_delivery';
+  }
+  
+  if (!webhookUrl) {
+    console.log(`ℹ️ No webhook configured for status: ${newStatus} (${orderData.fulfillment_type})`);
+    return { called: false, ok: false, error: null };
+  }
+  
+  console.log(`📡 Sending webhook to: ${webhookUrl}`);
+  
+  // Comprehensive order payload
+  const webhookPayload = {
+    event: 'order_status_changed',
+    webhook_type: 'status_notification',
+    timestamp: new Date().toISOString(),
+    system: 'BLOM-Admin',
+    order: {
+      // Order identification
+      order_id: orderData.id,
+      order_number: orderData.order_number,
+      
+      // Customer contact information
+      customer_name: orderData.buyer_name,
+      customer_email: orderData.buyer_email,
+      customer_phone: orderData.buyer_phone,
+      customer_address: orderData.shipping_address,
+      
+      // Delivery information
+      shipping_address: orderData.shipping_address,
+      delivery_address: orderData.delivery_address,
+      fulfillment_type: orderData.fulfillment_type,
+      
+      // Order status and timing
+      current_status: newStatus,
+      previous_status: currentStatus,
+      status_changed_at: new Date().toISOString(),
+      order_created_at: orderData.created_at,
+      
+      // Financial details
+      total_cents: orderData.total_cents,
+      total_rands: (orderData.total_cents || 0) / 100,
+      subtotal_cents: orderData.subtotal_cents,
+      subtotal_rands: (orderData.subtotal_cents || 0) / 100,
+      shipping_cents: orderData.shipping_cents,
+      shipping_rands: (orderData.shipping_cents || 0) / 100,
+      discount_cents: orderData.discount_cents,
+      discount_rands: (orderData.discount_cents || 0) / 100,
+      
+      // Order items
+      order_items: extractOrderItems(orderItems),
+      
+      // Additional details
+      notes: orderData.notes,
+      
+      // System info
+      webhook_endpoint: webhookUrl,
+      system: 'BLOM-Admin'
+    }
+  };
+  
+  try {
+    console.log(`📡 Webhook payload prepared for ${orderData.order_number}`);
+    console.log(`📦 Customer: ${orderData.buyer_name} (${orderData.buyer_email})`);
+    console.log(`📍 ${orderData.fulfillment_type} - Items: ${orderItems?.length || 0}, Total: R${(orderData.total_cents || 0) / 100}`);
+    
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'BLOM-Admin/1.0',
+        'X-Order-Status': newStatus,
+        'X-Fulfillment-Type': orderData.fulfillment_type
+      },
+      body: JSON.stringify(webhookPayload)
+    });
+    
+    if (response.ok) {
+      console.log(`✅ Webhook sent successfully: ${webhookType}`);
+      return { called: true, ok: true, error: null };
+    } else {
+      const errorText = await response.text();
+      console.error(`❌ Webhook failed: HTTP ${response.status} - ${errorText}`);
+      return { called: true, ok: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+  } catch (error) {
+    console.error(`❌ Webhook error:`, error.message);
+    return { called: true, ok: false, error: error.message };
+  }
+}
+
 export const handler = async (e) => {
   if (e.httpMethod !== "POST") {
-    return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: "Method Not Allowed" };
+    return { 
+      statusCode: 405, 
+      headers: { "Content-Type": "application/json" }, 
+      body: "Method Not Allowed" 
+    };
   }
 
   try {
@@ -18,85 +165,142 @@ export const handler = async (e) => {
     }
 
     // 1. Get current order info
+    console.log(`🔍 Fetching current order data...`);
     const { data: order, error: fetchErr } = await s
       .from("orders")
-      .select("status, fulfillment_type")
+      .select("*")
       .eq("id", id)
       .single();
 
-    if (fetchErr || !order) throw new Error("Order not found");
+    console.log(`🔍 Current order data:`, { 
+      order: order ? 'found' : 'not found', 
+      error: fetchErr 
+    });
+
+    if (fetchErr || !order) {
+      console.error(`❌ Failed to fetch order:`, fetchErr);
+      throw new Error(`Order not found: ${fetchErr?.message || 'No error message'}`);
+    }
 
     const currentStatus = order.status;
-    const type = order.fulfillment_type || 'delivery'; // Default to delivery
+    console.log(`📋 Order ${order.order_number}: ${currentStatus} -> ${status}`);
 
-    // 2. Define Valid Transitions
-    // We allow moving 'forward' in the chain.
-    // Collection: paid -> packed -> collected
-    // Delivery: paid -> packed -> out_for_delivery -> delivered
+    // 2. Enhanced order items fetch
+    console.log(`🛒 Fetching order items...`);
+    const { data: orderItems, error: itemsError } = await s
+      .from('order_items')
+      .select('name, product_name, quantity, unit_price_cents, line_total_cents, variant, sku')
+      .eq('order_id', id);
 
-    const validTransitions = {
-      // From 'unpaid', we technically wait for payment, but admin might force 'paid'
-      'unpaid': ['paid', 'cancelled'],
-      'paid': ['packed', 'cancelled'],
-      'packed': type === 'collection' ? ['collected'] : ['out_for_delivery'],
-      'out_for_delivery': ['delivered'],
-      'collected': [], // End state
-      'delivered': [], // End state
-      'cancelled': []
+    console.log(`🛒 Order items result:`, { 
+      count: orderItems?.length || 0, 
+      error: itemsError 
+    });
+
+    // 3. Try multiple update approaches
+    let updateResult = null;
+    let updateMethod = '';
+    let updateError = null;
+
+    // Approach 1: Standard update
+    console.log(`📤 Attempting standard update...`);
+    const now = new Date().toISOString();
+    const patch = { 
+      status, 
+      updated_at: now 
     };
 
-    // Allow admin to "Force" status if needed (optional),
-    // but for now let's stick to the strict flow or allow same-status updates (to retry webhooks)
-    const allowed = validTransitions[currentStatus] || [];
-    const isSameStatus = status === currentStatus;
-
-    // Note: You can remove `!allowed.includes(status)` check if you want Admin to have full power
-    if (!allowed.includes(status) && !isSameStatus) {
-      // Optional: Loose validation to allow fixing mistakes
-      console.warn(`Warning: Non-standard transition ${currentStatus} -> ${status}`);
-    }
-
-    // 3. Set Timestamps based on Status
-    const now = new Date().toISOString();
-    const patch = { status, updated_at: now };
-
-    if (status === 'paid') patch.paid_at = now; // Manual pay
+    // Add timestamp based on status
     if (status === 'packed') patch.order_packed_at = now;
-
-    if (status === 'out_for_delivery') {
-      patch.order_out_for_delivery_at = now;
-    }
-
+    if (status === 'out_for_delivery') patch.order_out_for_delivery_at = now;
     if (status === 'collected') {
       patch.order_collected_at = now;
-      patch.fulfilled_at = now; // Mark as fulfilled
+      patch.fulfilled_at = now;
     }
-
     if (status === 'delivered') {
       patch.order_delivered_at = now;
-      patch.fulfilled_at = now; // Mark as fulfilled
+      patch.fulfilled_at = now;
     }
 
-    // 4. Update Database
-    console.log(`📤 Updating order ${id} - Current: ${currentStatus}, New: ${status}`);
-    console.log(`📤 Update patch:`, JSON.stringify(patch, null, 2));
-    
-    const { data: updated, error: updateErr } = await s
-      .from("orders")
-      .update(patch)
-      .eq("id", id)
-      .select()
-      .single();
+    try {
+      const { data: updated, error } = await s
+        .from("orders")
+        .update(patch)
+        .eq("id", id)
+        .select("id, status, updated_at, order_packed_at")
+        .single();
 
-    console.log(`📤 Database update result - Data:`, JSON.stringify(updated, null, 2));
-    console.log(`📤 Database update result - Error:`, updateErr);
+      console.log(`📤 Standard update result:`, { updated, error });
 
-    if (updateErr) {
-      console.error(`❌ Database update failed:`, updateErr);
-      throw updateErr;
+      if (!error && updated) {
+        updateResult = updated;
+        updateMethod = 'standard_update';
+      } else {
+        updateError = error;
+      }
+    } catch (err) {
+      console.error(`❌ Standard update failed:`, err);
+      updateError = err;
     }
 
-    console.log(`✅ Order ${id} successfully updated to ${status}`);
+    // Approach 2: RPC function if standard update failed
+    if (!updateResult) {
+      console.log(`📤 Attempting RPC update...`);
+      try {
+        const { data: rpcResult, error: rpcError } = await s.rpc('update_order_status', {
+          p_order_id: id,
+          p_new_status: status,
+          p_timestamp: now
+        });
+
+        console.log(`📤 RPC update result:`, { rpcResult, rpcError });
+
+        if (!rpcError && rpcResult) {
+          updateResult = rpcResult;
+          updateMethod = 'rpc_update';
+        } else {
+          console.error(`❌ RPC update failed:`, rpcError);
+          if (!updateError) updateError = rpcError;
+        }
+      } catch (err) {
+        console.error(`❌ RPC update error:`, err);
+        if (!updateError) updateError = err;
+      }
+    }
+
+    // Approach 3: Direct SQL if both approaches failed
+    if (!updateResult) {
+      console.log(`📤 Attempting direct SQL update...`);
+      try {
+        const { data: sqlResult, error: sqlError } = await s.rpc('exec', {
+          query: `UPDATE orders SET status = '${status}', updated_at = '${now}' WHERE id = '${id}' RETURNING id, status, updated_at`
+        });
+
+        console.log(`📤 Direct SQL update result:`, { sqlResult, sqlError });
+
+        if (!sqlError && sqlResult) {
+          updateResult = sqlResult;
+          updateMethod = 'direct_sql';
+        } else {
+          console.error(`❌ Direct SQL update failed:`, sqlError);
+          if (!updateError) updateError = sqlError;
+        }
+      } catch (err) {
+        console.error(`❌ Direct SQL update error:`, err);
+        if (!updateError) updateError = err;
+      }
+    }
+
+    // If no update method worked, throw the error
+    if (!updateResult) {
+      throw new Error(`All update methods failed. Last error: ${updateError?.message || 'Unknown error'}`);
+    }
+
+    console.log(`✅ Order updated successfully using ${updateMethod}`);
+
+    // 4. Send webhook with comprehensive data
+    const orderData = extractOrderData(order);
+    const webhookResult = await sendStatusWebhook(orderData, status, currentStatus, orderItems);
 
     // 5. CRITICAL: Enhanced Stock Deduction + Analytics Update using Product Mapping System
     let stockProcessingResults = {
@@ -518,15 +722,21 @@ export const handler = async (e) => {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ 
         ok: true, 
-        order: updated, 
+        order: updateResult,
+        updateMethod,
+        webhook: { called: webhookCalled, ok: webhookOk, error: webhookError },
         stockProcessing: stockProcessingResults,
-        webhookCalled,
-        webhookOk,
-        webhookError,
         statusChange: {
           from: currentStatus,
           to: status,
-          timestamp: new Date().toISOString()
+          timestamp: now
+        },
+        debug: {
+          orderId: id,
+          orderNumber: order.order_number,
+          updateSuccess: true,
+          webhookCalled: webhookCalled,
+          webhookOk: webhookOk
         }
       })
     };
