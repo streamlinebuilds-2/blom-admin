@@ -318,7 +318,8 @@ export const handler = async (e) => {
 
     try {
       // Get comprehensive order details for webhook
-      const { data: fullOrderData } = await s
+      console.log(`📡 Fetching order data for webhook...`);
+      const { data: fullOrderData, error: webhookOrderError } = await s
         .from('orders')
         .select(`
           id, order_number, buyer_name, buyer_email, buyer_phone, buyer_address,
@@ -330,14 +331,24 @@ export const handler = async (e) => {
         .eq('id', id)
         .single();
 
+      console.log(`📡 Webhook order fetch result:`, { fullOrderData, webhookOrderError });
+
+      if (webhookOrderError) {
+        console.error(`❌ Failed to fetch order data for webhook:`, webhookOrderError);
+        throw new Error(`Webhook order fetch failed: ${webhookOrderError.message}`);
+      }
+
       if (!fullOrderData) {
+        console.error(`❌ No order data found for webhook`);
         throw new Error('Order data not found for webhook');
       }
 
-      const { data: orderItems } = await s
+      const { data: orderItems, error: itemsFetchError } = await s
         .from('order_items')
         .select('name, product_name, quantity, unit_price_cents, line_total_cents, variant, sku')
         .eq('order_id', id);
+
+      console.log(`📡 Order items fetch result:`, { orderItems, itemsFetchError });
 
       // Determine webhook URL based on status transition
       const webhookEndpoints = {
