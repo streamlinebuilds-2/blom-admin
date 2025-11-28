@@ -204,16 +204,51 @@ function loadDB() {
     }
   ];
 
+  const seedBundles = [
+    {
+      id: 'b1',
+      name: 'Complete Skincare Bundle',
+      slug: 'complete-skincare-bundle',
+      status: 'active',
+      price_cents: 59900,
+      compare_at_price_cents: 77800,
+      items: [
+        { product_id: 'p1', qty: 1 }, // Hydrating Face Cream
+        { product_id: 'p2', qty: 1 }, // Vitamin C Serum
+        { product_id: 'p3', qty: 1 }  // Gentle Cleanser
+      ],
+      short_desc: 'Complete 3-step skincare routine',
+      updated_at: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      id: 'b2',
+      name: 'Anti-Aging Essentials',
+      slug: 'anti-aging-essentials',
+      status: 'active',
+      price_cents: 69900,
+      compare_at_price_cents: 84900,
+      items: [
+        { product_id: 'p1', qty: 1 }, // Hydrating Face Cream
+        { product_id: 'p2', qty: 1 }  // Vitamin C Serum
+      ],
+      short_desc: 'Fight aging with this powerful duo',
+      updated_at: new Date(Date.now() - 172800000).toISOString()
+    }
+  ];
+
   window.__BLM_DB = {
     products: seedProducts,
     stockMovements: [],
     specials: [],
-    bundles: [],
+    bundles: seedBundles,
     orders: seedOrders,
     payments: [],
     messages: seedMessages,
     reviews: seedReviews
   };
+
+  // Clear any existing data and reseed for fresh start
+  localStorage.removeItem(STORAGE_KEY);
 
   saveDB();
   return window.__BLM_DB;
@@ -706,6 +741,61 @@ export function createMockAdapter() {
           cost_cents: 4900
         }
       ];
+    },
+
+    // Additional methods for API compatibility
+    async listContacts() {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      // Convert messages to contacts format
+      return db.messages.map(msg => ({
+        id: msg.id,
+        full_name: msg.full_name,
+        email: msg.email,
+        phone: msg.phone,
+        inquiry_type: msg.inquiry_type,
+        subject: msg.subject,
+        status: msg.status,
+        created_at: msg.created_at
+      }));
+    },
+
+    async getContactDetail(userId) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      const contact = db.messages.find(m => m.id === userId);
+      if (!contact) return null;
+      
+      // Return contact detail in expected format
+      return {
+        contact,
+        orders: db.orders.filter(o => o.contact_id === userId || o.email === contact.email),
+        messages: [contact]
+      };
+    },
+
+    async adjustStock(payload) {
+      return this.adjustStock(payload.product_id, payload.delta, payload.reason);
+    },
+
+    async getStockMovements() {
+      return this.listStockMovements();
+    },
+
+    async listOrders() {
+      return this.listOrders();
+    },
+
+    async listReviews(status) {
+      return this.listReviews(status);
+    },
+
+    async listBundles() {
+      return this.listBundles();
+    },
+
+    async listProducts() {
+      return this.listProducts();
     }
   };
 }
