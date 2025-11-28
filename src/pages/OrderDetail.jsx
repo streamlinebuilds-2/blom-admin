@@ -6,6 +6,7 @@ import {
   Truck, User, Clock, CreditCard, AlertCircle, Download, Printer
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
+import { getDemoOrderById, isDemoMode } from "../services/demoData";
 
 // Helper: Format currency safely (handles cents vs rands)
 const formatMoney = (amount) => {
@@ -32,15 +33,61 @@ export default function OrderDetail() {
 
   const [notes, setNotes] = useState("");
 
-  // 1. Fetch Order
+  // 1. Fetch Order with demo fallback
   const { data, isLoading, error } = useQuery({
     queryKey: ['order', id],
     queryFn: async () => {
-      const res = await fetch(`/.netlify/functions/admin-order?id=${id}`);
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error);
-      return json;
-    }
+      // Check if we're in demo mode or if it's a demo ID
+      if (isDemoMode() || id.startsWith('demo-')) {
+        console.log('Loading demo order data for:', id);
+        const demoData = getDemoOrderById(id);
+        if (demoData) {
+          return demoData;
+        }
+        throw new Error('Demo order not found');
+      }
+
+      try {
+        // Try to fetch from API with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const res = await fetch(`/.netlify/functions/admin-order?id=${id}`, {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const json = await res.json();
+        if (!json.ok) {
+          throw new Error(json.error);
+        }
+        return json;
+      } catch (apiError) {
+        console.warn('API failed, falling back to demo data:', apiError.message);
+        
+        // Fallback to demo data
+        const demoData = getDemoOrderById(id);
+        if (demoData) {
+          return demoData;
+        }
+        
+        throw apiError;
+      }
+    },
+    retry: (failureCount, error) => {
+      // Don't retry if it's a demo mode or demo data
+      if (isDemoMode() || id.startsWith('demo-')) {
+        return false;
+      }
+      // Retry up to 2 times for real API calls
+      return failureCount < 2;
+    },
+    retryDelay: 1000
   });
 
   const order = data?.order;
@@ -62,10 +109,23 @@ export default function OrderDetail() {
     if (order?.notes) setNotes(order.notes);
   }, [order]);
 
-  // 2. Update Status Mutation with fallback
+  // 2. Update Status Mutation with demo fallback
   const statusMutation = useMutation({
     mutationFn: async (newStatus) => {
-      console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus: status });
+      console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus: status, isDemoMode: isDemoMode() });
+      
+      // In demo mode, just simulate the update
+      if (isDemoMode() || id.startsWith('demo-')) {
+        console.log('🎭 Demo mode: Simulating status update');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+        return { 
+          ok: true, 
+          method: 'demo',
+          demo: true,
+          webhookCalled: false,
+          message: 'Demo mode: Status would be updated'
+        };
+      }
       
       const requestBody = { id, status: newStatus };
       console.log('📤 Making API request:', requestBody);

@@ -29,7 +29,7 @@ class ErrorBoundary extends React.Component {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({
       error: error,
-      errorInfo: errorInfo
+      errorInfo: errorInfo || null
     });
   }
 
@@ -42,7 +42,7 @@ class ErrorBoundary extends React.Component {
             <summary>Error Details</summary>
             {this.state.error && this.state.error.toString()}
             <br />
-            {this.state.errorInfo.componentStack}
+            {this.state.errorInfo && this.state.errorInfo.componentStack}
           </details>
           <button onClick={() => window.location.reload()}>Reload Page</button>
         </div>

@@ -4,18 +4,50 @@ import { Link } from 'react-router-dom';
 import { Eye, RefreshCw, Truck, Package, Archive, Filter, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '../components/ui/dialog';
+import { demoOrders, isDemoMode } from '../services/demoData';
 
 export default function Orders() {
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      const res = await fetch('/.netlify/functions/admin-orders');
-      if (!res.ok) throw new Error('Failed to fetch orders');
-      const json = await res.json();
+      // Check if we're in demo mode
+      if (isDemoMode()) {
+        console.log('Loading demo orders data');
+        return demoOrders;
+      }
 
-      if (!json.ok) throw new Error(json.error || 'Failed to load orders');
-      return json.data || [];
-    }
+      try {
+        // Try to fetch from API with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const res = await fetch('/.netlify/functions/admin-orders', {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) throw new Error('Failed to fetch orders');
+        const json = await res.json();
+
+        if (!json.ok) throw new Error(json.error || 'Failed to load orders');
+        return json.data || [];
+      } catch (apiError) {
+        console.warn('API failed, falling back to demo data:', apiError.message);
+        
+        // Fallback to demo data
+        return demoOrders;
+      }
+    },
+    retry: (failureCount, error) => {
+      // Don't retry if it's demo mode
+      if (isDemoMode()) {
+        return false;
+      }
+      // Retry up to 2 times for real API calls
+      return failureCount < 2;
+    },
+    retryDelay: 1000
   });
 
   // Filter state
