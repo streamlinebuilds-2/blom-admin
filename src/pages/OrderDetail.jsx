@@ -161,10 +161,24 @@ export default function OrderDetail() {
     onSuccess: async (result) => {
       console.log('🎉 Mutation Success:', result);
       
-      // Force immediate refetch of order data with invalidate instead of refetch
-      console.log('🔄 Invalidating and refetching order data...');
-      await queryClient.invalidateQueries({ queryKey: ['order', id] });
-      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+      // Clear cache completely and force immediate refetch
+      console.log('🔄 Clearing cache and refetching order data...');
+      queryClient.removeQueries({ queryKey: ['order', id] });
+      queryClient.removeQueries({ queryKey: ['orders'] });
+      
+      // Force immediate refetch
+      await queryClient.refetchQueries({ queryKey: ['order', id] });
+      await queryClient.refetchQueries({ queryKey: ['orders'] });
+
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('orderStatusUpdated', { 
+        detail: { orderId: id, newStatus } 
+      }));
+
+      // As last resort, briefly reload to ensure UI updates
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
 
       // Show appropriate message based on method used
       const method = result.method || 'api';

@@ -9,13 +9,19 @@ export default function Orders() {
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
+      console.log('🔄 Fetching orders from API...');
       const res = await fetch('/.netlify/functions/admin-orders');
       if (!res.ok) throw new Error('Failed to fetch orders');
       const json = await res.json();
 
       if (!json.ok) throw new Error(json.error || 'Failed to load orders');
+      console.log('✅ Orders fetched:', json.data?.length || 0, 'orders');
       return json.data || [];
-    }
+    },
+    staleTime: 0, // Always refetch
+    cacheTime: 0, // Don't cache
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   // Filter state
@@ -30,6 +36,20 @@ export default function Orders() {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, order: null });
 
   const orders = ordersResponse || [];
+
+  // Listen for order updates from other pages
+  useEffect(() => {
+    const handleOrderUpdate = (event) => {
+      console.log('🔄 Order update detected, refetching orders...');
+      refetch();
+    };
+
+    window.addEventListener('orderStatusUpdated', handleOrderUpdate);
+    
+    return () => {
+      window.removeEventListener('orderStatusUpdated', handleOrderUpdate);
+    };
+  }, [refetch]);
 
   // Filter orders based on current filters
   const filteredOrders = orders.filter(order => {
