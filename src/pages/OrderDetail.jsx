@@ -95,10 +95,10 @@ export default function OrderDetail() {
       const currentStatus = order?.status || 'unknown';
       console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus });
       
-      // Use Netlify function for order status updates (bypasses client write restrictions)
-      console.log('🔄 Using admin-order-status Netlify function...');
+      // Use simplified Netlify function for order status updates (bypasses client write restrictions)
+      console.log('🔄 Using simple-order-status Netlify function...');
       
-      const response = await fetch('/.netlify/functions/admin-order-status', {
+      const response = await fetch('/.netlify/functions/simple-order-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,11 +120,12 @@ export default function OrderDetail() {
       return { 
         ok: true, 
         order: result.order,
-        method: 'netlify_function', 
+        method: result.updateMethod || 'netlify_function', 
         statusUpdated: newStatus,
-        webhookCalled: result.webhookCalled || false, 
-        webhookOk: result.webhookOk || false,
-        webhookError: result.webhookError,
+        webhookCalled: result.webhook?.called || false, 
+        webhookOk: result.webhook?.ok || false,
+        webhookError: result.webhook?.error,
+        updateMethod: result.updateMethod,
         success: true 
       };
     },
@@ -147,11 +148,6 @@ export default function OrderDetail() {
       window.dispatchEvent(new CustomEvent('orderStatusUpdated', { 
         detail: { orderId: id, newStatus: updatedStatus } 
       }));
-
-      // As last resort, briefly reload to ensure UI updates
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
 
       // Show appropriate message based on method used and webhook results
       if (result.method === 'netlify_function') {
