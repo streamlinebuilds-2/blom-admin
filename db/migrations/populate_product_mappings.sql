@@ -60,9 +60,7 @@ INSERT INTO product_name_mapping (order_name, inventory_name, category_pattern, 
 
 -- Brushes
 ('Crystal Kolinsky Sculpting Brush 10mm', 'Crystal Kolinsky Sculpting Brush 10mm', 'Brushes', 0.95),
-('Kolinsky Brush', 'Crystal Kolinsky Sculpting Brush 10mm', 'Brushes', 0.80)
-
-ON CONFLICT (order_name, inventory_name) DO NOTHING;
+('Kolinsky Brush', 'Crystal Kolinsky Sculpting Brush 10mm', 'Brushes', 0.80);
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_product_mapping_order_name ON product_name_mapping(order_name);
