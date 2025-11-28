@@ -98,6 +98,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.1.8
         version: 1.2.8(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@supabase/functions-js':
+        specifier: ^2.86.0
+        version: 2.86.0
       '@supabase/supabase-js':
         specifier: ^2.76.1
         version: 2.76.1
@@ -1510,6 +1513,10 @@ packages:
 
   '@supabase/functions-js@2.76.1':
     resolution: {integrity: sha512-+zJym/GC1sofm5QYKGxHSszCpMW4Ao2dj/WC3YlffAGuIlIhUtWTJvKsv5q7sWaSKUKdDhGpWhZ2OD++fW5BtQ==}
+
+  '@supabase/functions-js@2.86.0':
+    resolution: {integrity: sha512-AlOoVfeaq9XGlBFIyXTmb+y+CZzxNO4wWbfgRM6iPpNU5WCXKawtQYSnhivi3UVxS7GA0rWovY4d6cIAxZAojA==}
+    engines: {node: '>=20.0.0'}
 
   '@supabase/node-fetch@2.6.15':
     resolution: {integrity: sha512-1ibVeYUacxWYi9i0cf5efil6adJ9WRyZBLivgjs+AUpewx1F3xPi7gLgaASI2SmIQxPoCEjAsLAzKPgMJVgOUQ==}
@@ -4874,6 +4881,10 @@ snapshots:
   '@supabase/functions-js@2.76.1':
     dependencies:
       '@supabase/node-fetch': 2.6.15
+      tslib: 2.8.1
+
+  '@supabase/functions-js@2.86.0':
+    dependencies:
       tslib: 2.8.1
 
   '@supabase/node-fetch@2.6.15':
