@@ -1,30 +1,59 @@
--- Migration: Convert JSON variants to separate products
+-- Migration: Convert JSON variants to separate products (Fixed Version)
 -- Purpose: Transform variants stored as JSON into individual products
 -- Each variant becomes its own product with its own ID and stock tracking
 
--- Create a function to generate parent-child relationships
-CREATE OR REPLACE FUNCTION create_variant_products()
-RETURNS TABLE(
-  parent_product_id uuid,
-  parent_product_name text,
-  variant_product_id uuid,
-  variant_name text,
-  variant_stock int
-) AS $$
+-- Add variant columns if they don't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'parent_product_id') THEN
+    ALTER TABLE products ADD COLUMN parent_product_id uuid REFERENCES products(id);
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'variant_index') THEN
+    ALTER TABLE products ADD COLUMN variant_index int;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'variant_of_product') THEN
+    ALTER TABLE products ADD COLUMN variant_of_product uuid REFERENCES products(id);
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'is_variant') THEN
+    ALTER TABLE products ADD COLUMN is_variant boolean DEFAULT false;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'variant_name') THEN
+    ALTER TABLE products ADD COLUMN variant_name text;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'has_variants') THEN
+    ALTER TABLE products ADD COLUMN has_variants boolean DEFAULT false;
+  END IF;
+END $$;
+
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_products_parent_product_id ON products(parent_product_id);
+CREATE INDEX IF NOT EXISTS idx_products_variant_of_product ON products(variant_of_product);
+CREATE INDEX IF NOT EXISTS idx_products_is_variant ON products(is_variant);
+CREATE INDEX IF NOT EXISTS idx_products_variant_index ON products(variant_index);
+
+-- Create a function to convert variants (simplified approach)
+CREATE OR REPLACE FUNCTION convert_variants_to_products()
+RETURNS void AS $$
 DECLARE
   parent_product RECORD;
-  variant_record RECORD;
-  variant_product_id uuid;
-  new_product_id uuid;
+  variant_json jsonb;
   variant_name text;
   variant_stock int;
   variant_price int;
   variant_image text;
   variant_sku text;
+  variant_index int;
+  new_product_id uuid;
+  count_converted int := 0;
 BEGIN
   -- Loop through each product with variants
   FOR parent_product IN 
-    SELECT id, name, variants, price, stock, sku, image_url 
+    SELECT id, name, variants, price, stock, sku, image_url, status, is_active, is_featured, category, tags, weight_grams, length_cm, width_cm, height_cm, short_description, long_description
     FROM products 
     WHERE variants IS NOT NULL 
     AND variants != '[]'::jsonb
@@ -34,28 +63,15 @@ BEGIN
     -- Loop through each variant in the JSON array
     FOR variant_index IN 0..(jsonb_array_length(parent_product.variants) - 1)
     LOOP
-      -- Get variant data
-      variant_record := parent_product.variants -> variant_index;
+      -- Get variant data - extract individual fields
+      variant_json := parent_product.variants -> variant_index;
       
-      -- Extract variant information
-      variant_name := COALESCE((variant_record ->> 'name'), 
-                             (variant_record ->> 'label'), 
-                             'Variant ' || (variant_index + 1));
-      
-      variant_stock := COALESCE((variant_record ->> 'stock')::int, 
-                               parent_product.stock, 
-                               0);
-      
-      variant_price := COALESCE((variant_record ->> 'price')::int, 
-                               parent_product.price, 
-                               parent_product.price);
-      
-      variant_image := COALESCE((variant_record ->> 'image'), 
-                               (variant_record ->> 'image_url'), 
-                               parent_product.image_url);
-      
-      variant_sku := COALESCE((variant_record ->> 'sku'), 
-                             parent_product.sku || '-' || variant_name);
+      -- Extract variant information (safe extraction)
+      variant_name := COALESCE(variant_json ->> 'name', variant_json ->> 'label', 'Variant ' || (variant_index + 1));
+      variant_stock := COALESCE((variant_json ->> 'stock')::int, parent_product.stock, 0);
+      variant_price := COALESCE((variant_json ->> 'price')::int, parent_product.price, parent_product.price);
+      variant_image := COALESCE(variant_json ->> 'image', variant_json ->> 'image_url', parent_product.image_url);
+      variant_sku := COALESCE(variant_json ->> 'sku', parent_product.sku || '-' || variant_name);
       
       -- Generate new product ID for variant
       new_product_id := gen_random_uuid();
@@ -100,8 +116,8 @@ BEGIN
         variant_stock,
         variant_stock,
         variant_sku,
-        COALESCE(parent_product.short_description, ''),
-        COALESCE(parent_product.long_description, ''),
+        parent_product.short_description,
+        parent_product.long_description,
         variant_image,
         parent_product.status,
         parent_product.is_active,
@@ -122,93 +138,49 @@ BEGIN
         variant_name
       );
       
-      -- Return the results
-      RETURN QUERY SELECT 
-        parent_product.id,
-        parent_product.name,
-        new_product_id,
-        variant_name,
-        variant_stock;
+      count_converted := count_converted + 1;
     END LOOP;
+    
+    -- Mark parent as having variants
+    UPDATE products 
+    SET has_variants = true
+    WHERE id = parent_product.id;
   END LOOP;
+  
+  -- Clear variants from parent products
+  UPDATE products 
+  SET variants = NULL
+  WHERE has_variants = true;
+  
+  RAISE NOTICE 'Converted % variants to separate products', count_converted;
 END;
 $$ LANGUAGE plpgsql;
 
--- Add columns to products table if they don't exist
-DO $$ 
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'parent_product_id') THEN
-    ALTER TABLE products ADD COLUMN parent_product_id uuid REFERENCES products(id);
-  END IF;
-  
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'variant_index') THEN
-    ALTER TABLE products ADD COLUMN variant_index int;
-  END IF;
-  
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'variant_of_product') THEN
-    ALTER TABLE products ADD COLUMN variant_of_product uuid REFERENCES products(id);
-  END IF;
-  
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'is_variant') THEN
-    ALTER TABLE products ADD COLUMN is_variant boolean DEFAULT false;
-  END IF;
-  
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'variant_name') THEN
-    ALTER TABLE products ADD COLUMN variant_name text;
-  END IF;
-END $$;
-
--- Add indexes for performance
-CREATE INDEX IF NOT EXISTS idx_products_parent_product_id ON products(parent_product_id);
-CREATE INDEX IF NOT EXISTS idx_products_variant_of_product ON products(variant_of_product);
-CREATE INDEX IF NOT EXISTS idx_products_is_variant ON products(is_variant);
-CREATE INDEX IF NOT EXISTS idx_products_variant_index ON products(variant_index);
-
 -- Execute the conversion
-SELECT 'Converting variants to separate products...' as status;
-
--- This will create the variant products and return the results
-SELECT * FROM create_variant_products();
-
--- Update parent products to mark them as having variants
-UPDATE products 
-SET has_variants = true
-WHERE id IN (SELECT DISTINCT parent_product_id FROM products WHERE is_variant = true);
-
--- Add has_variants column if it doesn't exist
-DO $$ 
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'has_variants') THEN
-    ALTER TABLE products ADD COLUMN has_variants boolean DEFAULT false;
-  END IF;
-END $$;
-
--- Clear variants from parent products (they now have separate products)
-UPDATE products 
-SET variants = NULL
-WHERE has_variants = true;
-
-SELECT 'Variant conversion completed successfully!' as status;
+SELECT convert_variants_to_products();
 
 -- Summary query
-SELECT 
-  'Parent Products with Variants' as category,
-  COUNT(DISTINCT parent_product_id) as count
-FROM products 
-WHERE is_variant = true
-
-UNION ALL
-
-SELECT 
-  'Total Variant Products Created' as category,
-  COUNT(*) as count
-FROM products 
-WHERE is_variant = true
-
-UNION ALL
-
-SELECT 
-  'Products without Variants' as category,
-  COUNT(*) as count
-FROM products 
-WHERE is_variant = false OR is_variant IS NULL;
+DO $$
+DECLARE
+  parent_count int;
+  variant_count int;
+  regular_count int;
+BEGIN
+  SELECT COUNT(DISTINCT parent_product_id) INTO parent_count
+  FROM products 
+  WHERE is_variant = true;
+  
+  SELECT COUNT(*) INTO variant_count
+  FROM products 
+  WHERE is_variant = true;
+  
+  SELECT COUNT(*) INTO regular_count
+  FROM products 
+  WHERE (is_variant = false OR is_variant IS NULL) AND has_variants = false;
+  
+  RAISE NOTICE '=== VARIANT CONVERSION SUMMARY ===';
+  RAISE NOTICE 'Parent Products with Variants: %', parent_count;
+  RAISE NOTICE 'Total Variant Products Created: %', variant_count;
+  RAISE NOTICE 'Regular Products (no variants): %', regular_count;
+  RAISE NOTICE '=== CONVERSION COMPLETE ===';
+END $$;

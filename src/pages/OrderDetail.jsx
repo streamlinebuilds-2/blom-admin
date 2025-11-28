@@ -95,54 +95,36 @@ export default function OrderDetail() {
       const currentStatus = order?.status || 'unknown';
       console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus });
       
-      // WORKAROUND: Direct Supabase update since Netlify functions return 404
-      console.log('🔄 Using direct Supabase update (Netlify functions 404)...');
+      // Use Netlify function for order status updates (bypasses client write restrictions)
+      console.log('🔄 Using admin-order-status Netlify function...');
       
-      if (!supabase) {
-        throw new Error('Supabase client not available');
+      const response = await fetch('/.netlify/functions/admin-order-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: id,
+          status: newStatus
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || `Failed to update status: HTTP ${response.status}`);
       }
       
-      const now = new Date().toISOString();
-      const updatePatch = { 
-        status: newStatus, 
-        updated_at: now 
-      };
+      console.log('✅ Order status update successful via Netlify function:', result);
       
-      // Set timestamps based on status
-      if (newStatus === 'paid') updatePatch.paid_at = now;
-      if (newStatus === 'packed') updatePatch.order_packed_at = now;
-      if (newStatus === 'out_for_delivery') updatePatch.order_out_for_delivery_at = now;
-      if (newStatus === 'collected') {
-        updatePatch.order_collected_at = now;
-        updatePatch.fulfilled_at = now;
-      }
-      if (newStatus === 'delivered') {
-        updatePatch.order_delivered_at = now;
-        updatePatch.fulfilled_at = now;
-      }
-      
-      console.log('📤 Updating order with patch:', updatePatch);
-      
-      const { data, error } = await supabase
-        .from('orders')
-        .update(updatePatch)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ Direct update failed:', error);
-        throw new Error(`Database update failed: ${error.message}`);
-      }
-      
-      console.log('✅ Direct database update successful:', data);
       return { 
         ok: true, 
-        order: data, 
-        method: 'direct_supabase', 
+        order: result.order,
+        method: 'netlify_function', 
         statusUpdated: newStatus,
-        webhookCalled: false, 
-        webhookOk: false,
+        webhookCalled: result.webhookCalled || false, 
+        webhookOk: result.webhookOk || false,
+        webhookError: result.webhookError,
         success: true 
       };
     },
@@ -171,14 +153,18 @@ export default function OrderDetail() {
         window.location.reload();
       }, 500);
 
-      // Show appropriate message based on method used
-      const method = result.method || 'api';
-      if (result.webhookCalled && result.webhookOk) {
-        showToast('success', `Status updated via ${method} & notification sent`);
-      } else if (result.webhookCalled && !result.webhookOk) {
-        showToast('warning', `Status updated via ${method} but notification failed: ${result.webhookError || 'Unknown error'}`);
+      // Show appropriate message based on method used and webhook results
+      if (result.method === 'netlify_function') {
+        if (result.webhookCalled && result.webhookOk) {
+          showToast('success', `Order status updated successfully - notification sent to customer`);
+        } else if (result.webhookCalled && !result.webhookOk) {
+          showToast('warning', `Order status updated successfully, but notification failed: ${result.webhookError || 'Unknown error'}`);
+        } else {
+          showToast('success', `Order status updated successfully`);
+        }
       } else {
-        showToast('success', `Order status updated successfully via ${method}`);
+        // Legacy method fallback (shouldn't happen now)
+        showToast('success', `Order status updated successfully`);
       }
     },
     onError: (err) => {
