@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, ShoppingCart, DollarSign, Package, Target, Calendar } from 'lucide-react';
 import { moneyZAR } from '../components/formatUtils';
+import { supabase } from '../lib/supabase';
 
 // Helper to format numbers
 const formatNumber = (num) => {
@@ -20,74 +21,85 @@ const getPeriodLabel = (days) => {
 export default function Payments() {
   const [selectedPeriod, setSelectedPeriod] = useState(30);
 
-  // Fetch finance stats from our existing function with period parameter
-  const { data: financeStats, isLoading: financeLoading } = useQuery({
-    queryKey: ['financeStats', selectedPeriod],
+  // Calculate date range for query
+  const { now, periodStart } = React.useMemo(() => {
+    const now = new Date();
+    const periodStart = new Date(now.getTime() - selectedPeriod * 24 * 60 * 60 * 1000);
+    return { now, periodStart };
+  }, [selectedPeriod]);
+
+  // Fetch data directly from our analytics database tables
+  const { data: salesData, isLoading: salesLoading } = useQuery({
+    queryKey: ['sales-analytics-direct', selectedPeriod],
     queryFn: async () => {
-      const periodParam = selectedPeriod === 1 ? 'today' : selectedPeriod === 7 ? 'week' : 'month';
-      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${periodParam}`);
+      // Query our daily_sales table for the period
+      const { data: dailySales, error: dailyError } = await supabase
+        .from('daily_sales')
+        .select('total_sales_cents, total_orders, total_items_sold, date')
+        .gte('date', periodStart.toISOString().split('T')[0])
+        .lte('date', now.toISOString().split('T')[0])
+        .order('date', { ascending: false });
+
+      if (dailyError) {
+        console.error('Error fetching daily sales:', dailyError);
+        throw dailyError;
+      }
+
+      // Query our product_sales_stats table for best sellers
+      const { data: bestSellers, error: bestSellersError } = await supabase
+        .from('best_selling_products')
+        .select('*')
+        .limit(5);
+
+      if (bestSellersError) {
+        console.error('Error fetching best sellers:', bestSellersError);
+      }
+
+      return {
+        dailySales: dailySales || [],
+        bestSellers: bestSellers || []
+      };
+    },
+    refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
+  // Query existing financial data for COGS and expenses
+  const { data: financeStats, isLoading: financeLoading } = useQuery({
+    queryKey: ['finance-stats', selectedPeriod],
+    queryFn: async () => {
+      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=analytics`);
       if (!res.ok) throw new Error('Failed to fetch finance stats');
       const json = await res.json();
-      return json.data;
+      return json.data || {};
     }
   });
 
-  // Fetch orders for additional metrics
-  const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['orders'],
-    queryFn: async () => {
-      const res = await fetch('/.netlify/functions/admin-orders');
-      const json = await res.json();
-      return json.ok ? json.data : [];
-    },
-    refetchInterval: 30000 // Refetch every 30 seconds for real-time updates
-  });
-
-  // Calculate additional metrics
+  // Calculate sales metrics from our analytics tables
   const salesMetrics = React.useMemo(() => {
-    const now = new Date();
-    const periodStart = new Date(now.getTime() - selectedPeriod * 24 * 60 * 60 * 1000);
-    
-    // Filter orders by period and payment status
-    const periodOrders = orders.filter(order => {
-      if (order.payment_status !== 'paid') return false;
-      const orderDate = new Date(order.paid_at || order.created_at);
-      return orderDate >= periodStart;
-    });
+    // If no data loaded yet, return zeros
+    if (!salesData || !financeStats) {
+      return {
+        totalRevenue: 0,
+        totalOrders: 0,
+        avgOrderValue: 0,
+        totalProductsSold: 0,
+        topSellingProduct: 'No sales',
+        topSellingCount: 0,
+        periodLabel: getPeriodLabel(selectedPeriod)
+      };
+    }
 
-    const totalRevenue = periodOrders.reduce((sum, order) => sum + (order.total_cents || 0), 0);
-    const totalOrders = periodOrders.length;
+    const { dailySales, bestSellers } = salesData;
+    
+    // Aggregate data from our analytics tables
+    const totalRevenue = dailySales.reduce((sum, day) => sum + (day.total_sales_cents || 0), 0);
+    const totalOrders = dailySales.reduce((sum, day) => sum + (day.total_orders || 0), 0);
+    const totalProductsSold = dailySales.reduce((sum, day) => sum + (day.total_items_sold || 0), 0);
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-    // Calculate total quantity of products sold (not unique products)
-    let totalProductsSold = 0;
-    const productSales = {};
-    periodOrders.forEach(order => {
-      if (order.items) {
-        order.items.forEach(item => {
-          if (item.product_id && item.quantity) {
-            totalProductsSold += item.quantity;
-            
-            // Track for top selling product
-            const productName = item.name || item.product_name || 'Unknown Product';
-            if (!productSales[productName]) {
-              productSales[productName] = 0;
-            }
-            productSales[productName] += item.quantity;
-          }
-        });
-      }
-    });
-
-    // Find top selling product
-    let topSellingProduct = 'No sales';
-    let topSellingCount = 0;
-    Object.entries(productSales).forEach(([product, count]) => {
-      if (count > topSellingCount) {
-        topSellingCount = count;
-        topSellingProduct = product;
-      }
-    });
+    // Get top selling product from our processed data
+    const topSellingProduct = bestSellers.length > 0 ? bestSellers[0].product_name : 'No sales';
+    const topSellingCount = bestSellers.length > 0 ? (bestSellers[0].total_quantity_sold || 0) : 0;
 
     return {
       totalRevenue,
@@ -98,9 +110,9 @@ export default function Payments() {
       topSellingCount,
       periodLabel: getPeriodLabel(selectedPeriod)
     };
-  }, [orders, selectedPeriod]);
+  }, [salesData, financeStats, selectedPeriod]);
 
-  if (financeLoading || ordersLoading) {
+  if (salesLoading || financeLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
