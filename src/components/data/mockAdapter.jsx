@@ -792,22 +792,6 @@ export function createMockAdapter() {
 
     async getStockMovements() {
       return this.listStockMovements();
-    },
-
-    async listOrders() {
-      return this.listOrders();
-    },
-
-    async listReviews(status) {
-      return this.listReviews(status);
-    },
-
-    async listBundles() {
-      return this.listBundles();
-    },
-
-    async listProducts() {
-      return this.listProducts();
     }
   };
 }

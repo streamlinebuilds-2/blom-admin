@@ -54,6 +54,12 @@ export default defineConfig(({ mode }) => {
           '.js': 'jsx',
         },
       },
+    },
+    build: {
+      target: 'es2022', // Support for top-level await and modern features
+      esbuild: {
+        target: 'es2022', // Ensure esbuild uses modern target
+      },
     }
   }
 });
