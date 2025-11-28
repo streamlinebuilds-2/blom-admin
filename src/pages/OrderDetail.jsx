@@ -97,64 +97,65 @@ export default function OrderDetail() {
       const requestBody = { id, status: newStatus };
       console.log('📤 Making API request:', requestBody);
       
-      // First try the API endpoint
+      // Try direct database update first (more reliable)
       try {
-        const res = await fetch('/.netlify/functions/admin-order-status', {
+        console.log('🔄 Using direct database update...');
+        const adminRes = await fetch('/.netlify/functions/admin-db-operation', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({
+            operation: 'update_order_status',
+            order_id: id,
+            new_status: newStatus,
+            current_status: currentStatus
+          })
         });
         
-        console.log('📥 API Response Status:', res.status);
-        
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('❌ API Error Response:', errorText);
-          throw new Error(`API Error (${res.status}): ${errorText}`);
+        if (adminRes.ok) {
+          const adminResult = await adminRes.json();
+          console.log('✅ Direct database update successful:', adminResult);
+          return { ...adminResult, method: 'direct_db', success: true, statusUpdated: newStatus };
+        } else {
+          throw new Error(`Direct update failed: ${adminRes.status}`);
         }
         
-        const json = await res.json();
-        console.log('✅ API Success Response:', json);
+      } catch (directError) {
+        console.error('❌ Direct database update failed:', directError);
         
-        if (!json.ok) {
-          console.error('❌ Backend Error:', json.error);
-          throw new Error(json.error || 'Unknown error from server');
-        }
-        
-        return { ...json, method: 'api', statusUpdated: newStatus };
-        
-      } catch (apiError) {
-        console.warn('⚠️ API failed, trying direct database update:', apiError.message);
-        
-        // Fallback: Direct database update via admin API
+        // Fallback: Try the status API endpoint
         try {
-          console.log('🔄 Trying direct database update...');
-          const adminRes = await fetch('/.netlify/functions/admin-db-operation', {
+          console.log('🔄 Trying status API endpoint as fallback...');
+          const res = await fetch('/.netlify/functions/admin-order-status', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              operation: 'update_order_status',
-              order_id: id,
-              new_status: newStatus,
-              current_status: currentStatus
-            })
+            body: JSON.stringify(requestBody)
           });
           
-          if (adminRes.ok) {
-            const adminResult = await adminRes.json();
-            console.log('✅ Direct database update successful:', adminResult);
-            return { ...adminResult, method: 'direct_db', success: true, statusUpdated: newStatus };
-          } else {
-            throw new Error(`Direct update failed: ${adminRes.status}`);
+          console.log('📥 API Response Status:', res.status);
+          
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('❌ API Error Response:', errorText);
+            throw new Error(`API Error (${res.status}): ${errorText}`);
           }
           
-        } catch (directError) {
-          console.error('❌ Both API and direct update failed:', directError);
-          throw new Error(`Status update failed: ${apiError.message}. Backup also failed: ${directError.message}`);
+          const json = await res.json();
+          console.log('✅ API Success Response:', json);
+          
+          if (!json.ok) {
+            console.error('❌ Backend Error:', json.error);
+            throw new Error(json.error || 'Unknown error from server');
+          }
+          
+          return { ...json, method: 'api', statusUpdated: newStatus };
+          
+        } catch (apiError) {
+          console.error('❌ Both API methods failed:', apiError);
+          throw new Error(`Status update failed: All methods exhausted. Last error: ${apiError.message}`);
         }
       }
     },
