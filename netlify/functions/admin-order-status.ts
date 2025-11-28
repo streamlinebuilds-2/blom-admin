@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
+// Force redeploy - Order Status API v1.2
 export const handler = async (e: any) => {
   if (e.httpMethod !== "POST") {
     return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: "Method Not Allowed" };
