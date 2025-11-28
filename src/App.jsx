@@ -77,16 +77,28 @@ import Featured from '@/pages/Featured'
 // Initialize Supabase adapter for real database access, with fallback to mock
 try {
   console.log('🔄 Attempting to initialize Supabase adapter...')
+  console.log('📦 Calling createSupabaseAdapter()...')
   const supabaseAdapter = createSupabaseAdapter()
-  console.log('📦 Supabase adapter created:', supabaseAdapter?.listProducts ? 'HAS listProducts' : 'NO listProducts')
+  console.log('📦 Supabase adapter object:', typeof supabaseAdapter, Object.keys(supabaseAdapter || {}))
+  console.log('📦 Supabase adapter has listProducts:', typeof supabaseAdapter?.listProducts === 'function')
+  if (supabaseAdapter?.listProducts) {
+    console.log('📦 Testing supabaseAdapter.listProducts()...')
+    await supabaseAdapter.listProducts().catch(e => console.log('⚠️ Supabase listProducts failed:', e.message))
+  }
   setAPI(supabaseAdapter)
   console.log('✅ Supabase adapter initialized successfully')
 } catch (error) {
-  console.warn('⚠️ Supabase adapter failed, falling back to mock adapter:', error)
+  console.warn('⚠️ Supabase adapter failed, falling back to mock adapter:', error.message, error.stack)
   try {
     console.log('🔄 Initializing mock adapter as fallback...')
     const mockAdapter = createMockAdapter()
-    console.log('🎭 Mock adapter created:', mockAdapter?.listProducts ? 'HAS listProducts' : 'NO listProducts')
+    console.log('🎭 Mock adapter created:', typeof mockAdapter, Object.keys(mockAdapter || {}))
+    console.log('🎭 Mock adapter has listProducts:', typeof mockAdapter?.listProducts === 'function')
+    if (mockAdapter?.listProducts) {
+      console.log('🎭 Testing mockAdapter.listProducts()...')
+      const testProducts = await mockAdapter.listProducts()
+      console.log('🎭 Mock products count:', testProducts?.length || 0)
+    }
     setAPI(mockAdapter)
     console.log('✅ Mock adapter initialized as fallback')
   } catch (mockError) {
