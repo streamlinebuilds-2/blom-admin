@@ -58,15 +58,14 @@ export let api = {
     }
   },
 
-  // 5. List Products
+  // 5. List Products - This gets overridden by the adapter
   async listProducts() {
     try {
-      const response = await fetch('/.netlify/functions/admin-products');
-      if (!response.ok) throw new Error("Failed to fetch products.");
-      const result = await response.json();
-      return result.ok ? result.data : [];
+      console.log('🔍 api.listProducts() called - default fallback');
+      console.log('❓ This means the adapter did NOT override this method');
+      return [];
     } catch (error) {
-      console.warn('Failed to fetch products via Netlify functions, returning empty array:', error);
+      console.warn('⚠️ Failed to fetch products via default fallback:', error);
       return [];
     }
   },
@@ -113,5 +112,8 @@ export let api = {
 };
 
 export function setAPI(next) {
+  console.log('🔧 setAPI called with:', typeof next, next?.listProducts ? 'HAS listProducts' : 'NO listProducts');
+  const oldListProducts = api.listProducts;
   api = { ...api, ...next };
+  console.log('📊 After setAPI - api.listProducts:', typeof api.listProducts, api.listProducts === oldListProducts ? 'SAME FUNCTION' : 'NEW FUNCTION');
 }

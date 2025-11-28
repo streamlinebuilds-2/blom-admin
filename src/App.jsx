@@ -78,6 +78,7 @@ import Featured from '@/pages/Featured'
 try {
   console.log('🔄 Attempting to initialize Supabase adapter...')
   const supabaseAdapter = createSupabaseAdapter()
+  console.log('📦 Supabase adapter created:', supabaseAdapter?.listProducts ? 'HAS listProducts' : 'NO listProducts')
   setAPI(supabaseAdapter)
   console.log('✅ Supabase adapter initialized successfully')
 } catch (error) {
@@ -85,6 +86,7 @@ try {
   try {
     console.log('🔄 Initializing mock adapter as fallback...')
     const mockAdapter = createMockAdapter()
+    console.log('🎭 Mock adapter created:', mockAdapter?.listProducts ? 'HAS listProducts' : 'NO listProducts')
     setAPI(mockAdapter)
     console.log('✅ Mock adapter initialized as fallback')
   } catch (mockError) {
