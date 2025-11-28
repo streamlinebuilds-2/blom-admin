@@ -214,21 +214,24 @@ export const handler = async (e: any) => {
       }
     }
 
-    // 6. CRITICAL: Send webhook notifications for status changes
+    // 6. CRITICAL: Send status-specific webhook notifications
     console.log(`📡 Sending webhook notifications for order ${id} status change: ${currentStatus} -> ${status}`);
     
     let webhookCalled = false;
     let webhookOk = false;
     let webhookError: string | null = null;
+    let webhookUrl = null;
 
     try {
-      // Get order details for webhook
+      // Get comprehensive order details for webhook
       const { data: fullOrderData } = await s
         .from('orders')
         .select(`
-          id, order_number, buyer_name, buyer_email, buyer_phone,
-          status, fulfillment_type, total_cents, subtotal_cents,
-          shipping_cents, discount_cents, created_at
+          id, order_number, buyer_name, buyer_email, buyer_phone, buyer_address,
+          shipping_address, delivery_address, status, fulfillment_type, 
+          total_cents, subtotal_cents, shipping_cents, discount_cents, 
+          created_at, paid_at, order_packed_at, order_out_for_delivery_at,
+          order_collected_at, order_delivered_at, notes
         `)
         .eq('id', id)
         .single();
@@ -239,53 +242,120 @@ export const handler = async (e: any) => {
 
       const { data: orderItems } = await s
         .from('order_items')
-        .select('name, product_name, quantity, unit_price_cents, line_total_cents')
+        .select('name, product_name, quantity, unit_price_cents, line_total_cents, variant, sku')
         .eq('order_id', id);
 
-      // Format order data for webhook
-      const orderData = {
-        order_id: fullOrderData.id,
-        order_number: fullOrderData.order_number,
-        customer_name: fullOrderData.buyer_name,
-        customer_email: fullOrderData.buyer_email,
-        customer_phone: fullOrderData.buyer_phone,
-        status: status,
-        fulfillment_type: fullOrderData.fulfillment_type,
-        total_cents: fullOrderData.total_cents,
-        subtotal_cents: fullOrderData.subtotal_cents,
-        shipping_cents: fullOrderData.shipping_cents,
-        discount_cents: fullOrderData.discount_cents,
-        order_items: orderItems || [],
-        status_changed_at: new Date().toISOString(),
-        previous_status: currentStatus
+      // Determine webhook URL based on status transition
+      const webhookEndpoints = {
+        'ready_for_collection': 'https://dockerfile-1n82.onrender.com/webhook/ready-for-collection',
+        'ready_for_delivery': 'https://dockerfile-1n82.onrender.com/webhook/ready-for-delivery',
+        'out_for_delivery': 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery'
       };
 
-      // Send to main webhook
-      const webhookUrl = process.env.WEBHOOK_URL || 'https://hooks.zapier.com/hooks/catch/your-webhook-id/';
-      console.log(`📡 Sending webhook to: ${webhookUrl}`);
-
-      const webhookResponse = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'BLOM-Admin/1.0'
-        },
-        body: JSON.stringify({
-          event: 'order_status_changed',
-          timestamp: new Date().toISOString(),
-          order: orderData
-        })
-      });
-
-      webhookCalled = true;
-      
-      if (webhookResponse.ok) {
-        webhookOk = true;
-        console.log(`✅ Webhook sent successfully for order ${id}`);
+      // Map status to webhook endpoint
+      if (status === 'packed' && fullOrderData.fulfillment_type === 'collection') {
+        webhookUrl = webhookEndpoints.ready_for_collection;
+      } else if (status === 'packed' && fullOrderData.fulfillment_type === 'delivery') {
+        webhookUrl = webhookEndpoints.ready_for_delivery;
+      } else if (status === 'out_for_delivery') {
+        webhookUrl = webhookEndpoints.out_for_delivery;
       } else {
-        const errorText = await webhookResponse.text();
-        webhookError = `HTTP ${webhookResponse.status}: ${errorText}`;
-        console.error(`❌ Webhook failed for order ${id}:`, webhookError);
+        console.log(`ℹ️ No specific webhook configured for status: ${status} (${fullOrderData.fulfillment_type})`);
+        webhookCalled = false;
+        webhookOk = true; // Not an error, just no webhook configured
+      }
+
+      if (webhookUrl) {
+        // Comprehensive order data for webhook
+        const orderData = {
+          // Order identification
+          order_id: fullOrderData.id,
+          order_number: fullOrderData.order_number,
+          
+          // Customer contact information
+          customer_name: fullOrderData.buyer_name,
+          customer_email: fullOrderData.buyer_email,
+          customer_phone: fullOrderData.buyer_phone,
+          customer_address: fullOrderData.buyer_address,
+          
+          // Delivery information
+          shipping_address: fullOrderData.shipping_address,
+          delivery_address: fullOrderData.delivery_address,
+          fulfillment_type: fullOrderData.fulfillment_type,
+          
+          // Order status and timing
+          current_status: status,
+          previous_status: currentStatus,
+          status_changed_at: new Date().toISOString(),
+          order_created_at: fullOrderData.created_at,
+          paid_at: fullOrderData.paid_at,
+          order_packed_at: fullOrderData.order_packed_at,
+          order_out_for_delivery_at: fullOrderData.order_out_for_delivery_at,
+          order_collected_at: fullOrderData.order_collected_at,
+          order_delivered_at: fullOrderData.order_delivered_at,
+          
+          // Financial details
+          total_cents: fullOrderData.total_cents,
+          total_rands: (fullOrderData.total_cents || 0) / 100,
+          subtotal_cents: fullOrderData.subtotal_cents,
+          subtotal_rands: (fullOrderData.subtotal_cents || 0) / 100,
+          shipping_cents: fullOrderData.shipping_cents,
+          shipping_rands: (fullOrderData.shipping_cents || 0) / 100,
+          discount_cents: fullOrderData.discount_cents,
+          discount_rands: (fullOrderData.discount_cents || 0) / 100,
+          
+          // Order items
+          order_items: (orderItems || []).map(item => ({
+            name: item.name,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price_cents: item.unit_price_cents,
+            unit_price_rands: (item.unit_price_cents || 0) / 100,
+            line_total_cents: item.line_total_cents,
+            line_total_rands: (item.line_total_cents || 0) / 100,
+            variant: item.variant,
+            sku: item.sku
+          })),
+          
+          // Additional details
+          notes: fullOrderData.notes,
+          
+          // System info
+          webhook_endpoint: webhookUrl,
+          system: 'BLOM-Admin',
+          timestamp: new Date().toISOString()
+        };
+
+        console.log(`📡 Sending comprehensive webhook to: ${webhookUrl}`);
+        console.log(`📦 Order ${fullOrderData.order_number} - ${fullOrderData.buyer_name} (${fullOrderData.buyer_email})`);
+        console.log(`📍 ${fullOrderData.fulfillment_type} - Items: ${orderItems?.length || 0}, Total: R${(fullOrderData.total_cents || 0) / 100}`);
+
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'BLOM-Admin/1.0',
+            'X-Order-Status': status,
+            'X-Fulfillment-Type': fullOrderData.fulfillment_type
+          },
+          body: JSON.stringify({
+            event: 'order_status_changed',
+            webhook_type: 'status_notification',
+            timestamp: new Date().toISOString(),
+            order: orderData
+          })
+        });
+
+        webhookCalled = true;
+        
+        if (webhookResponse.ok) {
+          webhookOk = true;
+          console.log(`✅ Webhook sent successfully for order ${id} -> ${webhookUrl}`);
+        } else {
+          const errorText = await webhookResponse.text();
+          webhookError = `HTTP ${webhookResponse.status}: ${errorText}`;
+          console.error(`❌ Webhook failed for order ${id}:`, webhookError);
+        }
       }
 
       // Send to additional notification webhook if configured
@@ -304,8 +374,10 @@ export const handler = async (e: any) => {
               order_id: id,
               order_number: fullOrderData.order_number,
               customer_name: fullOrderData.buyer_name,
+              customer_email: fullOrderData.buyer_email,
               status: status,
-              fulfillment_type: fullOrderData.fulfillment_type
+              fulfillment_type: fullOrderData.fulfillment_type,
+              total_rands: (fullOrderData.total_cents || 0) / 100
             })
           });
 
