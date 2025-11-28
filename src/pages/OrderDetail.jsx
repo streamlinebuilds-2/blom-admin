@@ -123,7 +123,7 @@ export default function OrderDetail() {
           throw new Error(json.error || 'Unknown error from server');
         }
         
-        return { ...json, method: 'api' };
+        return { ...json, method: 'api', statusUpdated: newStatus };
         
       } catch (apiError) {
         console.warn('⚠️ API failed, trying direct database update:', apiError.message);
@@ -147,7 +147,7 @@ export default function OrderDetail() {
           if (adminRes.ok) {
             const adminResult = await adminRes.json();
             console.log('✅ Direct database update successful:', adminResult);
-            return { ...adminResult, method: 'direct_db', success: true };
+            return { ...adminResult, method: 'direct_db', success: true, statusUpdated: newStatus };
           } else {
             throw new Error(`Direct update failed: ${adminRes.status}`);
           }
@@ -161,6 +161,9 @@ export default function OrderDetail() {
     onSuccess: async (result) => {
       console.log('🎉 Mutation Success:', result);
       
+      // Get the status that was updated from the result
+      const updatedStatus = result.statusUpdated;
+      
       // Clear cache completely and force immediate refetch
       console.log('🔄 Clearing cache and refetching order data...');
       queryClient.removeQueries({ queryKey: ['order', id] });
@@ -172,7 +175,7 @@ export default function OrderDetail() {
 
       // Dispatch custom event to notify other components
       window.dispatchEvent(new CustomEvent('orderStatusUpdated', { 
-        detail: { orderId: id, newStatus } 
+        detail: { orderId: id, newStatus: updatedStatus } 
       }));
 
       // As last resort, briefly reload to ensure UI updates
