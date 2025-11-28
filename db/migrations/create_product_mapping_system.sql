@@ -173,8 +173,8 @@ BEGIN
   FOR order_item IN 
     SELECT oi.*, o.order_number 
     FROM order_items oi
-    JOIN orders o ON o.id = oi.order_id
-    WHERE oi.order_id = p_order_id
+    JOIN orders o ON o.id = oi.order_id::uuid
+    WHERE oi.order_id = p_order_id::text
   LOOP
     -- Find matching product using our enhanced function
     SELECT * INTO matched_product
