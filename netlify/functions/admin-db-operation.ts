@@ -115,6 +115,50 @@ export const handler: Handler = async (event) => {
         result = { data: deleteData };
         break;
 
+      case 'update_order_status':
+        // Special case for order status updates
+        const { order_id, new_status, current_status } = body;
+        if (!order_id || !new_status) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              ok: false,
+              error: 'Missing order_id or new_status for update_order_status operation'
+            })
+          };
+        }
+
+        const now = new Date().toISOString();
+        const updatePatch: any = { 
+          status: new_status, 
+          updated_at: now 
+        };
+
+        // Set timestamps based on status
+        if (new_status === 'paid') updatePatch.paid_at = now;
+        if (new_status === 'packed') updatePatch.order_packed_at = now;
+        if (new_status === 'out_for_delivery') updatePatch.order_out_for_delivery_at = now;
+        if (new_status === 'collected') {
+          updatePatch.order_collected_at = now;
+          updatePatch.fulfilled_at = now;
+        }
+        if (new_status === 'delivered') {
+          updatePatch.order_delivered_at = now;
+          updatePatch.fulfilled_at = now;
+        }
+
+        const { data: statusUpdateData, error: statusUpdateError } = await admin
+          .from('orders')
+          .update(updatePatch)
+          .eq('id', order_id)
+          .select()
+          .single();
+
+        if (statusUpdateError) throw statusUpdateError;
+        result = { data: statusUpdateData, success: true };
+        break;
+
       case 'raw_sql':
         // Execute raw SQL (for schema modifications)
         // Note: This requires creating a custom RPC function in Supabase

@@ -91,7 +91,8 @@ export default function OrderDetail() {
   // 2. Update Status Mutation
   const statusMutation = useMutation({
     mutationFn: async (newStatus) => {
-      console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus: status });
+      const currentStatus = order?.status || 'unknown';
+      console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus });
       
       const requestBody = { id, status: newStatus };
       console.log('📤 Making API request:', requestBody);
@@ -139,7 +140,7 @@ export default function OrderDetail() {
               operation: 'update_order_status',
               order_id: id,
               new_status: newStatus,
-              current_status: status
+              current_status: currentStatus
             })
           });
           
@@ -160,10 +161,10 @@ export default function OrderDetail() {
     onSuccess: async (result) => {
       console.log('🎉 Mutation Success:', result);
       
-      // Force immediate refetch of order data
-      console.log('🔄 Refreshing order data...');
-      await queryClient.refetchQueries({ queryKey: ['order', id] });
-      await queryClient.refetchQueries({ queryKey: ['orders'] });
+      // Force immediate refetch of order data with invalidate instead of refetch
+      console.log('🔄 Invalidating and refetching order data...');
+      await queryClient.invalidateQueries({ queryKey: ['order', id] });
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
 
       // Show appropriate message based on method used
       const method = result.method || 'api';
