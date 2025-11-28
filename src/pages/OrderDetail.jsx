@@ -65,16 +65,42 @@ export default function OrderDetail() {
   // 2. Update Status Mutation
   const statusMutation = useMutation({
     mutationFn: async (newStatus) => {
+      console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus: status });
+      
+      const requestBody = { id, status: newStatus };
+      console.log('📤 Making API request:', requestBody);
+      
       const res = await fetch('/.netlify/functions/admin-order-status', {
         method: 'POST',
-        body: JSON.stringify({ id, status: newStatus })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
       });
+      
+      console.log('📥 API Response Status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ API Error Response:', errorText);
+        throw new Error(`API Error (${res.status}): ${errorText}`);
+      }
+      
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error);
+      console.log('✅ API Success Response:', json);
+      
+      if (!json.ok) {
+        console.error('❌ Backend Error:', json.error);
+        throw new Error(json.error || 'Unknown error from server');
+      }
+      
       return json;
     },
     onSuccess: async (result) => {
+      console.log('🎉 Mutation Success:', result);
+      
       // Force immediate refetch of order data
+      console.log('🔄 Refreshing order data...');
       await queryClient.refetchQueries({ queryKey: ['order', id] });
       await queryClient.refetchQueries({ queryKey: ['orders'] });
 
@@ -88,7 +114,8 @@ export default function OrderDetail() {
       }
     },
     onError: (err) => {
-      showToast('error', err.message);
+      console.error('❌ Mutation Error:', err);
+      showToast('error', `Failed to update status: ${err.message}`);
     }
   });
 
