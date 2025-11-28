@@ -3,8 +3,6 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ToastProvider } from "./components/ui/ToastProvider";
-import { setAPI } from './components/data/api';
-import { createMockAdapter } from './components/data/mockAdapter';
 import {
   LayoutDashboard, // Replaced Home
   Package,
@@ -36,17 +34,7 @@ import {
   Menu // Added for mobile hamburger menu
 } from "lucide-react";
 
-// Initialize DataAPI with Supabase adapter, fallback to mock
-import { createSupabaseAdapter } from './components/data/supabaseAdapter';
 
-try {
-  const api = createSupabaseAdapter();
-  setAPI(api);
-  console.log('✓ Using Supabase adapter');
-} catch (error) {
-  console.warn('⚠ Supabase adapter failed, using mock adapter:', error.message);
-  setAPI(createMockAdapter());
-}
 
 const navigationGroups = [
   {
