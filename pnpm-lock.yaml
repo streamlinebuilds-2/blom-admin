@@ -98,11 +98,14 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.1.8
         version: 1.2.8(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@supabase/auth-js':
+        specifier: ^2.86.0
+        version: 2.86.0
       '@supabase/functions-js':
         specifier: ^2.86.0
         version: 2.86.0
       '@supabase/postgrest-js':
-        specifier: ^2.86.0
+        specifier: ^2.76.1
         version: 2.86.0
       '@supabase/supabase-js':
         specifier: ^2.76.1
@@ -1513,6 +1516,10 @@ packages:
 
   '@supabase/auth-js@2.76.1':
     resolution: {integrity: sha512-bxmcgPuyjTUBg7+jAohJ15TDh3ph4hXcv7QkRsQgnIpszurD5LYaJPzX638ETQ8zDL4fvHZRHfGrcmHV8C91jA==}
+
+  '@supabase/auth-js@2.86.0':
+    resolution: {integrity: sha512-3xPqMvBWC6Haqpr6hEWmSUqDq+6SA1BAEdbiaHdAZM9QjZ5uiQJ+6iD9pZOzOa6MVXZh4GmwjhC9ObIG0K1NcA==}
+    engines: {node: '>=20.0.0'}
 
   '@supabase/functions-js@2.76.1':
     resolution: {integrity: sha512-+zJym/GC1sofm5QYKGxHSszCpMW4Ao2dj/WC3YlffAGuIlIhUtWTJvKsv5q7sWaSKUKdDhGpWhZ2OD++fW5BtQ==}
@@ -4883,6 +4890,10 @@ snapshots:
   '@supabase/auth-js@2.76.1':
     dependencies:
       '@supabase/node-fetch': 2.6.15
+      tslib: 2.8.1
+
+  '@supabase/auth-js@2.86.0':
+    dependencies:
       tslib: 2.8.1
 
   '@supabase/functions-js@2.76.1':
