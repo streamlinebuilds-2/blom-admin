@@ -790,6 +790,16 @@ export function createMockAdapter() {
       return this.adjustStock(payload.product_id, payload.delta, payload.reason);
     },
 
+    async listStockMovements(limit) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      const sorted = [...db.stockMovements].sort((a, b) => 
+        b.created_at.localeCompare(a.created_at)
+      );
+      return limit ? sorted.slice(0, limit) : sorted;
+    },
+
+    // Alias for backward compatibility
     async getStockMovements() {
       return this.listStockMovements();
     }

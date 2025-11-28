@@ -543,17 +543,87 @@ function AdjustStockModal({ product, onClose, showToast }) {
 }
 
 function StockHistory() {
+  const [filter, setFilter] = useState('all'); // 'all', 'manual', 'order'
   const { data: movements, isLoading } = useQuery({
     queryKey: ['stock_movements'],
     queryFn: api.listStockMovements,
   });
 
+  // Filter movements based on selection
+  const filteredMovements = movements?.filter(move => {
+    if (filter === 'all') return true;
+    
+    const reason = move.reason || '';
+    if (filter === 'manual') {
+      return reason.startsWith('manual_') || reason === 'manual_adjustment';
+    }
+    if (filter === 'order') {
+      return reason.startsWith('order_') || reason === 'order_fulfillment';
+    }
+    return true;
+  }) || [];
+
+  // Helper to determine movement type for display
+  const getMovementType = (move) => {
+    const reason = move.reason || '';
+    if (reason.startsWith('manual_') || reason === 'manual_adjustment') {
+      return 'Manual';
+    }
+    if (reason.startsWith('order_') || reason === 'order_fulfillment') {
+      return 'Order';
+    }
+    return 'Other';
+  };
+
+  // Helper to format reason for display
+  const formatReason = (reason) => {
+    if (!reason) return 'Unknown';
+    return reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   return (
     <div className="section-card mt-8">
-      <h2 className="text-xl font-bold mb-4 flex items-center gap-2 p-6 pb-0">
-        <History size={20} className="text-[var(--accent)]" />
-        Movement History
-      </h2>
+      <div className="p-6 pb-0">
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <History size={20} className="text-[var(--accent)]" />
+          Movement History
+        </h2>
+        
+        {/* Filter Controls */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              filter === 'all' 
+                ? 'bg-[var(--accent)] text-white' 
+                : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            All ({movements?.length || 0})
+          </button>
+          <button
+            onClick={() => setFilter('manual')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              filter === 'manual' 
+                ? 'bg-[var(--accent)] text-white' 
+                : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            Manual ({movements?.filter(m => (m.reason?.startsWith('manual_') || m.reason === 'manual_adjustment')).length || 0})
+          </button>
+          <button
+            onClick={() => setFilter('order')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              filter === 'order' 
+                ? 'bg-[var(--accent)] text-white' 
+                : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            Order ({movements?.filter(m => (m.reason?.startsWith('order_') || m.reason === 'order_fulfillment')).length || 0})
+          </button>
+        </div>
+      </div>
+      
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -561,25 +631,56 @@ function StockHistory() {
               <th className="p-4">Date</th>
               <th className="p-4">Product</th>
               <th className="p-4">Change</th>
+              <th className="p-4">Type</th>
               <th className="p-4">Reason</th>
               <th className="p-4">Ref</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">Loading history...</td></tr>
-            ) : movements?.length === 0 ? (
-              <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No history recorded yet.</td></tr>
+              <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">Loading history...</td></tr>
+            ) : filteredMovements.length === 0 ? (
+              <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">No {filter !== 'all' ? filter + ' ' : ''}movements recorded yet.</td></tr>
             ) : (
-              movements?.map(move => (
+              filteredMovements.map(move => (
                 <tr key={move.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)]">
-                  <td className="p-4 text-sm text-[var(--text-muted)]">{new Date(move.created_at).toLocaleString()}</td>
-                  <td className="p-4 font-medium">{move.product?.name || move.product_name || 'Unknown Product'}</td>
+                  <td className="p-4 text-sm text-[var(--text-muted)]">
+                    {new Date(move.created_at).toLocaleString()}
+                  </td>
+                  <td className="p-4 font-medium">
+                    {move.product?.name || move.product_name || 'Unknown Product'}
+                    {move.variant_index !== undefined && move.variant_index !== null && (
+                      <span className="text-xs text-[var(--text-muted)] ml-1">
+                        (Variant {move.variant_index})
+                      </span>
+                    )}
+                  </td>
                   <td className={`p-4 font-bold ${move.delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {move.delta > 0 ? `+${move.delta}` : move.delta}
                   </td>
-                  <td className="p-4 text-sm capitalize text-[var(--text-muted)]">{move.reason?.replace(/_/g, ' ')}</td>
-                  <td className="p-4 text-xs font-mono text-[var(--text-muted)]">{move.order_id ? move.order_id.slice(0,8) : '-'}</td>
+                  <td className="p-4">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      getMovementType(move) === 'Manual' 
+                        ? 'bg-blue-500/10 text-blue-500' 
+                        : getMovementType(move) === 'Order'
+                          ? 'bg-purple-500/10 text-purple-500'
+                          : 'bg-gray-500/10 text-gray-500'
+                    }`}>
+                      {getMovementType(move)}
+                    </span>
+                  </td>
+                  <td className="p-4 text-sm text-[var(--text-muted)]">
+                    {formatReason(move.reason)}
+                  </td>
+                  <td className="p-4 text-xs font-mono text-[var(--text-muted)]">
+                    {move.order_id ? (
+                      <span className="text-purple-500">
+                        Order: {move.order_id.slice(0,8)}...
+                      </span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                 </tr>
               ))
             )}

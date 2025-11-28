@@ -46,7 +46,7 @@ export let api = {
   },
 
   // 4. Get Stock Movements
-  async getStockMovements() {
+  async listStockMovements() {
     try {
       const response = await fetch('/.netlify/functions/admin-stock-movements');
       const result = await response.json();
@@ -56,6 +56,11 @@ export let api = {
       console.warn('Failed to fetch stock movements, returning empty array:', error);
       return [];
     }
+  },
+  
+  // Alias for backward compatibility
+  async getStockMovements() {
+    return this.listStockMovements();
   },
 
   // 5. List Products - This gets overridden by the adapter
