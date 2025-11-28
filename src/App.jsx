@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { setAPI } from '@/components/data/api'
 import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
+import { createMockAdapter } from '@/components/data/mockAdapter'
 import React from 'react';
 
 // Error Boundary Component
@@ -73,12 +74,23 @@ import PriceUpdates from '@/pages/PriceUpdates'
 import Specials from '@/pages/Specials'
 import Featured from '@/pages/Featured'
 
-// Initialize Supabase adapter for real database access
+// Initialize Supabase adapter for real database access, with fallback to mock
 try {
-  setAPI(createSupabaseAdapter())
+  console.log('🔄 Attempting to initialize Supabase adapter...')
+  const supabaseAdapter = createSupabaseAdapter()
+  setAPI(supabaseAdapter)
+  console.log('✅ Supabase adapter initialized successfully')
 } catch (error) {
-  console.error('Failed to initialize Supabase adapter:', error)
-  // Keep previous API if initialization fails
+  console.warn('⚠️ Supabase adapter failed, falling back to mock adapter:', error)
+  try {
+    console.log('🔄 Initializing mock adapter as fallback...')
+    const mockAdapter = createMockAdapter()
+    setAPI(mockAdapter)
+    console.log('✅ Mock adapter initialized as fallback')
+  } catch (mockError) {
+    console.error('❌ Failed to initialize both Supabase and mock adapters:', mockError)
+    // Keep previous API if both fail
+  }
 }
 
 const { Pages, Layout, mainPage } = pagesConfig;

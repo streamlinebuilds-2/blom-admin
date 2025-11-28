@@ -7,11 +7,15 @@ function generateId() {
 }
 
 function loadDB() {
-  if (window.__BLM_DB) return window.__BLM_DB;
+  if (window.__BLM_DB) {
+    console.log('🔄 Using cached mock database with', window.__BLM_DB.products?.length || 0, 'products');
+    return window.__BLM_DB;
+  }
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
+      console.log('📁 Loading mock database from localStorage...');
       window.__BLM_DB = JSON.parse(stored);
       // Ensure all dates are correctly parsed if they were serialized as strings
       if (window.__BLM_DB.products) {
@@ -57,13 +61,15 @@ function loadDB() {
           if (r.created_at && typeof r.created_at === 'string') r.created_at = new Date(r.created_at).toISOString();
         });
       }
+      console.log('✅ Loaded from storage:', window.__BLM_DB.products?.length || 0, 'products,', window.__BLM_DB.bundles?.length || 0, 'bundles');
       return window.__BLM_DB;
     }
   } catch (err) {
-    console.warn('Failed to load DB from localStorage:', err);
+    console.warn('❌ Failed to load DB from localStorage:', err);
   }
 
   // Seed initial data
+  console.log('🌱 Seeding fresh mock database with sample data...');
   const seedProducts = [
     {
       id: 'p1',
@@ -289,10 +295,13 @@ export function createMockAdapter() {
   return {
     async listProducts() {
       await new Promise(resolve => setTimeout(resolve, 0));
+      console.log('📦 MockAdapter: listProducts() called');
       const db = loadDB();
-      return [...db.products].sort((a, b) => 
+      const products = [...db.products].sort((a, b) => 
         (b.updated_at || '').localeCompare(a.updated_at || '')
       );
+      console.log('📦 MockAdapter: Returning', products.length, 'products:', products.map(p => p.name));
+      return products;
     },
 
     async getProduct(id) {
@@ -472,10 +481,13 @@ export function createMockAdapter() {
 
     async listBundles() {
       await new Promise(resolve => setTimeout(resolve, 0));
+      console.log('📦 MockAdapter: listBundles() called');
       const db = loadDB();
-      return [...db.bundles].sort((a, b) => 
+      const bundles = [...db.bundles].sort((a, b) => 
         (b.updated_at || '').localeCompare(a.updated_at || '')
       );
+      console.log('📦 MockAdapter: Returning', bundles.length, 'bundles:', bundles.map(b => b.name));
+      return bundles;
     },
 
     async getBundle(id) {
