@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS product_name_mapping (
   match_confidence decimal(3,2) DEFAULT 0.95, -- 0.00 to 1.00 confidence score
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  CONSTRAINT unique_order_inventory_mapping UNIQUE(order_name, inventory_name)
 );
 
 -- 2. Create Enhanced Matching Function
