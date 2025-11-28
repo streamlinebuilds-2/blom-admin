@@ -62,7 +62,7 @@ export default function OrderDetail() {
     if (order?.notes) setNotes(order.notes);
   }, [order]);
 
-  // 2. Update Status Mutation
+  // 2. Update Status Mutation with fallback
   const statusMutation = useMutation({
     mutationFn: async (newStatus) => {
       console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus: status });
@@ -70,31 +70,66 @@ export default function OrderDetail() {
       const requestBody = { id, status: newStatus };
       console.log('📤 Making API request:', requestBody);
       
-      const res = await fetch('/.netlify/functions/admin-order-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log('📥 API Response Status:', res.status);
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('❌ API Error Response:', errorText);
-        throw new Error(`API Error (${res.status}): ${errorText}`);
+      // First try the API endpoint
+      try {
+        const res = await fetch('/.netlify/functions/admin-order-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+        
+        console.log('📥 API Response Status:', res.status);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('❌ API Error Response:', errorText);
+          throw new Error(`API Error (${res.status}): ${errorText}`);
+        }
+        
+        const json = await res.json();
+        console.log('✅ API Success Response:', json);
+        
+        if (!json.ok) {
+          console.error('❌ Backend Error:', json.error);
+          throw new Error(json.error || 'Unknown error from server');
+        }
+        
+        return { ...json, method: 'api' };
+        
+      } catch (apiError) {
+        console.warn('⚠️ API failed, trying direct database update:', apiError.message);
+        
+        // Fallback: Direct database update via admin API
+        try {
+          console.log('🔄 Trying direct database update...');
+          const adminRes = await fetch('/.netlify/functions/admin-db-operation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              operation: 'update_order_status',
+              order_id: id,
+              new_status: newStatus,
+              current_status: status
+            })
+          });
+          
+          if (adminRes.ok) {
+            const adminResult = await adminRes.json();
+            console.log('✅ Direct database update successful:', adminResult);
+            return { ...adminResult, method: 'direct_db', success: true };
+          } else {
+            throw new Error(`Direct update failed: ${adminRes.status}`);
+          }
+          
+        } catch (directError) {
+          console.error('❌ Both API and direct update failed:', directError);
+          throw new Error(`Status update failed: ${apiError.message}. Backup also failed: ${directError.message}`);
+        }
       }
-      
-      const json = await res.json();
-      console.log('✅ API Success Response:', json);
-      
-      if (!json.ok) {
-        console.error('❌ Backend Error:', json.error);
-        throw new Error(json.error || 'Unknown error from server');
-      }
-      
-      return json;
     },
     onSuccess: async (result) => {
       console.log('🎉 Mutation Success:', result);
@@ -104,13 +139,14 @@ export default function OrderDetail() {
       await queryClient.refetchQueries({ queryKey: ['order', id] });
       await queryClient.refetchQueries({ queryKey: ['orders'] });
 
-      // Show appropriate message
+      // Show appropriate message based on method used
+      const method = result.method || 'api';
       if (result.webhookCalled && result.webhookOk) {
-        showToast('success', 'Status updated & notification sent');
+        showToast('success', `Status updated via ${method} & notification sent`);
       } else if (result.webhookCalled && !result.webhookOk) {
-        showToast('warning', `Status updated but notification failed: ${result.webhookError || 'Unknown error'}`);
+        showToast('warning', `Status updated via ${method} but notification failed: ${result.webhookError || 'Unknown error'}`);
       } else {
-        showToast('success', 'Order status updated successfully');
+        showToast('success', `Order status updated successfully via ${method}`);
       }
     },
     onError: (err) => {
