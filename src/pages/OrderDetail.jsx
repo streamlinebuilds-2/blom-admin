@@ -24,6 +24,32 @@ const formatMoney = (amount) => {
   return `R${(centsAmount / 100).toFixed(2)}`;
 };
 
+// Helper: Format address safely (handle objects and strings)
+const formatAddress = (address) => {
+  if (!address) {
+    return 'No delivery address provided - Please contact customer for address details';
+  }
+  
+  // If it's already a string, return it
+  if (typeof address === 'string') {
+    return address;
+  }
+  
+  // If it's an object, convert to string
+  if (typeof address === 'object') {
+    const parts = [];
+    if (address.street_address) parts.push(address.street_address);
+    if (address.local_area) parts.push(address.local_area);
+    if (address.city) parts.push(address.city);
+    if (address.zone) parts.push(address.zone);
+    if (address.country) parts.push(address.country);
+    return parts.join('\n') || 'Address details unavailable';
+  }
+  
+  // Fallback for other types
+  return String(address);
+};
+
 export default function OrderDetail() {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -1109,10 +1135,12 @@ export default function OrderDetail() {
                  <div>
                    <div className="text-[var(--text-muted)] text-xs uppercase font-bold">Shipping Address</div>
                    <div className="whitespace-pre-wrap mt-1 leading-relaxed">
-                     {order.shipping_address || 
-                      order.delivery_address || 
-                      order.ship_to_address ||
-                      'No delivery address provided - Please contact customer for address details'}
+                     {formatAddress(
+                       order.shipping_address || 
+                       order.delivery_address || 
+                       order.ship_to_address ||
+                       'No delivery address provided - Please contact customer for address details'
+                     )}
                    </div>
                  </div>
               ) : (
