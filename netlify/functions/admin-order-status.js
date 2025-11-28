@@ -10,7 +10,12 @@ export const handler = async (e) => {
 
   try {
     const { id, status } = JSON.parse(e.body || "{}");
-    if (!id || !status) throw new Error("Missing id or status");
+    console.log(`🔄 Order status update requested - ID: ${id}, Status: ${status}`);
+    
+    if (!id || !status) {
+      console.error("❌ Missing required parameters:", { id, status });
+      throw new Error("Missing id or status");
+    }
 
     // 1. Get current order info
     const { data: order, error: fetchErr } = await s
@@ -73,6 +78,9 @@ export const handler = async (e) => {
     }
 
     // 4. Update Database
+    console.log(`📤 Updating order ${id} - Current: ${currentStatus}, New: ${status}`);
+    console.log(`📤 Update patch:`, JSON.stringify(patch, null, 2));
+    
     const { data: updated, error: updateErr } = await s
       .from("orders")
       .update(patch)
@@ -80,7 +88,15 @@ export const handler = async (e) => {
       .select()
       .single();
 
-    if (updateErr) throw updateErr;
+    console.log(`📤 Database update result - Data:`, JSON.stringify(updated, null, 2));
+    console.log(`📤 Database update result - Error:`, updateErr);
+
+    if (updateErr) {
+      console.error(`❌ Database update failed:`, updateErr);
+      throw updateErr;
+    }
+
+    console.log(`✅ Order ${id} successfully updated to ${status}`);
 
     // 5. CRITICAL: Deduct stock when order is marked as "paid"
     let stockDeducted = false;
