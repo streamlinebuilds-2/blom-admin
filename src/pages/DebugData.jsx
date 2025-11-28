@@ -57,11 +57,11 @@ export default function DebugData() {
       });
     }
 
-    const { product: updated, movement } = await api.adjustStock(
-      product.id,
-      1,
-      'debug'
-    );
+    const { product: updated, movement } = await api.adjustStock({
+      productId: product.id,
+      delta: 1,
+      reason: 'debug'
+    });
     return {
       product_name: updated.name,
       new_stock: updated.stock_qty,

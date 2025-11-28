@@ -438,7 +438,7 @@ function AdjustStockModal({ product, onClose, showToast }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: product.id,
-          quantityChange: qtyChange,
+          delta: qtyChange,
           reason: reason,
           costPrice: costPrice ? parseFloat(costPrice) : undefined,
           variantIndex: product.variantIndex !== undefined ? product.variantIndex : undefined
