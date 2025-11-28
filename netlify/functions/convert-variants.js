@@ -1,9 +1,9 @@
 // Netlify Function: Convert JSON variants to separate products
 // This function will convert existing JSON variants into separate products
 
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   // Set CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
