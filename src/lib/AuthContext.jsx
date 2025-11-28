@@ -22,9 +22,25 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
       
+      // For development without proper backend, set up basic state
+      if (!appParams.token) {
+        console.log('No token found, setting up guest mode');
+        setIsLoadingAuth(false);
+        setIsAuthenticated(false);
+        setAppPublicSettings({ 
+          id: appParams.appId, 
+          public_settings: { 
+            guest_mode: true,
+            allow_guest_access: true 
+          } 
+        });
+        setIsLoadingPublicSettings(false);
+        return;
+      }
+      
       // Add timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
+        setTimeout(() => reject(new Error('Request timeout')), 8000)
       );
       
       // First, check app public settings (with token if available)
@@ -53,12 +69,18 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         console.error('App state check failed:', appError);
         
-        // If it's a timeout or network error, assume demo mode
+        // If it's a timeout or network error, assume guest mode
         if (appError.message === 'Request timeout' || !appError.status) {
-          console.log('Setting up demo mode due to connection issues');
+          console.log('Network issue detected, setting up guest mode');
           setIsLoadingAuth(false);
           setIsAuthenticated(false);
-          setAppPublicSettings({ id: appParams.appId, public_settings: { demo_mode: true } });
+          setAppPublicSettings({ 
+            id: appParams.appId, 
+            public_settings: { 
+              guest_mode: true,
+              allow_guest_access: true 
+            } 
+          });
         } else {
           // Handle app-level errors
           if (appError.status === 403 && appError.data?.extra_data?.reason) {
