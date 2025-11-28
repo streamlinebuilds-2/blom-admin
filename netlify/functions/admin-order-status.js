@@ -98,126 +98,146 @@ export const handler = async (e) => {
 
     console.log(`✅ Order ${id} successfully updated to ${status}`);
 
-    // 5. CRITICAL: Deduct stock when order is marked as "paid"
-    let stockDeducted = false;
+    // 5. CRITICAL: Enhanced Stock Deduction + Analytics Update using Product Mapping System
+    let stockProcessingResults = {
+      itemsProcessed: 0,
+      itemsSuccessful: 0,
+      itemsFailed: 0,
+      stockDeducted: false,
+      analyticsUpdated: false,
+      errors: []
+    };
+
     if (status === 'paid' && currentStatus !== 'paid') {
-      console.log(`Deducting stock for order ${id} - marked as paid by admin`);
+      console.log(`💰 Processing paid order ${id} - Enhanced stock deduction + Analytics using mapping system`);
       
-      // Enhanced stock deduction with name-based fallback
       try {
+        // Get order items
         const { data: orderItems, error: itemsError } = await s
           .from('order_items')
-          .select('id, order_id, product_id, name, quantity, unit_price_cents')
+          .select('id, order_id, product_id, name, quantity, unit_price_cents, line_total_cents')
           .eq('order_id', id);
           
-        if (itemsError) throw new Error(`Failed to fetch order items: ${itemsError.message}`);
+        if (itemsError) {
+          throw new Error(`Failed to fetch order items: ${itemsError.message}`);
+        }
         
         if (!orderItems || orderItems.length === 0) {
-          console.log(`No items found for order ${id}`);
+          console.log(`⚠️ No items found for order ${id}`);
         } else {
-          let fallbackUsed = 0;
-          let successful = 0;
-          
+          console.log(`📦 Processing ${orderItems.length} items with enhanced product mapping`);
+
+          // Process each item using the enhanced matching system
           for (const item of orderItems) {
             try {
-              // Try to find product by ID first, then by name
-              let product = null;
-              let method = 'failed';
-              
-              if (item.product_id) {
-                const { data: productById } = await s
-                  .from('products')
-                  .select('id, name, stock, is_active')
-                  .eq('id', item.product_id)
-                  .single();
-                  
-                if (productById && productById.is_active) {
-                  product = productById;
-                  method = 'id';
-                }
-              }
-              
-              // Fallback to name matching if ID failed
-              if (!product) {
-                const normalizedName = item.name.trim().toLowerCase();
-                const { data: productsByName } = await s
-                  .from('products')
-                  .select('id, name, stock, is_active')
-                  .eq('is_active', true);
-                  
-                if (productsByName) {
-                  const match = productsByName.find((p) => 
-                    p.name.trim().toLowerCase() === normalizedName ||
-                    p.name.trim().toLowerCase().includes(normalizedName)
-                  );
-                  if (match) {
-                    product = match;
-                    method = 'name';
-                    fallbackUsed++;
-                  }
-                }
-              }
-              
-              if (!product) {
-                console.error(`❌ Product not found: ${item.name}`);
+              console.log(`🔍 Processing item: ${item.name} (Qty: ${item.quantity})`);
+
+              // Use the enhanced mapping function
+              const { data: matchResult, error: matchError } = await s
+                .rpc('find_product_match', { order_product_name: item.name });
+
+              if (matchError) {
+                console.error(`❌ Matching failed for ${item.name}:`, matchError);
+                stockProcessingResults.errors.push(`Matching failed: ${item.name} - ${matchError.message}`);
+                stockProcessingResults.itemsFailed++;
                 continue;
               }
-              
-              // Check and update stock
+
+              if (!matchResult || !matchResult[0]?.found) {
+                console.error(`❌ No product match found for: ${item.name}`);
+                stockProcessingResults.errors.push(`No match found: ${item.name}`);
+                stockProcessingResults.itemsFailed++;
+                continue;
+              }
+
+              const match = matchResult[0];
+              const productId = match.product_id;
+              const productName = match.product_name;
+              const method = match.method;
+              const confidence = match.confidence;
+
+              console.log(`✅ Match found: "${item.name}" -> "${productName}" (${method}, ${(confidence * 100).toFixed(1)}% confidence)`);
+
+              // Check current stock
               const { data: currentStock } = await s
                 .from('products')
-                .select('stock')
-                .eq('id', product.id)
+                .select('stock, stock_qty')
+                .eq('id', productId)
                 .single();
-                
-              const stockBefore = currentStock?.stock || 0;
-              
-              if (stockBefore < item.quantity) {
-                console.error(`❌ Insufficient stock for ${product.name}: need ${item.quantity}, have ${stockBefore}`);
+
+              if (!currentStock) {
+                console.error(`❌ Could not retrieve stock for product: ${productName}`);
+                stockProcessingResults.errors.push(`Stock check failed: ${productName}`);
+                stockProcessingResults.itemsFailed++;
                 continue;
               }
+
+              const currentStockLevel = currentStock.stock_qty || currentStock.stock || 0;
               
-              const newStock = stockBefore - item.quantity;
+              if (currentStockLevel < item.quantity) {
+                const errorMsg = `Insufficient stock for ${productName}: have ${currentStockLevel}, need ${item.quantity}`;
+                console.error(`❌ ${errorMsg}`);
+                stockProcessingResults.errors.push(errorMsg);
+                stockProcessingResults.itemsFailed++;
+                continue;
+              }
+
+              // Deduct stock
+              const newStockLevel = currentStockLevel - item.quantity;
+
               const { error: updateError } = await s
                 .from('products')
-                .update({ 
-                  stock: newStock,
+                .update({
+                  stock: newStockLevel,
+                  stock_qty: newStockLevel,
                   updated_at: new Date().toISOString()
                 })
-                .eq('id', product.id);
-                
+                .eq('id', productId);
+
               if (updateError) {
-                console.error(`❌ Failed to update stock for ${product.name}: ${updateError.message}`);
+                console.error(`❌ Stock update failed for ${productName}:`, updateError);
+                stockProcessingResults.errors.push(`Stock update failed: ${productName} - ${updateError.message}`);
+                stockProcessingResults.itemsFailed++;
                 continue;
               }
-              
-              // Log stock movement
+
+              // Create detailed stock movement
+              const { data: orderData } = await s
+                .from('orders')
+                .select('order_number')
+                .eq('id', id)
+                .single();
+
               await s.from('stock_movements').insert({
-                product_id: product.id,
+                product_id: productId,
                 movement_type: 'sale',
                 quantity: -item.quantity,
                 order_id: id,
-                notes: `Stock deducted via ${method} matching`,
+                order_item_id: item.id,
+                matching_method: method,
+                confidence_score: confidence,
+                notes: `Order ${orderData?.order_number || id} - "${item.name}" matched to "${productName}" via ${method} (${(confidence * 100).toFixed(1)}% confidence)`,
                 created_at: new Date().toISOString()
               });
-              
-              console.log(`✅ Stock adjusted: ${product.name} (${item.quantity} units via ${method})`);
-              successful++;
-              
+
+              console.log(`✅ Stock deducted: ${productName} (-${item.quantity}, new stock: ${newStockLevel}) via ${method}`);
+              stockProcessingResults.itemsSuccessful++;
+              stockProcessingResults.itemsProcessed++;
+
             } catch (itemError) {
-              console.error(`❌ Error processing item ${item.id}:`, itemError.message);
+              const errorMsg = `Error processing item ${item.id} (${item.name}): ${itemError.message}`;
+              console.error(`❌ ${errorMsg}`, itemError);
+              stockProcessingResults.errors.push(errorMsg);
+              stockProcessingResults.itemsFailed++;
             }
           }
-          
-          console.log(`✅ Enhanced stock deduction complete: ${successful}/${orderItems.length} successful, ${fallbackUsed} used fallback`);
-          stockDeducted = successful > 0;
 
-          // NEW: Update sales analytics tables after successful stock deduction
-          if (successful > 0) {
+          // Update analytics if we had successful stock deductions
+          if (stockProcessingResults.itemsSuccessful > 0) {
             try {
               console.log(`📊 Updating sales analytics for order ${id}...`);
 
-              // Get updated order with items for analytics
+              // Get order details for analytics
               const { data: orderForAnalytics } = await s
                 .from('orders')
                 .select('id, order_number, created_at, total_cents')
@@ -227,11 +247,11 @@ export const handler = async (e) => {
               if (orderForAnalytics) {
                 const { data: itemsForAnalytics } = await s
                   .from('order_items')
-                  .select('name, quantity, line_total_cents, unit_price_cents')
+                  .select('name, quantity, line_total_cents')
                   .eq('order_id', id);
 
                 if (itemsForAnalytics && itemsForAnalytics.length > 0) {
-                  // Update daily sales summary
+                  // Update daily sales
                   const orderDate = new Date(orderForAnalytics.created_at).toISOString().split('T')[0];
                   const totalRevenue = itemsForAnalytics.reduce((sum, item) => sum + (item.line_total_cents || 0), 0);
                   const totalUnits = itemsForAnalytics.reduce((sum, item) => sum + (item.quantity || 0), 0);
@@ -246,7 +266,7 @@ export const handler = async (e) => {
                     onConflict: 'date'
                   });
 
-                  // Update best selling products
+                  // Update product sales stats
                   const productSales = new Map();
                   
                   for (const item of itemsForAnalytics) {
@@ -266,7 +286,7 @@ export const handler = async (e) => {
                     stats.orders.add(id);
                   }
 
-                  // Update each product's sales stats
+                  // Insert/update each product's stats
                   for (const [productName, stats] of productSales.entries()) {
                     await s.from('product_sales_stats').upsert({
                       product_name: productName,
@@ -278,33 +298,25 @@ export const handler = async (e) => {
                     }, {
                       onConflict: 'product_name'
                     });
-
-                    console.log(`📈 Updated analytics for: ${productName} (${stats.quantity} units, R${stats.revenue/100})`);
                   }
 
-                  console.log(`✅ Sales analytics updated for ${productSales.size} products - Total: R${totalRevenue/100}, Units: ${totalUnits}`);
+                  stockProcessingResults.analyticsUpdated = true;
+                  console.log(`✅ Analytics updated: ${productSales.size} products, R${totalRevenue/100}, ${totalUnits} units`);
                 }
               }
             } catch (analyticsError) {
-              console.error(`❌ Failed to update sales analytics for order ${id}:`, analyticsError.message);
+              console.error(`❌ Analytics update failed for order ${id}:`, analyticsError);
+              stockProcessingResults.errors.push(`Analytics failed: ${analyticsError.message}`);
             }
           }
+
+          stockProcessingResults.stockDeducted = stockProcessingResults.itemsSuccessful > 0;
+          console.log(`✅ Enhanced processing complete: ${stockProcessingResults.itemsSuccessful}/${orderItems.length} successful`);
+
         }
-      } catch (error) {
-        console.error(`ERROR: Enhanced stock deduction failed for order ${id}:`, error.message);
-        
-        // Fallback to original RPC method if enhanced method fails
-        console.log(`🔄 Trying fallback to original RPC method...`);
-        const { error: rpcError } = await s.rpc('adjust_stock_for_order', {
-          p_order_id: id
-        });
-        
-        if (rpcError) {
-          console.error(`ERROR: Both enhanced and fallback stock deduction failed:`, rpcError.message);
-        } else {
-          console.log(`✅ Fallback stock deduction successful for order ${id}`);
-          stockDeducted = true;
-        }
+      } catch (processingError) {
+        console.error(`❌ Order processing failed for ${id}:`, processingError);
+        stockProcessingResults.errors.push(`Processing failed: ${processingError.message}`);
       }
     }
 
@@ -507,7 +519,7 @@ export const handler = async (e) => {
       body: JSON.stringify({ 
         ok: true, 
         order: updated, 
-        stockDeducted,
+        stockProcessing: stockProcessingResults,
         webhookCalled,
         webhookOk,
         webhookError,
