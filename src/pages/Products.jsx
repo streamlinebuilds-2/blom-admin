@@ -37,7 +37,17 @@ export default function Products() {
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.listProducts(),
+    queryFn: async () => {
+      const allProducts = await api.listProducts();
+      // Filter out variants - only show main products
+      const mainProducts = allProducts.filter(p => 
+        !p.is_variant && 
+        p.is_variant !== true &&
+        !p.variant_name // Also exclude products with variant names
+      );
+      console.log(`📊 Filtered ${allProducts.length} products to ${mainProducts.length} main products (excluded variants)`);
+      return mainProducts;
+    },
     refetchOnWindowFocus: true, // Auto-refetch when page is focused
     refetchInterval: false, // Don't poll constantly
     staleTime: 30000, // Consider data fresh for 30 seconds

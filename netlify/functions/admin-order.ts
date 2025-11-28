@@ -4,27 +4,81 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 export const handler: Handler = async (e) => {
   try {
-    // Handle PATCH request for archiving orders
+    // Handle PATCH request for order status updates
     if (e.httpMethod === 'PATCH') {
       const body = JSON.parse(e.body || '{}');
-      const { id, archived } = body;
+      const { id, status } = body;
 
       if (!id) {
         return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing order id" }) };
       }
 
-      // Update the order's archived status
-      const { data, error } = await s.from("orders")
-        .update({ archived: archived })
-        .eq("id", id)
-        .select();
+      console.log('🔄 Updating order status:', { id, status });
 
-      if (error) throw error;
+      // Get current order status
+      const { data: currentOrder, error: fetchError } = await s
+        .from("orders")
+        .select('status, paid_at')
+        .eq("id", id)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`Failed to fetch current order: ${fetchError.message}`);
+      }
+
+      const oldStatus = currentOrder?.status;
+      console.log(`📊 Order ${id} status change: ${oldStatus} → ${status}`);
+
+      // Prepare update data
+      const updateData: any = {
+        status,
+        updated_at: new Date().toISOString()
+      };
+
+      // Set timestamps based on status
+      if (status === 'paid' && oldStatus !== 'paid') {
+        updateData.paid_at = new Date().toISOString();
+        console.log('💰 Order marked as paid - will trigger stock deduction');
+      }
+      if (status === 'packed') {
+        updateData.order_packed_at = new Date().toISOString();
+      }
+      if (status === 'out_for_delivery') {
+        updateData.order_out_for_delivery_at = new Date().toISOString();
+      }
+      if (status === 'collected') {
+        updateData.order_collected_at = new Date().toISOString();
+        updateData.fulfilled_at = new Date().toISOString();
+      }
+      if (status === 'delivered') {
+        updateData.order_delivered_at = new Date().toISOString();
+        updateData.fulfilled_at = new Date().toISOString();
+      }
+
+      // Update the order
+      const { data: updatedOrder, error: updateError } = await s
+        .from("orders")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw new Error(`Failed to update order: ${updateError.message}`);
+      }
+
+      console.log('✅ Order status updated successfully');
 
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ ok: true, order: data[0] })
+        body: JSON.stringify({ 
+          ok: true, 
+          order: updatedOrder,
+          statusChanged: oldStatus !== status,
+          webhookCalled: false,
+          webhookOk: false
+        })
       };
     }
 
@@ -49,7 +103,7 @@ export const handler: Handler = async (e) => {
 
     if (oErr) throw oErr;
 
-    // 2. Get Items with correct column names
+    // 2. Get Items with correct column names - include variant information
     const { data: items, error: iErr } = await s.from("order_items")
       .select(`
         name, product_name, quantity, 
@@ -68,6 +122,7 @@ export const handler: Handler = async (e) => {
       body: JSON.stringify({ ok: true, order, items })
     };
   } catch (err:any) {
+    console.error('❌ Order handler error:', err);
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },

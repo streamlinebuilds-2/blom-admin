@@ -7,7 +7,7 @@
  * to ensure all components are working correctly.
  */
 
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 // Environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL || 'your-supabase-url';

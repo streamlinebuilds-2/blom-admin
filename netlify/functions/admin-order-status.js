@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+const { createClient } = require("@supabase/supabase-js");
 
-const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const s = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Force redeploy - Order Status API v1.2
-export const handler = async (e: any) => {
+exports.handler = async (e) => {
   if (e.httpMethod !== "POST") {
     return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: "Method Not Allowed" };
   }
@@ -29,7 +29,7 @@ export const handler = async (e: any) => {
     // Collection: paid -> packed -> collected
     // Delivery: paid -> packed -> out_for_delivery -> delivered
 
-    const validTransitions: Record<string, string[]> = {
+    const validTransitions = {
       // From 'unpaid', we technically wait for payment, but admin might force 'paid'
       'unpaid': ['paid', 'cancelled'],
       'paid': ['packed', 'cancelled'],
@@ -53,7 +53,7 @@ export const handler = async (e: any) => {
 
     // 3. Set Timestamps based on Status
     const now = new Date().toISOString();
-    const patch: any = { status, updated_at: now };
+    const patch = { status, updated_at: now };
 
     if (status === 'paid') patch.paid_at = now; // Manual pay
     if (status === 'packed') patch.order_packed_at = now;
@@ -105,7 +105,7 @@ export const handler = async (e: any) => {
           for (const item of orderItems) {
             try {
               // Try to find product by ID first, then by name
-              let product: any = null;
+              let product = null;
               let method = 'failed';
               
               if (item.product_id) {
@@ -130,7 +130,7 @@ export const handler = async (e: any) => {
                   .eq('is_active', true);
                   
                 if (productsByName) {
-                  const match = productsByName.find((p: any) => 
+                  const match = productsByName.find((p) => 
                     p.name.trim().toLowerCase() === normalizedName ||
                     p.name.trim().toLowerCase().includes(normalizedName)
                   );
@@ -188,7 +188,7 @@ export const handler = async (e: any) => {
               console.log(`✅ Stock adjusted: ${product.name} (${item.quantity} units via ${method})`);
               successful++;
               
-            } catch (itemError: any) {
+            } catch (itemError) {
               console.error(`❌ Error processing item ${item.id}:`, itemError.message);
             }
           }
@@ -197,7 +197,7 @@ export const handler = async (e: any) => {
           stockDeducted = successful > 0;
         }
         
-      } catch (error: any) {
+      } catch (error) {
         console.error(`ERROR: Enhanced stock deduction failed for order ${id}:`, error.message);
         
         // Fallback to original RPC method if enhanced method fails
@@ -220,7 +220,7 @@ export const handler = async (e: any) => {
     
     let webhookCalled = false;
     let webhookOk = false;
-    let webhookError: string | null = null;
+    let webhookError = null;
     let webhookUrl = null;
 
     try {
@@ -387,12 +387,12 @@ export const handler = async (e: any) => {
           } else {
             console.warn(`⚠️ Notification webhook failed for order ${id}: HTTP ${notificationResponse.status}`);
           }
-        } catch (notifError: any) {
+        } catch (notifError) {
           console.warn(`⚠️ Notification webhook error for order ${id}:`, notifError.message);
         }
       }
 
-    } catch (webhookErr: any) {
+    } catch (webhookErr) {
       webhookError = webhookErr.message;
       console.error(`❌ Webhook system error for order ${id}:`, webhookErr.message);
     }
@@ -415,7 +415,7 @@ export const handler = async (e: any) => {
       })
     };
 
-  } catch (err: any) {
+  } catch (err) {
     return {
       statusCode: 500,
       body: JSON.stringify({ ok: false, error: err.message })
