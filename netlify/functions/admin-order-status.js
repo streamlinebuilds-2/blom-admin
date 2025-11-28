@@ -211,8 +211,85 @@ export const handler = async (e) => {
           
           console.log(`✅ Enhanced stock deduction complete: ${successful}/${orderItems.length} successful, ${fallbackUsed} used fallback`);
           stockDeducted = successful > 0;
+
+          // NEW: Update sales analytics tables after successful stock deduction
+          if (successful > 0) {
+            try {
+              console.log(`📊 Updating sales analytics for order ${id}...`);
+
+              // Get updated order with items for analytics
+              const { data: orderForAnalytics } = await s
+                .from('orders')
+                .select('id, order_number, created_at, total_cents')
+                .eq('id', id)
+                .single();
+
+              if (orderForAnalytics) {
+                const { data: itemsForAnalytics } = await s
+                  .from('order_items')
+                  .select('name, quantity, line_total_cents, unit_price_cents')
+                  .eq('order_id', id);
+
+                if (itemsForAnalytics && itemsForAnalytics.length > 0) {
+                  // Update daily sales summary
+                  const orderDate = new Date(orderForAnalytics.created_at).toISOString().split('T')[0];
+                  const totalRevenue = itemsForAnalytics.reduce((sum, item) => sum + (item.line_total_cents || 0), 0);
+                  const totalUnits = itemsForAnalytics.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+                  await s.from('daily_sales').upsert({
+                    date: orderDate,
+                    total_sales_cents: totalRevenue,
+                    total_orders: 1,
+                    total_items_sold: totalUnits,
+                    updated_at: new Date().toISOString()
+                  }, {
+                    onConflict: 'date'
+                  });
+
+                  // Update best selling products
+                  const productSales = new Map();
+                  
+                  for (const item of itemsForAnalytics) {
+                    const productName = item.name;
+                    if (!productSales.has(productName)) {
+                      productSales.set(productName, {
+                        name: productName,
+                        quantity: 0,
+                        revenue: 0,
+                        orders: new Set()
+                      });
+                    }
+                    
+                    const stats = productSales.get(productName);
+                    stats.quantity += item.quantity || 0;
+                    stats.revenue += item.line_total_cents || 0;
+                    stats.orders.add(id);
+                  }
+
+                  // Update each product's sales stats
+                  for (const [productName, stats] of productSales.entries()) {
+                    await s.from('product_sales_stats').upsert({
+                      product_name: productName,
+                      total_quantity_sold: stats.quantity,
+                      total_revenue_cents: stats.revenue,
+                      order_count: stats.orders.size,
+                      last_sold_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString()
+                    }, {
+                      onConflict: 'product_name'
+                    });
+
+                    console.log(`📈 Updated analytics for: ${productName} (${stats.quantity} units, R${stats.revenue/100})`);
+                  }
+
+                  console.log(`✅ Sales analytics updated for ${productSales.size} products - Total: R${totalRevenue/100}, Units: ${totalUnits}`);
+                }
+              }
+            } catch (analyticsError) {
+              console.error(`❌ Failed to update sales analytics for order ${id}:`, analyticsError.message);
+            }
+          }
         }
-        
       } catch (error) {
         console.error(`ERROR: Enhanced stock deduction failed for order ${id}:`, error.message);
         
