@@ -31,7 +31,8 @@ export const handler: Handler = async (e) => {
       .select(`
         product_id,
         qty,
-        total_cents,
+        line_total_cents,
+        unit_price_cents,
         orders!inner (
           id,
           created_at,
@@ -80,7 +81,7 @@ export const handler: Handler = async (e) => {
       
       const analytics = productAnalytics[productId];
       analytics.totalUnitsSold += item.qty || 0;
-      analytics.totalRevenueCents += item.total_cents || 0;
+      analytics.totalRevenueCents += item.line_total_cents || 0;
       analytics.totalOrders += 1;
       
       if (item.orders?.customer_email) {
@@ -92,7 +93,7 @@ export const handler: Handler = async (e) => {
       analytics.estimatedCOGS += (costPrice * (item.qty || 0));
       
       // Profit calculation
-      analytics.estimatedProfitCents += (item.total_cents || 0) - (costPrice * (item.qty || 0));
+      analytics.estimatedProfitCents += (item.line_total_cents || 0) - (costPrice * (item.qty || 0));
       
       // Daily tracking
       const orderDate = new Date(item.orders?.created_at).toISOString().split('T')[0];

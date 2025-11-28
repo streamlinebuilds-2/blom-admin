@@ -269,7 +269,6 @@ export default function OrderDetail() {
                 )}</td>
                 <td class="text-right">${formatMoney(
                   item.line_total_cents || 
-                  item.total || 
                   item.line_total || 
                   ((item.unit_price_cents || item.price || 0) * (item.quantity || 0))
                 )}</td>
@@ -900,7 +899,6 @@ export default function OrderDetail() {
                     const quantity = item.quantity || 0;
                     const totalCents = 
                       item.line_total_cents || 
-                      item.total || 
                       item.line_total || 
                       (unitPriceCents * quantity);
 

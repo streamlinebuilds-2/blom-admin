@@ -49,13 +49,13 @@ export const handler: Handler = async (e) => {
 
     if (oErr) throw oErr;
 
-    // 2. Get Items with fallback pricing fields
+    // 2. Get Items with correct column names
     const { data: items, error: iErr } = await s.from("order_items")
       .select(`
         name, product_name, quantity, 
         unit_price_cents, line_total_cents, 
-        price, total, unit_price, line_total,
-        variant, sku
+        price, unit_price, line_total,
+        variant, sku, product_id
       `)
       .eq("order_id", id)
       .order("name", { ascending: true });
