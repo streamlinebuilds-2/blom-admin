@@ -6,6 +6,7 @@ import {
   Truck, User, Clock, CreditCard, AlertCircle, Download, Printer
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
+import { supabase } from "../lib/supabase";
 
 // Helper: Format currency safely (handles cents vs rands)
 const formatMoney = (amount) => {
@@ -94,70 +95,56 @@ export default function OrderDetail() {
       const currentStatus = order?.status || 'unknown';
       console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus });
       
-      const requestBody = { id, status: newStatus };
-      console.log('📤 Making API request:', requestBody);
+      // WORKAROUND: Direct Supabase update since Netlify functions return 404
+      console.log('🔄 Using direct Supabase update (Netlify functions 404)...');
       
-      // Try direct database update first (more reliable)
-      try {
-        console.log('🔄 Using direct database update...');
-        const adminRes = await fetch('/.netlify/functions/admin-db-operation', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            operation: 'update_order_status',
-            order_id: id,
-            new_status: newStatus,
-            current_status: currentStatus
-          })
-        });
-        
-        if (adminRes.ok) {
-          const adminResult = await adminRes.json();
-          console.log('✅ Direct database update successful:', adminResult);
-          return { ...adminResult, method: 'direct_db', success: true, statusUpdated: newStatus };
-        } else {
-          throw new Error(`Direct update failed: ${adminRes.status}`);
-        }
-        
-      } catch (directError) {
-        console.error('❌ Direct database update failed:', directError);
-        
-        // Fallback: Try the status API endpoint
-        try {
-          console.log('🔄 Trying status API endpoint as fallback...');
-          const res = await fetch('/.netlify/functions/admin-order-status', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody)
-          });
-          
-          console.log('📥 API Response Status:', res.status);
-          
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error('❌ API Error Response:', errorText);
-            throw new Error(`API Error (${res.status}): ${errorText}`);
-          }
-          
-          const json = await res.json();
-          console.log('✅ API Success Response:', json);
-          
-          if (!json.ok) {
-            console.error('❌ Backend Error:', json.error);
-            throw new Error(json.error || 'Unknown error from server');
-          }
-          
-          return { ...json, method: 'api', statusUpdated: newStatus };
-          
-        } catch (apiError) {
-          console.error('❌ Both API methods failed:', apiError);
-          throw new Error(`Status update failed: All methods exhausted. Last error: ${apiError.message}`);
-        }
+      if (!supabase) {
+        throw new Error('Supabase client not available');
       }
+      
+      const now = new Date().toISOString();
+      const updatePatch = { 
+        status: newStatus, 
+        updated_at: now 
+      };
+      
+      // Set timestamps based on status
+      if (newStatus === 'paid') updatePatch.paid_at = now;
+      if (newStatus === 'packed') updatePatch.order_packed_at = now;
+      if (newStatus === 'out_for_delivery') updatePatch.order_out_for_delivery_at = now;
+      if (newStatus === 'collected') {
+        updatePatch.order_collected_at = now;
+        updatePatch.fulfilled_at = now;
+      }
+      if (newStatus === 'delivered') {
+        updatePatch.order_delivered_at = now;
+        updatePatch.fulfilled_at = now;
+      }
+      
+      console.log('📤 Updating order with patch:', updatePatch);
+      
+      const { data, error } = await supabase
+        .from('orders')
+        .update(updatePatch)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ Direct update failed:', error);
+        throw new Error(`Database update failed: ${error.message}`);
+      }
+      
+      console.log('✅ Direct database update successful:', data);
+      return { 
+        ok: true, 
+        order: data, 
+        method: 'direct_supabase', 
+        statusUpdated: newStatus,
+        webhookCalled: false, 
+        webhookOk: false,
+        success: true 
+      };
     },
     onSuccess: async (result) => {
       console.log('🎉 Mutation Success:', result);
