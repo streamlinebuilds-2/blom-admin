@@ -14,7 +14,7 @@ export const handler: Handler = async (e) => {
   }
 
   try {
-    const url = new URL(e.rawUrl);
+    url = new URL(e.rawUrl);
     const orderId = url.searchParams.get("order_id");
 
     // Handle individual order query
@@ -99,7 +99,7 @@ export const handler: Handler = async (e) => {
       }
     }
 
-    const url = new URL(e.rawUrl);
+    url = new URL(e.rawUrl);
     const page = Number(url.searchParams.get("page") || 1);
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
     const status = url.searchParams.get("status") || "";
