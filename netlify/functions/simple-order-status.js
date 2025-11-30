@@ -41,35 +41,77 @@ export const handler = async (e) => {
     const currentStatus = order.status;
     console.log(`📋 Order ${order.order_number}: ${currentStatus} -> ${status}`);
 
-    // Simple, direct status update
-    console.log(`📤 Updating status...`);
+    // Use the dedicated RPC function for reliable status updates
+    console.log(`📤 Using RPC function for status update...`);
     const now = new Date().toISOString();
-    const updateData = {
-      status: status,
-      updated_at: now
-    };
-
-    // Add specific timestamps based on status
-    if (status === 'packed') updateData.order_packed_at = now;
-    if (status === 'out_for_delivery') updateData.order_out_for_delivery_at = now;
-    if (status === 'collected' || status === 'delivered') updateData.fulfilled_at = now;
-
-    console.log(`📤 Update data:`, updateData);
-
+    
+    // Use the RPC function that was created in the migration
     const { data: updated, error: updateError } = await s
-      .from("orders")
-      .update(updateData)
-      .eq("id", id)
-      .select("id, status, updated_at, order_packed_at, order_out_for_delivery_at, fulfilled_at")
+      .rpc('update_order_status', {
+        p_order_id: id,
+        p_new_status: status,
+        p_timestamp: now
+      })
       .single();
 
     if (updateError) {
-      console.error(`❌ Update failed:`, updateError);
-      throw new Error(`Update failed: ${updateError.message}`);
+      console.error(`❌ RPC update failed:`, updateError);
+      console.log(`🔄 Trying direct update as fallback...`);
+      
+      // Fallback: direct update if RPC fails
+      const updateData = {
+        status: status,
+        updated_at: now
+      };
+
+      // Add specific timestamps based on status
+      if (status === 'packed') updateData.order_packed_at = now;
+      if (status === 'out_for_delivery') updateData.order_out_for_delivery_at = now;
+      if (status === 'collected' || status === 'delivered') updateData.fulfilled_at = now;
+
+      console.log(`📤 Fallback update data:`, updateData);
+
+      const { data: directUpdated, error: directError } = await s
+        .from("orders")
+        .update(updateData)
+        .eq("id", id)
+        .select("id, status, updated_at, order_packed_at, order_out_for_delivery_at, fulfilled_at")
+        .single();
+
+      if (directError) {
+        console.error(`❌ Direct update also failed:`, directError);
+        throw new Error(`Both RPC and direct update failed: ${directError.message}`);
+      }
+
+      console.log(`✅ Direct update successful`);
+      console.log(`📦 Directly updated order:`, directUpdated);
+      
+      // Use the directly updated data
+      var updated = directUpdated;
+    } else {
+      console.log(`✅ RPC status update successful`);
+      console.log(`📦 RPC updated order:`, updated);
     }
 
-    console.log(`✅ Status updated successfully`);
-    console.log(`📦 Updated order:`, updated);
+    // Verify the status was actually updated
+    console.log(`🔍 Verifying status update...`);
+    const { data: verifyOrder, error: verifyError } = await s
+      .from("orders")
+      .select("id, status, updated_at")
+      .eq("id", id)
+      .single();
+
+    if (verifyError) {
+      console.error(`❌ Verification failed:`, verifyError);
+      throw new Error(`Status verification failed: ${verifyError.message}`);
+    }
+
+    if (verifyOrder.status !== status) {
+      console.error(`❌ Status verification failed! Expected: ${status}, Got: ${verifyOrder.status}`);
+      throw new Error(`Status verification failed! Expected: ${status}, Got: ${verifyOrder.status}`);
+    }
+
+    console.log(`✅ Status update verified: ${currentStatus} -> ${verifyOrder.status}`);
 
     // Send webhook for status changes
     let webhookResult = { called: false, ok: false, error: null };
@@ -132,7 +174,7 @@ export const handler = async (e) => {
       body: JSON.stringify({ 
         ok: true, 
         order: updated,
-        updateMethod: 'simple_direct_update',
+        updateMethod: updateError ? 'rpc_with_fallback' : 'rpc_direct',
         webhook: webhookResult,
         statusChange: {
           from: currentStatus,
@@ -144,7 +186,8 @@ export const handler = async (e) => {
           orderNumber: order.order_number,
           updateSuccess: true,
           webhookCalled: webhookResult.called,
-          webhookOk: webhookResult.ok
+          webhookOk: webhookResult.ok,
+          verificationPassed: verifyOrder.status === status
         }
       })
     };

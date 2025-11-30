@@ -140,9 +140,14 @@ export default function OrderDetail() {
       queryClient.removeQueries({ queryKey: ['order', id] });
       queryClient.removeQueries({ queryKey: ['orders'] });
       
-      // Force immediate refetch
+      // Force immediate refetch with a small delay to ensure database consistency
+      await new Promise(resolve => setTimeout(resolve, 500));
       await queryClient.refetchQueries({ queryKey: ['order', id] });
+      
+      // Also refetch the orders list to update status there
       await queryClient.refetchQueries({ queryKey: ['orders'] });
+      
+      console.log('✅ Cache cleared and data refetched');
 
       // Dispatch custom event to notify other components
       window.dispatchEvent(new CustomEvent('orderStatusUpdated', { 
