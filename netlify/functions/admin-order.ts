@@ -88,7 +88,7 @@ export const handler: Handler = async (e) => {
       return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing id" }) };
     }
 
-    // 1. Get Order with specific columns - include all pricing fields
+    // 1. Get Order with specific columns - include all pricing fields and invoice URL
     const { data: order, error: oErr } = await s.from("orders")
       .select(`
         *,
@@ -97,7 +97,8 @@ export const handler: Handler = async (e) => {
         buyer_name, buyer_email, buyer_phone,
         customer_name, customer_email, customer_phone,
         total_cents, subtotal_cents, shipping_cents, discount_cents,
-        total, subtotal, shipping, discount
+        total, subtotal, shipping, discount,
+        invoice_url
       `)
       .eq("id", id).single();
 

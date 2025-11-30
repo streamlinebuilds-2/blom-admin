@@ -858,6 +858,35 @@ export default function OrderDetail() {
     .notes-textarea::placeholder {
       color: var(--text-muted);
     }
+
+    .btn-download {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .btn-download:hover {
+      transform: translateY(-1px);
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+    }
+
+    .invoice-section {
+      background: var(--bg);
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 16px;
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+    }
   `;
 
   // Logic for Workflow Buttons
@@ -952,10 +981,20 @@ export default function OrderDetail() {
 
           {/* Order Items */}
           <div className="section-card">
-            <h3 className="section-title">
-              <Package size={20} />
-              Order Items ({items.length})
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="section-title">
+                <Package size={20} />
+                Order Items ({items.length})
+              </h3>
+              <button
+                onClick={downloadReceipt}
+                className="btn-download"
+                title="Download Receipt"
+              >
+                <Download size={16} />
+                Download Receipt
+              </button>
+            </div>
             <div className="items-table-container">
               <table className="items-table">
                 <thead>
@@ -1106,6 +1145,34 @@ export default function OrderDetail() {
               </div>
             </div>
           </div>
+
+          {/* Invoice Info */}
+          {order.invoice_url && (
+            <div className="section-card">
+              <h3 className="sidebar-section-title">
+                <FileText size={18} />
+                Invoice
+              </h3>
+              <div className="invoice-section">
+                <div className="info-item mb-3">
+                  <div className="info-label">Status</div>
+                  <div className="info-value text-green-600 font-bold">✅ Invoice Available</div>
+                </div>
+                <div className="info-item">
+                  <div className="info-label mb-2">Actions</div>
+                  <a 
+                    href={order.invoice_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn-primary inline-flex items-center gap-2"
+                  >
+                    <Download size={16} />
+                    View/Download Invoice
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Delivery / Collection Info */}
           <div className="section-card">

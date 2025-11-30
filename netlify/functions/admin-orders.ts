@@ -14,6 +14,67 @@ export const handler: Handler = async (e) => {
   }
 
   try {
+    const url = new URL(e.rawUrl);
+    const orderId = url.searchParams.get("order_id");
+
+    // Handle individual order query
+    if (orderId) {
+      const { data: order, error: orderError } = await s.from("orders")
+        .select(`
+          *,
+          invoice_url,
+          order_items (
+            id,
+            name,
+            product_name,
+            quantity,
+            unit_price_cents,
+            line_total_cents,
+            price,
+            unit_price,
+            line_total,
+            variant,
+            sku,
+            product_id
+          )
+        `)
+        .eq("id", orderId)
+        .single();
+
+      if (orderError) {
+        return {
+          statusCode: 404,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ ok: false, error: "Order not found" })
+        };
+      }
+
+      // Determine invoice information
+      const hasInvoice = !!order.invoice_url;
+      const canGenerateInvoice = order.status === 'paid' || order.payment_status === 'paid';
+      const needsManualGeneration = !hasInvoice && canGenerateInvoice;
+
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({
+          ok: true,
+          order: {
+            ...order,
+            buyer_name: order.buyer_name || order.customer_name,
+            buyer_email: order.buyer_email || order.customer_email,
+            contact_phone: order.contact_phone || order.customer_phone
+          },
+          invoice_info: {
+            has_invoice: hasInvoice,
+            invoice_url: order.invoice_url,
+            can_generate_invoice: canGenerateInvoice,
+            needs_manual_generation: needsManualGeneration
+          }
+        })
+      };
+    }
+
     // Ensure archived column exists
     try {
       // Try to select from orders with archived column to check if it exists
@@ -48,7 +109,7 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived", { count: "exact" })
+      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived,invoice_url", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -104,13 +165,25 @@ export const handler: Handler = async (e) => {
       // Normalize field names (use buyer_* or fallback to customer_*)
       buyer_name: r.buyer_name || r.customer_name,
       buyer_email: r.buyer_email || r.customer_email,
-      contact_phone: r.contact_phone || r.customer_phone
+      contact_phone: r.contact_phone || r.customer_phone,
+      // Invoice status information
+      has_invoice: !!r.invoice_url,
+      invoice_ready: !!r.invoice_url
     }));
+
+    // Calculate invoice summary
+    const hasInvoices = rows.filter(r => !!r.invoice_url).length;
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, total: count || 0, data })
+      body: JSON.stringify({ 
+        ok: true, 
+        total: count || 0, 
+        data,
+        count: count || 0,
+        has_invoices: hasInvoices
+      })
     };
   } catch (err:any) {
     return {
