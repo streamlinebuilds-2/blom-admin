@@ -111,7 +111,7 @@ export default function Orders() {
         },
         body: JSON.stringify({
           id: confirmDialog.order.id,
-          archived: true
+          status: 'archived'
         }),
       });
 
