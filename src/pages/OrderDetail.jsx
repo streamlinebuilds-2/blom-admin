@@ -981,19 +981,11 @@ export default function OrderDetail() {
 
           {/* Order Items */}
           <div className="section-card">
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4">
               <h3 className="section-title">
                 <Package size={20} />
                 Order Items ({items.length})
               </h3>
-              <button
-                onClick={downloadReceipt}
-                className="btn-download"
-                title="Download Receipt"
-              >
-                <Download size={16} />
-                Download Receipt
-              </button>
             </div>
             <div className="items-table-container">
               <table className="items-table">
