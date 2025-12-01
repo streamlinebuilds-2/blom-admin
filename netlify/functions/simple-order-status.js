@@ -41,57 +41,49 @@ export const handler = async (e) => {
     const currentStatus = order.status;
     console.log(`📋 Order ${order.order_number}: ${currentStatus} -> ${status}`);
 
-    // Use the dedicated RPC function for reliable status updates
-    console.log(`📤 Using RPC function for status update...`);
+    // Use direct update (bypasses potentially missing RPC function)
+    console.log(`📤 Using direct update for status change...`);
     const now = new Date().toISOString();
     
-    // Use the RPC function that was created in the migration
+    // Prepare update data with status-specific timestamps
+    const updateData = {
+      status: status,
+      updated_at: now
+    };
+
+    // Add status-specific timestamps based on new status
+    if (status === 'packed') {
+      updateData.order_packed_at = now;
+    }
+    if (status === 'out_for_delivery') {
+      updateData.order_out_for_delivery_at = now;
+    }
+    if (status === 'delivered') {
+      updateData.fulfilled_at = now;
+      updateData.order_delivered_at = now;
+    }
+    if (status === 'collected') {
+      updateData.fulfilled_at = now;
+      updateData.order_collected_at = now;
+    }
+
+    console.log(`📤 Direct update data:`, updateData);
+
+    // Perform direct update
     const { data: updated, error: updateError } = await s
-      .rpc('update_order_status', {
-        p_order_id: id,
-        p_new_status: status,
-        p_timestamp: now
-      })
+      .from("orders")
+      .update(updateData)
+      .eq("id", id)
+      .select("id, status, updated_at, order_packed_at, order_out_for_delivery_at, fulfilled_at")
       .single();
 
     if (updateError) {
-      console.error(`❌ RPC update failed:`, updateError);
-      console.log(`🔄 Trying direct update as fallback...`);
-      
-      // Fallback: direct update if RPC fails
-      const updateData = {
-        status: status,
-        updated_at: now
-      };
-
-      // Add specific timestamps based on status
-      if (status === 'packed') updateData.order_packed_at = now;
-      if (status === 'out_for_delivery') updateData.order_out_for_delivery_at = now;
-      if (status === 'collected' || status === 'delivered') updateData.fulfilled_at = now;
-
-      console.log(`📤 Fallback update data:`, updateData);
-
-      const { data: directUpdated, error: directError } = await s
-        .from("orders")
-        .update(updateData)
-        .eq("id", id)
-        .select("id, status, updated_at, order_packed_at, order_out_for_delivery_at, fulfilled_at")
-        .single();
-
-      if (directError) {
-        console.error(`❌ Direct update also failed:`, directError);
-        throw new Error(`Both RPC and direct update failed: ${directError.message}`);
-      }
-
-      console.log(`✅ Direct update successful`);
-      console.log(`📦 Directly updated order:`, directUpdated);
-      
-      // Use the directly updated data
-      var updated = directUpdated;
-    } else {
-      console.log(`✅ RPC status update successful`);
-      console.log(`📦 RPC updated order:`, updated);
+      console.error(`❌ Direct update failed:`, updateError);
+      throw new Error(`Failed to update order: ${updateError.message}`);
     }
+
+    console.log(`✅ Direct update successful`);
+    console.log(`📦 Updated order:`, updated);
 
     // Verify the status was actually updated
     console.log(`🔍 Verifying status update...`);

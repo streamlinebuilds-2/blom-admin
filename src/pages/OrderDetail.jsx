@@ -95,52 +95,37 @@ export default function OrderDetail() {
       const currentStatus = order?.status || 'unknown';
       console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus });
       
-      // Use direct Supabase API call (bypasses broken Netlify function)
-      console.log('🔄 Using direct Supabase API...');
+      // Use Netlify function for order status updates (correct security architecture)
+      console.log('🔄 Using simple-order-status Netlify function...');
       
-      // Prepare update data based on status
-      const updateData = {
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      };
+      const response = await fetch('/.netlify/functions/simple-order-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: id,
+          status: newStatus
+        })
+      });
       
-      // Add status-specific timestamps
-      if (newStatus === 'packed') {
-        updateData.order_packed_at = new Date().toISOString();
-      }
-      if (newStatus === 'out_for_delivery') {
-        updateData.order_out_for_delivery_at = new Date().toISOString();
-      }
-      if (newStatus === 'collected' || newStatus === 'delivered') {
-        updateData.fulfilled_at = new Date().toISOString();
-        updateData.order_collected_at = newStatus === 'collected' ? new Date().toISOString() : undefined;
-        updateData.order_delivered_at = newStatus === 'delivered' ? new Date().toISOString() : undefined;
+      const result = await response.json();
+      
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || `Failed to update status: HTTP ${response.status}`);
       }
       
-      console.log('📤 Update data:', updateData);
-      
-      const response = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (response.error) {
-        throw new Error(`Failed to update status: ${response.error.message}`);
-      }
-      
-      console.log('✅ Order status update successful via Supabase:', response.data);
+      console.log('✅ Order status update successful via Netlify function:', result);
       
       return { 
         ok: true, 
-        order: response.data,
-        method: 'direct_supabase', 
+        order: result.order,
+        method: result.updateMethod || 'netlify_function', 
         statusUpdated: newStatus,
-        webhookCalled: false, // Will be handled by Supabase triggers
-        webhookOk: false,
-        webhookError: null,
-        updateMethod: 'direct_supabase',
+        webhookCalled: result.webhook?.called || false, 
+        webhookOk: result.webhook?.ok || false,
+        webhookError: result.webhook?.error,
+        updateMethod: result.updateMethod,
         success: true 
       };
     },
