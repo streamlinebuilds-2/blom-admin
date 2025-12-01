@@ -28,37 +28,36 @@ export const handler: Handler = async (event) => {
     }
 
     const supabase = getSupabaseAdmin();
-    const promises = [];
 
     // 1. Update Stock (if quantity changed)
     if (quantityChangeValue && quantityChangeValue !== 0) {
-      // Invert logic: Input 5 means ADD 5. RPC takes "quantity_to_reduce".
-      // So to ADD, we reduce by -5.
-      const reduceBy = -quantityChangeValue;
-
-      const stockPromise = supabase.rpc('adjust_stock', {
+      // First update the stock
+      const { error: stockError } = await supabase.rpc('adjust_stock', {
         product_uuid: productId,
-        quantity_to_reduce: reduceBy
-      }).then(async ({ error }) => {
-        if (error) throw error;
-
-        // Log movement
-        const { error: logError } = await supabase.from('stock_movements').insert({
-          product_id: productId,
-          delta: quantityChangeValue,
-          reason: reason || 'manual_adjustment',
-          product_name: 'Manual Update' // Will be filled by trigger or ignored, mostly for ref
-        });
-        if (logError) console.error('Log Error:', logError);
+        quantity_to_reduce: -quantityChangeValue // Negative to add, positive to reduce
       });
+      
+      if (stockError) {
+        throw new Error(`Stock update failed: ${stockError.message}`);
+      }
 
-      promises.push(stockPromise);
+      // Log movement using the simple logging function
+      const { error: logError } = await supabase.rpc('log_stock_movement', {
+        p_product_id: productId,
+        p_delta: quantityChangeValue,
+        p_reason: `Manual stock adjustment: ${quantityChangeValue > 0 ? 'Added' : 'Removed'} ${Math.abs(quantityChangeValue)} units (${reason || 'manual_adjustment'})`
+      });
+      
+      if (logError) {
+        console.error('Stock movement log error:', logError);
+        // Don't throw here, the stock was updated successfully
+      }
     }
 
     // 2. Update Cost Price (if provided)
     if (costPrice !== undefined && costPrice !== null) {
       const costCents = Math.round(parseFloat(costPrice) * 100);
-      const costPromise = supabase
+      const { error: costError } = await supabase
         .from('products')
         .update({
           cost_price_cents: costCents,
@@ -66,10 +65,10 @@ export const handler: Handler = async (event) => {
         })
         .eq('id', productId);
 
-      promises.push(costPromise);
+      if (costError) {
+        throw new Error(`Cost price update failed: ${costError.message}`);
+      }
     }
-
-    await Promise.all(promises);
 
     // CRITICAL: Also invalidate products query so Products page updates
     // Even though we're updating via RPC, the products table doesn't auto-refresh
@@ -84,7 +83,13 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true })
+      body: JSON.stringify({ 
+        ok: true,
+        message: 'Stock adjusted successfully',
+        productId,
+        delta: quantityChangeValue,
+        reason: reason || 'manual_adjustment'
+      })
     };
 
   } catch (e: any) {

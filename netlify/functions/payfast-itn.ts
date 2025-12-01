@@ -126,12 +126,14 @@ export const handler: Handler = async (event) => {
       console.error(`Error creating payment record for ${orderId}:`, paymentError.message);
     }
 
-    // 8. Call the 'adjust_stock_for_order' RPC
-    const { error: rpcError } = await supabase.rpc('adjust_stock_for_order', {
+    // 8. Call the enhanced stock deduction function
+    const { data: deductionResult, error: rpcError } = await supabase.rpc('process_order_stock_deduction', {
       p_order_id: orderId
     });
     if (rpcError) {
-      console.error(`Error triggering stock adjustment RPC for ${orderId}:`, rpcError.message);
+      console.error(`Error triggering stock deduction for ${orderId}:`, rpcError.message);
+    } else {
+      console.log(`Stock deduction completed for order ${orderId}:`, deductionResult);
     }
 
     // 9. Call 'mark_coupon_used' RPC if a coupon was used
