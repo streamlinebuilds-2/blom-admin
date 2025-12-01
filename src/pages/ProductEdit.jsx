@@ -61,7 +61,7 @@ const initialFormState = {
   overview: "",
   thumbnail_url: "",
   hover_url: "",
-  variants: [{ name: "", image: "" }],
+  variants: [{ name: "", image: "", price_cents: null }],
   features: [""],
   how_to_use: [""],
   inci_ingredients: [""],
@@ -387,13 +387,17 @@ export default function ProductEdit() {
           // Convert variants from label to name format if needed
           const normalizedVariants = Array.isArray(product.variants) && product.variants.length > 0
             ? product.variants.map(v => {
-                if (typeof v === 'string') return { name: v, image: '' };
-                // Handle both 'label' and 'name' formats
-                const normalized = { name: v.name || v.label || '', image: v.image || '' };
+                if (typeof v === 'string') return { name: v, image: '', price_cents: null };
+                // Handle both 'label' and 'name' formats, include price_cents
+                const normalized = { 
+                  name: v.name || v.label || '', 
+                  image: v.image || '',
+                  price_cents: v.price_cents || null 
+                };
                 console.log('🔄 Normalized variant:', v, '→', normalized);
                 return normalized;
               })
-            : [{ name: "", image: "" }];
+            : [{ name: "", image: "", price_cents: null }];
 
           console.log('🔄 Final normalized variants:', normalizedVariants);
 

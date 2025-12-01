@@ -113,8 +113,16 @@ export default function OrderDetail() {
         }
       };
       
-      // Send to webhook endpoint
-      const webhookUrl = 'https://your-webhook-endpoint.com/order-status-update';
+      // Send to correct webhook based on status and fulfillment type
+      let webhookUrl = null;
+      
+      if (newStatus === 'packed') {
+        webhookUrl = order?.fulfillment_type === 'collection'
+          ? 'https://dockerfile-1n82.onrender.com/webhook/ready-for-collection'
+          : 'https://dockerfile-1n82.onrender.com/webhook/ready-for-delivery';
+      } else if (newStatus === 'out_for_delivery') {
+        webhookUrl = 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery';
+      }
       
       const response = await fetch(webhookUrl, {
         method: 'POST',
