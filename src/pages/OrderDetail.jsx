@@ -187,23 +187,33 @@ export default function OrderDetail() {
       // Get the status that was updated from the result
       const updatedStatus = result.statusUpdated;
       
-      // Clear cache completely and force immediate refetch
+      // IMPROVED: Better cache invalidation strategy
       console.log('🔄 Clearing cache and refetching order data...');
+      
+      // Remove specific queries to ensure fresh data
       queryClient.removeQueries({ queryKey: ['order', id] });
       queryClient.removeQueries({ queryKey: ['orders'] });
       
-      // Force immediate refetch with a small delay to ensure database consistency
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await queryClient.refetchQueries({ queryKey: ['order', id] });
+      // Force immediate refetch with optimized timing
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['order', id], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: ['orders'], type: 'active' })
+      ]);
       
-      // Also refetch the orders list to update status there
-      await queryClient.refetchQueries({ queryKey: ['orders'] });
+      // Also invalidate any related queries
+      queryClient.invalidateQueries({ queryKey: ['order'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       
       console.log('✅ Cache cleared and data refetched');
 
-      // Dispatch custom event to notify other components
+      // Dispatch custom event to notify other components with updated data
       window.dispatchEvent(new CustomEvent('orderStatusUpdated', { 
-        detail: { orderId: id, newStatus: updatedStatus } 
+        detail: { 
+          orderId: id, 
+          newStatus: updatedStatus,
+          timestamp: new Date().toISOString(),
+          forceRefresh: true
+        } 
       }));
 
       // Show success message with webhook status

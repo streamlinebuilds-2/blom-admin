@@ -1,88 +1,97 @@
-import type { Handler } from "@netlify/functions";
+export const handler = async (event: any) => {
+  // Enable CORS
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
 
-export const handler: Handler = async (event) => {
-  // Handle CORS preflight requests
+  // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
-      },
-      body: ""
-    };
-  }
-
-  // Only allow POST requests
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method not allowed" })
+      headers,
+      body: 'OK',
     };
   }
 
   try {
-    // Get webhook type from path
-    const path = event.rawUrl.split('/').pop();
-    let targetUrl = '';
-
-    // Map path to actual webhook URL
-    switch (path) {
-      case 'ready-for-collection':
-        targetUrl = 'https://dockerfile-1n82.onrender.com/webhook/ready-for-collection';
-        break;
-      case 'ready-for-delivery':
-        targetUrl = 'https://dockerfile-1n82.onrender.com/webhook/ready-for-delivery';
-        break;
-      case 'out-for-delivery':
-        targetUrl = 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery';
-        break;
-      default:
-        return {
-          statusCode: 404,
-          body: JSON.stringify({ error: "Webhook type not found" })
-        };
+    // Extract webhook path from the URL
+    const path = event.rawUrl.split('/webhook-proxy/')[1] || '';
+    
+    if (!path) {
+      throw new Error('Missing webhook path');
     }
 
-    console.log(`📡 Proxying webhook to: ${targetUrl}`);
+    console.log(`🔄 Proxying webhook request to: ${path}`);
+
+    // Map webhook paths to actual webhook URLs
+    const webhookMappings: Record<string, string> = {
+      'ready-for-delivery': 'https://dockerfile-1n82.onrender.com/webhook/ready-for-delivery',
+      'ready-for-collection': 'https://dockerfile-1n82.onrender.com/webhook/ready-for-collection', 
+      'out-for-delivery': 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery',
+    };
+
+    const targetWebhookUrl = webhookMappings[path];
+    
+    if (!targetWebhookUrl) {
+      throw new Error(`Unknown webhook path: ${path}`);
+    }
+
+    console.log(`📡 Forwarding to: ${targetWebhookUrl}`);
+
+    // Parse the request body
+    let payload: any = {};
+    if (event.body) {
+      try {
+        payload = JSON.parse(event.body);
+      } catch (err) {
+        console.warn('Failed to parse request body:', err);
+      }
+    }
+
+    console.log('📦 Webhook payload:', JSON.stringify(payload, null, 2));
 
     // Forward the request to the actual webhook
-    const response = await fetch(targetUrl, {
+    const webhookResponse = await fetch(targetWebhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'User-Agent': 'BLOM-Admin-Proxy/1.0',
       },
-      body: event.body || ''
+      body: JSON.stringify(payload),
     });
 
-    const responseText = await response.text();
+    const responseText = await webhookResponse.text();
     
-    console.log(`✅ Webhook response:`, response.status, responseText);
+    console.log(`📥 Webhook response status: ${webhookResponse.status}`);
+    console.log(`📥 Webhook response: ${responseText}`);
 
-    // Return the response with proper CORS headers
+    // Return success regardless of webhook response to avoid blocking the UI
+    // The UI should continue working even if webhook fails
     return {
-      statusCode: response.status,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json"
-      },
-      body: responseText
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        ok: true,
+        webhook_forwarded: true,
+        webhook_status: webhookResponse.status,
+        webhook_response: responseText,
+        message: 'Webhook request proxied successfully',
+      }),
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Webhook proxy error:', error);
-    
+
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ 
-        error: "Webhook proxy failed", 
-        message: error.message 
-      })
+      headers,
+      body: JSON.stringify({
+        ok: false,
+        error: error.message || 'Unknown error',
+        webhook_forwarded: false,
+      }),
     };
   }
 };
