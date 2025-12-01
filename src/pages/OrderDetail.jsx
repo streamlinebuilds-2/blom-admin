@@ -113,16 +113,18 @@ export default function OrderDetail() {
         }
       };
       
-      // Send to correct webhook based on status and fulfillment type
-      let webhookUrl = null;
+      // Send to correct webhook via proxy to avoid CORS issues
+      let webhookPath = null;
       
       if (newStatus === 'packed') {
-        webhookUrl = order?.fulfillment_type === 'collection'
-          ? 'https://dockerfile-1n82.onrender.com/webhook/ready-for-collection'
-          : 'https://dockerfile-1n82.onrender.com/webhook/ready-for-delivery';
+        webhookPath = order?.fulfillment_type === 'collection'
+          ? 'ready-for-collection'
+          : 'ready-for-delivery';
       } else if (newStatus === 'out_for_delivery') {
-        webhookUrl = 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery';
+        webhookPath = 'out-for-delivery';
       }
+      
+      const webhookUrl = webhookPath ? `/.netlify/functions/webhook-proxy/${webhookPath}` : null;
       
       let webhookResponse;
       let webhookOk = false;
@@ -172,6 +174,7 @@ export default function OrderDetail() {
         database_updated: true,
         statusUpdated: newStatus,
         webhookUrl: webhookUrl,
+        webhookPath: webhookPath,
         payload: payload,
         order: dbResult.order,
         success: true,
