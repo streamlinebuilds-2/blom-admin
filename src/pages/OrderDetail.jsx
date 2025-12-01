@@ -124,15 +124,25 @@ export default function OrderDetail() {
         webhookUrl = 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery';
       }
       
-      const webhookResponse = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
+      let webhookResponse;
+      let webhookOk = false;
       
-      console.log('✅ Webhook payload sent successfully');
+      try {
+        webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        webhookOk = webhookResponse.ok;
+        console.log('✅ Webhook payload sent successfully');
+      } catch (webhookError) {
+        console.warn('⚠️ Webhook request failed (CORS or network issue):', webhookError.message);
+        // Continue with database update even if webhook fails
+        webhookResponse = { ok: false };
+      }
       
       // STEP 2: Update the database directly
       console.log('🗄️ Updating order status in database...');
@@ -158,13 +168,14 @@ export default function OrderDetail() {
       
       return { 
         ok: true, 
-        payload_sent: true,
+        payload_sent: webhookOk,
         database_updated: true,
         statusUpdated: newStatus,
         webhookUrl: webhookUrl,
         payload: payload,
         order: dbResult.order,
-        success: true 
+        success: true,
+        webhookError: !webhookOk ? 'CORS or network issue - webhook may need server-side configuration' : null
       };
     },
     onSuccess: async (result) => {
@@ -193,10 +204,10 @@ export default function OrderDetail() {
       }));
 
       // Show success message with webhook status
-      if (result.payload_sent && result.database_updated) {
+      if (result.database_updated && result.payload_sent) {
         showToast('success', `Order status updated to "${updatedStatus}" - workflow notified and database updated`);
-      } else if (result.database_updated) {
-        showToast('success', `Order status updated to "${updatedStatus}" in database`);
+      } else if (result.database_updated && !result.payload_sent) {
+        showToast('warning', `Order status updated to "${updatedStatus}" in database, but webhook failed (${result.webhookError || 'CORS issue'})`);
       } else if (result.payload_sent) {
         showToast('success', `Workflow notified for "${updatedStatus}" status change`);
       } else {
