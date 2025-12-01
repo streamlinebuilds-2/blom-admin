@@ -89,13 +89,13 @@ export default function OrderDetail() {
     if (order?.notes) setNotes(order.notes);
   }, [order]);
 
-  // 2. Update Status Mutation - Send webhook payload only
+  // 2. Update Status Mutation - Send webhook payload AND update database
   const statusMutation = useMutation({
     mutationFn: async (newStatus) => {
       const currentStatus = order?.status || 'unknown';
       console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus });
       
-      // Send webhook payload to user's workflow
+      // STEP 1: Send webhook payload to user's workflow
       console.log('📡 Sending status update payload to webhook...');
       
       const payload = {
@@ -124,7 +124,7 @@ export default function OrderDetail() {
         webhookUrl = 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery';
       }
       
-      const response = await fetch(webhookUrl, {
+      const webhookResponse = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -134,12 +134,36 @@ export default function OrderDetail() {
       
       console.log('✅ Webhook payload sent successfully');
       
+      // STEP 2: Update the database directly
+      console.log('🗄️ Updating order status in database...');
+      
+      const dbResponse = await fetch('/.netlify/functions/admin-order', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: id,
+          status: newStatus
+        })
+      });
+      
+      const dbResult = await dbResponse.json();
+      
+      if (!dbResponse.ok || !dbResult.ok) {
+        throw new Error(`Database update failed: ${dbResult.error || 'Unknown error'}`);
+      }
+      
+      console.log('✅ Database updated successfully');
+      
       return { 
         ok: true, 
         payload_sent: true,
+        database_updated: true,
         statusUpdated: newStatus,
         webhookUrl: webhookUrl,
         payload: payload,
+        order: dbResult.order,
         success: true 
       };
     },
@@ -168,23 +192,20 @@ export default function OrderDetail() {
         detail: { orderId: id, newStatus: updatedStatus } 
       }));
 
-      // Show appropriate message based on method used and webhook results
-      if (result.method === 'netlify_function') {
-        if (result.webhookCalled && result.webhookOk) {
-          showToast('success', `Order status updated successfully - notification sent to customer`);
-        } else if (result.webhookCalled && !result.webhookOk) {
-          showToast('warning', `Order status updated successfully, but notification failed: ${result.webhookError || 'Unknown error'}`);
-        } else {
-          showToast('success', `Order status updated successfully`);
-        }
+      // Show success message with webhook status
+      if (result.payload_sent && result.database_updated) {
+        showToast('success', `Order status updated to "${updatedStatus}" - workflow notified and database updated`);
+      } else if (result.database_updated) {
+        showToast('success', `Order status updated to "${updatedStatus}" in database`);
+      } else if (result.payload_sent) {
+        showToast('success', `Workflow notified for "${updatedStatus}" status change`);
       } else {
-        // Legacy method fallback (shouldn't happen now)
         showToast('success', `Order status updated successfully`);
       }
     },
     onError: (err) => {
       console.error('❌ Mutation Error:', err);
-      showToast('error', `Failed to update status: ${err.message}`);
+      showToast('error', `Failed to update order status: ${err.message}`);
     }
   });
 
