@@ -89,43 +89,49 @@ export default function OrderDetail() {
     if (order?.notes) setNotes(order.notes);
   }, [order]);
 
-  // 2. Update Status Mutation
+  // 2. Update Status Mutation - Send webhook payload only
   const statusMutation = useMutation({
     mutationFn: async (newStatus) => {
       const currentStatus = order?.status || 'unknown';
       console.log('🔄 Status Update Request:', { orderId: id, newStatus, currentStatus });
       
-      // Use Netlify function for order status updates (correct security architecture)
-      console.log('🔄 Using simple-order-status Netlify function...');
+      // Send webhook payload to user's workflow
+      console.log('📡 Sending status update payload to webhook...');
       
-      const response = await fetch('/.netlify/functions/simple-order-status', {
+      const payload = {
+        event: 'order_status_change_request',
+        order_id: id,
+        order_number: order?.order_number,
+        previous_status: currentStatus,
+        new_status: newStatus,
+        timestamp: new Date().toISOString(),
+        fulfillment_type: order?.fulfillment_type,
+        customer_info: {
+          name: order?.buyer_name || order?.customer_name,
+          email: order?.buyer_email || order?.customer_email,
+          phone: order?.buyer_phone || order?.customer_phone
+        }
+      };
+      
+      // Send to webhook endpoint
+      const webhookUrl = 'https://your-webhook-endpoint.com/order-status-update';
+      
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          id: id,
-          status: newStatus
-        })
+        body: JSON.stringify(payload)
       });
       
-      const result = await response.json();
-      
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || `Failed to update status: HTTP ${response.status}`);
-      }
-      
-      console.log('✅ Order status update successful via Netlify function:', result);
+      console.log('✅ Webhook payload sent successfully');
       
       return { 
         ok: true, 
-        order: result.order,
-        method: result.updateMethod || 'netlify_function', 
+        payload_sent: true,
         statusUpdated: newStatus,
-        webhookCalled: result.webhook?.called || false, 
-        webhookOk: result.webhook?.ok || false,
-        webhookError: result.webhook?.error,
-        updateMethod: result.updateMethod,
+        webhookUrl: webhookUrl,
+        payload: payload,
         success: true 
       };
     },
