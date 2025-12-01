@@ -588,15 +588,28 @@ export default function ProductEdit() {
     setForm((previous) => {
       const next = [...previous.variants];
       const current = next[index];
-      const updated = typeof current === "string"
-        ? { name: current, image: "", price_cents: priceCents }
-        : { ...current, price_cents: priceCents };
-      next[index] = updated;
+      
+      // Handle undefined or null current variant
+      if (!current) {
+        const newVariant = { name: "", image: "", price_cents: priceCents };
+        next[index] = newVariant;
+      } else if (typeof current === "string") {
+        const updated = { name: current, image: "", price_cents: priceCents };
+        next[index] = updated;
+      } else {
+        const updated = { ...current, price_cents: priceCents };
+        next[index] = updated;
+      }
+      
       return { ...previous, variants: next };
     });
   };
 
   const getVariantDisplayPrice = (variant) => {
+    // Add null/undefined check
+    if (!variant) {
+      return `R${(parseFloat(form.price || 0)).toFixed(2)} (Default)`;
+    }
     if (variant.price_cents && variant.price_cents > 0) {
       return `R${(variant.price_cents / 100).toFixed(2)}`;
     }
@@ -604,6 +617,10 @@ export default function ProductEdit() {
   };
 
   const hasCustomPrice = (variant) => {
+    // Add null/undefined check
+    if (!variant) {
+      return false;
+    }
     return variant.price_cents && variant.price_cents > 0;
   };
 
@@ -636,6 +653,27 @@ export default function ProductEdit() {
   const getVariantPriceInput = (index) => {
     const variant = variants[index];
     const isEditing = editingVariantPrice[index];
+    
+    // Additional safety check for undefined variant
+    if (!variant) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="variant-price-display variant-price-default">
+            R{(parseFloat(form.price || 0)).toFixed(2)} (Default)
+          </span>
+          <button
+            type="button"
+            onClick={() => startEditingVariantPrice(index)}
+            className="product-btn-secondary"
+            style={{ padding: '4px 8px', fontSize: '11px' }}
+            title="Set custom price"
+          >
+            ✏️ Custom
+          </button>
+        </div>
+      );
+    }
+    
     const currentPrice = hasCustomPrice(variant) 
       ? (variant.price_cents / 100).toFixed(2)
       : (parseFloat(form.price || 0)).toFixed(2);
