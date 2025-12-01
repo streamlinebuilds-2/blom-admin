@@ -587,6 +587,15 @@ export default function ProductEdit() {
   const updateVariantPrice = (index, priceCents) => {
     setForm((previous) => {
       const next = [...previous.variants];
+      
+      // Ensure the array is large enough
+      if (index >= next.length) {
+        // Fill array with empty variants up to the index
+        while (next.length <= index) {
+          next.push({ name: "", image: "", price_cents: null });
+        }
+      }
+      
       const current = next[index];
       
       // Handle undefined or null current variant
@@ -606,22 +615,26 @@ export default function ProductEdit() {
   };
 
   const getVariantDisplayPrice = (variant) => {
-    // Add null/undefined check
-    if (!variant) {
+    // Add robust null/undefined check
+    if (!variant || typeof variant !== 'object') {
       return `R${(parseFloat(form.price || 0)).toFixed(2)} (Default)`;
     }
-    if (variant.price_cents && variant.price_cents > 0) {
-      return `R${(variant.price_cents / 100).toFixed(2)}`;
+    // Safely access price_cents with fallback
+    const priceCents = variant.price_cents ?? null;
+    if (priceCents && priceCents > 0) {
+      return `R${(priceCents / 100).toFixed(2)}`;
     }
     return `R${(parseFloat(form.price || 0)).toFixed(2)} (Default)`;
   };
 
   const hasCustomPrice = (variant) => {
-    // Add null/undefined check
-    if (!variant) {
+    // Add robust null/undefined check
+    if (!variant || typeof variant !== 'object') {
       return false;
     }
-    return variant.price_cents && variant.price_cents > 0;
+    // Safely access price_cents with fallback
+    const priceCents = variant.price_cents ?? null;
+    return priceCents && priceCents > 0;
   };
 
   const startEditingVariantPrice = (index) => {
@@ -651,11 +664,22 @@ export default function ProductEdit() {
   };
 
   const getVariantPriceInput = (index) => {
+    // Add bounds checking to prevent undefined access
+    if (index < 0 || index >= variants.length) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="variant-price-display variant-price-default">
+            R{(parseFloat(form.price || 0)).toFixed(2)} (Default)
+          </span>
+        </div>
+      );
+    }
+    
     const variant = variants[index];
     const isEditing = editingVariantPrice[index];
     
     // Additional safety check for undefined variant
-    if (!variant) {
+    if (!variant || typeof variant !== 'object') {
       return (
         <div className="flex items-center gap-2">
           <span className="variant-price-display variant-price-default">

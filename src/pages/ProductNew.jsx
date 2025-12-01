@@ -61,7 +61,7 @@ const initialFormState = {
   overview: "",
   thumbnail_url: "",
   hover_url: "",
-  variants: [{ name: "", image: "" }],
+  variants: [{ name: "", image: "", price_cents: null }],
   features: [""],
   how_to_use: [""],
   inci_ingredients: [""],
@@ -125,6 +125,9 @@ export default function ProductNew() {
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
+  
+  // Track which variants are being edited
+  const [editingVariantPrice, setEditingVariantPrice] = useState({});
 
   const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -223,7 +226,7 @@ export default function ProductNew() {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
       if (field === "variants") {
-        next.push({ name: "", image: "" });
+        next.push({ name: "", image: "", price_cents: null });
       } else if (field === "related") {
         next.push("");
       } else {
@@ -238,7 +241,7 @@ export default function ProductNew() {
       const next = getArrayFromPrevious(previous, field);
       next.splice(index, 1);
       if (field === "variants") {
-        return { ...previous, [field]: next.length ? next : [{ name: "", image: "" }] };
+        return { ...previous, [field]: next.length ? next : [{ name: "", image: "", price_cents: null }] };
       } else if (field === "related") {
         return { ...previous, [field]: next.length ? next : [] };
       }
@@ -263,6 +266,196 @@ export default function ProductNew() {
       
       return { ...previous, [field]: next };
     });
+  };
+
+  const updateVariantPrice = (index, priceCents) => {
+    setForm((previous) => {
+      const next = [...previous.variants];
+      
+      // Ensure the array is large enough
+      if (index >= next.length) {
+        // Fill array with empty variants up to the index
+        while (next.length <= index) {
+          next.push({ name: "", image: "", price_cents: null });
+        }
+      }
+      
+      const current = next[index];
+      
+      // Handle undefined or null current variant
+      if (!current) {
+        const newVariant = { name: "", image: "", price_cents: priceCents };
+        next[index] = newVariant;
+      } else if (typeof current === "string") {
+        const updated = { name: current, image: "", price_cents: priceCents };
+        next[index] = updated;
+      } else {
+        const updated = { ...current, price_cents: priceCents };
+        next[index] = updated;
+      }
+      
+      return { ...previous, variants: next };
+    });
+  };
+
+  const getVariantDisplayPrice = (variant) => {
+    // Add robust null/undefined check
+    if (!variant || typeof variant !== 'object') {
+      return `R${(parseFloat(form.price || 0)).toFixed(2)} (Default)`;
+    }
+    // Safely access price_cents with fallback
+    const priceCents = variant.price_cents ?? null;
+    if (priceCents && priceCents > 0) {
+      return `R${(priceCents / 100).toFixed(2)}`;
+    }
+    return `R${(parseFloat(form.price || 0)).toFixed(2)} (Default)`;
+  };
+
+  const hasCustomPrice = (variant) => {
+    // Add robust null/undefined check
+    if (!variant || typeof variant !== 'object') {
+      return false;
+    }
+    // Safely access price_cents with fallback
+    const priceCents = variant.price_cents ?? null;
+    return priceCents && priceCents > 0;
+  };
+
+  const startEditingVariantPrice = (index) => {
+    setEditingVariantPrice(prev => ({ ...prev, [index]: true }));
+  };
+
+  const cancelEditingVariantPrice = (index) => {
+    setEditingVariantPrice(prev => ({ ...prev, [index]: false }));
+  };
+
+  const saveVariantPrice = (index, priceValue) => {
+    const priceNumber = parseFloat(priceValue);
+    if (Number.isFinite(priceNumber) && priceNumber >= 0) {
+      const priceCents = Math.round(priceNumber * 100);
+      updateVariantPrice(index, priceCents);
+      cancelEditingVariantPrice(index);
+      showToast('success', `Variant ${index + 1} price updated to R${priceNumber.toFixed(2)}`);
+    } else {
+      showToast('error', 'Please enter a valid price');
+    }
+  };
+
+  const resetToDefaultPrice = (index) => {
+    updateVariantPrice(index, null);
+    cancelEditingVariantPrice(index);
+    showToast('success', `Variant ${index + 1} price reset to default`);
+  };
+
+  const getVariantPriceInput = (index) => {
+    // Add bounds checking to prevent undefined access
+    if (index < 0 || index >= variants.length) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="variant-price-display variant-price-default">
+            R{(parseFloat(form.price || 0)).toFixed(2)} (Default)
+          </span>
+        </div>
+      );
+    }
+    
+    const variant = variants[index];
+    const isEditing = editingVariantPrice[index];
+    
+    // Additional safety check for undefined variant
+    if (!variant || typeof variant !== 'object') {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="variant-price-display variant-price-default">
+            R{(parseFloat(form.price || 0)).toFixed(2)} (Default)
+          </span>
+          <button
+            type="button"
+            onClick={() => startEditingVariantPrice(index)}
+            className="product-btn-secondary"
+            style={{ padding: '4px 8px', fontSize: '11px' }}
+            title="Set custom price"
+          >
+            ✏️ Custom
+          </button>
+        </div>
+      );
+    }
+    
+    const currentPrice = hasCustomPrice(variant) 
+      ? (variant.price_cents / 100).toFixed(2)
+      : (parseFloat(form.price || 0)).toFixed(2);
+    
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            defaultValue={currentPrice}
+            className="price-edit-input"
+            placeholder="0.00"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                saveVariantPrice(index, e.target.value);
+              } else if (e.key === 'Escape') {
+                cancelEditingVariantPrice(index);
+              }
+            }}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              const input = e.target.parentElement.querySelector('input');
+              saveVariantPrice(index, input.value);
+            }}
+            className="product-btn-secondary"
+            style={{ padding: '6px 10px', fontSize: '12px' }}
+          >
+            ✓ Save
+          </button>
+          <button
+            type="button"
+            onClick={() => cancelEditingVariantPrice(index)}
+            className="product-btn-secondary"
+            style={{ padding: '6px 10px', fontSize: '12px' }}
+          >
+            ✕ Cancel
+          </button>
+          {hasCustomPrice(variant) && (
+            <button
+              type="button"
+              onClick={() => resetToDefaultPrice(index)}
+              className="product-btn-secondary"
+              style={{ padding: '6px 10px', fontSize: '12px', background: 'var(--accent)', color: 'white' }}
+            >
+              🎯 Default
+            </button>
+          )}
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center gap-2">
+        <span 
+          className={`variant-price-display ${hasCustomPrice(variant) ? 'variant-price-custom' : 'variant-price-default'}`}
+        >
+          {getVariantDisplayPrice(variant)}
+        </span>
+        <button
+          type="button"
+          onClick={() => startEditingVariantPrice(index)}
+          className="product-btn-secondary"
+          style={{ padding: '4px 8px', fontSize: '11px' }}
+          title={hasCustomPrice(variant) ? 'Edit custom price' : 'Set custom price'}
+        >
+          ✏️ {hasCustomPrice(variant) ? 'Edit' : 'Custom'}
+        </button>
+      </div>
+    );
   };
 
   const priceNumber = useMemo(() => {
@@ -306,12 +499,21 @@ export default function ProductNew() {
     return list
       .map((item) => {
         if (typeof item === "string") {
-          return item.trim() ? { name: item.trim(), image: "" } : null;
+          return item.trim() ? { name: item.trim(), image: "", price_cents: null } : null;
         }
-        return (item?.name?.trim() || item?.image?.trim()) ? {
-          name: item.name?.trim() || "",
-          image: item.image?.trim() || ""
-        } : null;
+        // Allow variants that have at least a name (image and price are optional)
+        const name = item?.name?.trim() || "";
+        const image = item?.image?.trim() || "";
+        const price_cents = item?.price_cents ?? null;
+        
+        // Only filter out completely empty variants (no name AND no image AND no price)
+        if (!name && !image && price_cents === null) return null;
+        
+        return {
+          name: name,
+          image: image,
+          price_cents: price_cents
+        };
       })
       .filter(Boolean);
   }, [form.variants]);
@@ -756,6 +958,31 @@ export default function ProductNew() {
           border: 2px solid var(--border);
           box-shadow: 2px 2px 4px var(--shadow-dark);
         }
+        .variant-price-display {
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid var(--border);
+        }
+        .variant-price-custom {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+        .variant-price-default {
+          background: var(--bg);
+          color: var(--text-muted);
+        }
+        .price-edit-input {
+          width: 80px;
+          padding: 4px 6px;
+          font-size: 12px;
+          border-radius: 4px;
+          border: 1px solid var(--border);
+          background: var(--card);
+          color: var(--text);
+        }
         /* Utility Classes */
         .space-y-1 > * + * { margin-top: 0.25rem; }
         .space-y-2 > * + * { margin-top: 0.5rem; }
@@ -855,9 +1082,18 @@ export default function ProductNew() {
             width: 100% !important;
           }
 
+          .variant-row .price-edit-input {
+            width: 100% !important;
+          }
+
           .variant-image-upload {
             justify-content: flex-start !important;
             width: 100% !important;
+          }
+
+          .variant-price-display {
+            font-size: 13px !important;
+            padding: 6px 10px !important;
           }
 
           /* Mobile-friendly buttons */
@@ -1243,7 +1479,9 @@ export default function ProductNew() {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-[var(--text)]">Variants</label>
-                <small className="text-xs text-[var(--text-muted)] block mb-2">e.g., different sizes or colors with unique images</small>
+                <small className="text-xs text-[var(--text-muted)] block mb-2">
+                  e.g., different sizes or colors with unique images. Each variant can have its own price or use the default product price.
+                </small>
                 <div className="space-y-3">
                   {ensureList(form.variants).map((variant, index) => (
                     <div key={`variant-${index}`} className="variant-row">
@@ -1318,6 +1556,12 @@ export default function ProductNew() {
                             className="variant-thumbnail"
                           />
                         )}
+                      </div>
+                      
+                      {/* Custom Price Section */}
+                      <div className="flex flex-col gap-1" style={{ minWidth: '200px' }}>
+                        <label className="text-xs font-medium text-[var(--text-muted)]">Price</label>
+                        {getVariantPriceInput(index)}
                       </div>
                       <button
                         type="button"
