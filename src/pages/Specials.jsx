@@ -976,7 +976,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
         if (value === 'fixed') {
           newState.percent = 0; // Clear percentage when switching to fixed
         } else {
-          newState.value = 0; // Clear fixed value when switching to percentage
+          newState.value = 0; // Clear fixed value when switching to percent
         }
       }
       
@@ -1021,9 +1021,13 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    // Debug logging
+    console.log('📋 Form submission data:', formState);
+    
     // Validation for discount values
-    if (formState.type === 'percentage') {
+    if (formState.type === 'percent') {
       const percentValue = parseInt(formState.percent);
+      console.log('📊 Percentage value:', percentValue, 'Type:', typeof percentValue);
       if (!percentValue || percentValue < 1 || percentValue > 100) {
         showToast('error', 'Please enter a valid percentage between 1 and 100');
         return;
@@ -1039,10 +1043,11 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     // Prepare the data for submission based on discount type
     const submissionData = {
       ...formState,
-      // Use percent field for percentage discounts, value field for fixed discounts
-      value: formState.type === 'percentage' ? formState.percent : formState.value,
+      // Use percent field for percent discounts, value field for fixed discounts
+      value: formState.type === 'percent' ? formState.percent : formState.value,
     };
     
+    console.log('📤 Final submission data:', submissionData);
     mutation.mutate(submissionData);
   };
 
@@ -1103,7 +1108,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 onChange={handleChange}
                 className="form-select"
               >
-                <option value="percentage">Percentage (%)</option>
+                <option value="percent">Percentage (%)</option>
                 <option value="fixed">Fixed Amount (R)</option>
               </select>
             </div>
