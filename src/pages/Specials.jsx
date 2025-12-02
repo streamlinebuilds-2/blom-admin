@@ -923,26 +923,41 @@ export default function Specials() {
 // --- Coupon Form Component with neumorphic styling ---
 function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false, showToast }) {
   const queryClient = useQueryClient();
-  const [formState, setFormState] = useState({
-    id: coupon?.id || null,
-    code: coupon?.code || '',
-    description: coupon?.notes || '',
-    is_active: coupon?.is_active ?? true,
-    type: normalizeCouponType(coupon?.type),
-    value: coupon?.value || 0,
-    percent: coupon?.percent || coupon?.value || 0, // Separate field for percentage
-    min_spend: coupon ? (coupon.min_order_cents / 100).toFixed(2) : '0.00',
-    max_discount: coupon ? (coupon.max_discount_cents ? (coupon.max_discount_cents / 100).toFixed(2) : '') : '',
-    max_uses: coupon?.max_uses || 1,
-    valid_from: coupon?.valid_from ? coupon.valid_from.split('T')[0] : '',
-    valid_until: coupon?.valid_until ? coupon.valid_until.split('T')[0] : '',
-    excluded_product_ids: coupon?.excluded_product_ids || [],
+  const [formState, setFormState] = useState(() => {
+    const normalizedType = normalizeCouponType(coupon?.type);
+    const initialPercent = normalizedType === 'percent' ? (coupon?.percent || coupon?.value || 0) : 0;
+    const initialValue = normalizedType === 'fixed' ? (coupon?.value || 0) : 0;
+    
+    console.log('🔄 Initializing CouponForm with:', {
+      coupon,
+      normalizedType,
+      initialPercent,
+      initialValue,
+      couponValue: coupon?.value,
+      couponPercent: coupon?.percent
+    });
+    
+    return {
+      id: coupon?.id || null,
+      code: coupon?.code || '',
+      description: coupon?.notes || '',
+      is_active: coupon?.is_active ?? true,
+      type: normalizedType,
+      value: initialValue,
+      percent: initialPercent,
+      min_spend: coupon ? (coupon.min_order_cents / 100).toFixed(2) : '0.00',
+      max_discount: coupon ? (coupon.max_discount_cents ? (coupon.max_discount_cents / 100).toFixed(2) : '') : '',
+      max_uses: coupon?.max_uses || 1,
+      valid_from: coupon?.valid_from ? coupon.valid_from.split('T')[0] : '',
+      valid_until: coupon?.valid_until ? coupon.valid_until.split('T')[0] : '',
+      excluded_product_ids: coupon?.excluded_product_ids || [],
+    };
   });
 
   // Debug logging for form state
   console.log('📝 CouponForm - Coupon data:', coupon);
   console.log('📝 CouponForm - Form state:', formState);
-  console.log('📝 CouponForm - Type:', formState.type, 'Percent:', formState.percent);
+  console.log('📝 CouponForm - Type:', formState.type, 'Percent:', formState.percent, 'Value:', formState.value);
 
   const [productSearchTerm, setProductSearchTerm] = useState('');
 
@@ -1028,11 +1043,13 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     
     // Debug logging
     console.log('📋 Form submission data:', formState);
+    console.log('📊 Percentage field value:', formState.percent, 'Type:', typeof formState.percent);
+    console.log('📊 Value field value:', formState.value, 'Type:', typeof formState.value);
     
     // Validation for discount values
     if (formState.type === 'percent') {
       const percentValue = parseInt(formState.percent);
-      console.log('📊 Percentage value:', percentValue, 'Type:', typeof percentValue);
+      console.log('📊 Parsed percentage value:', percentValue, 'Type:', typeof percentValue);
       if (!percentValue || percentValue < 1 || percentValue > 100) {
         showToast('error', 'Please enter a valid percentage between 1 and 100');
         return;
@@ -1049,10 +1066,11 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     const submissionData = {
       ...formState,
       // Use percent field for percent discounts, value field for fixed discounts
-      value: formState.type === 'percent' ? formState.percent : formState.value,
+      value: formState.type === 'percent' ? parseInt(formState.percent) : parseFloat(formState.value),
     };
     
-    console.log('📤 Final submission data:', submissionData);
+    console.log('📤 Final submission data with mapped value:', submissionData);
+    console.log('📤 Mapped value field:', submissionData.value, 'Type:', typeof submissionData.value);
     mutation.mutate(submissionData);
   };
 
