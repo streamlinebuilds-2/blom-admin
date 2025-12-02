@@ -112,84 +112,70 @@ export const handler = async (event) => {
             try {
               console.log(`🔍 Processing item: ${item.name} (Qty: ${item.quantity})`);
 
-              // Enhanced product matching logic
+              // 1. CALL THE SMART DB FUNCTION
+              // This attempts Dictionary Match -> Exact Match -> Fuzzy Match in one go
+              const { data: matchResult, error: matchError } = await supabase
+                .rpc('find_product_match', { order_product_name: item.name });
+
               let product = null;
-              let matchMethod = 'none';
+              let matchMethod = 'failed';
 
-              // Method 1: Try exact product ID match
-              if (item.product_id) {
-                const { data: productById } = await supabase
-                  .from('products')
-                  .select('id, name, stock, stock_qty, is_active')
-                  .eq('id', item.product_id)
-                  .single();
-
-                if (productById && productById.is_active) {
-                  product = productById;
-                  matchMethod = 'id';
-                  console.log(`✅ Found product by ID: ${product.name}`);
-                }
-              }
-
-              // Method 2: Fuzzy name matching if ID failed
-              if (!product) {
-                const searchTerms = [
-                  item.name.trim().toLowerCase(),
-                  item.name.trim().toLowerCase().replace(/\s+/g, '-'),
-                  item.sku?.toLowerCase() || ''
-                ].filter(term => term.length > 0);
-
-                console.log(`🔍 Fuzzy searching for product using terms: ${searchTerms.join(', ')}`);
-
-                for (const term of searchTerms) {
-                  const { data: productsByName } = await supabase
+              if (!matchError && matchResult && matchResult.length > 0 && matchResult[0].found) {
+                 const match = matchResult[0];
+                 console.log(`✅ Database matched "${item.name}" to "${match.product_name}" (Method: ${match.method})`);
+                 
+                 // Fetch full product details to get stock levels
+                 const { data: fullProduct } = await supabase
                     .from('products')
                     .select('id, name, stock, stock_qty, is_active')
-                    .eq('is_active', true)
-                    .or(`name.ilike.%${term}%,sku.ilike.%${term}%`)
-                    .limit(5);
-
-                  if (productsByName && productsByName.length > 0) {
-                    // Find best match
-                    const exactMatch = productsByName.find(p => 
-                      p.name.trim().toLowerCase() === term
-                    );
-                    const closeMatch = productsByName.find(p => 
-                      p.name.toLowerCase().includes(term) || term.includes(p.name.toLowerCase())
-                    );
-
-                    product = exactMatch || closeMatch || productsByName[0];
-                    matchMethod = 'fuzzy_name';
-                    console.log(`✅ Found product by fuzzy match: ${product.name} (search: "${term}")`);
-                    break;
-                  }
-                }
+                    .eq('id', match.product_id)
+                    .single();
+                    
+                 product = fullProduct;
+                 matchMethod = match.method;
               }
 
-              // Method 3: Variant matching for products with variants
+              // 2. Fallback: Try Variant ID matching if DB match failed but we have variant info
               if (!product && item.variant) {
-                console.log(`🔍 Checking for variant match: ${item.variant}`);
-                const { data: variantProducts } = await supabase
-                  .from('products')
-                  .select('id, name, stock, stock_qty, is_active, variant_name')
-                  .eq('is_active', true)
-                  .not('variant_name', 'is', null);
+                  console.log(`🔍 Trying variant fallback: ${item.variant}`);
+                  const { data: variantProducts } = await supabase
+                    .from('products')
+                    .select('id, name, stock, stock_qty, is_active, variant_name')
+                    .eq('is_active', true)
+                    .not('variant_name', 'is', null);
 
-                if (variantProducts) {
-                  const variantMatch = variantProducts.find(p => 
-                    p.variant_name?.toLowerCase().includes(item.variant.toLowerCase())
-                  );
-                  if (variantMatch) {
-                    product = variantMatch;
-                    matchMethod = 'variant';
-                    console.log(`✅ Found product by variant match: ${product.name}`);
+                  if (variantProducts) {
+                    const variantMatch = variantProducts.find(p => 
+                      p.variant_name?.toLowerCase().includes(item.variant.toLowerCase())
+                    );
+                    if (variantMatch) {
+                      product = variantMatch;
+                      matchMethod = 'variant_fallback';
+                      console.log(`✅ Found product by variant fallback: ${product.name}`);
+                    }
                   }
-                }
               }
 
               if (!product) {
                 results.errors.push(`Product not found for item: ${item.name}`);
-                console.error(`❌ Product not found: ${item.name}`);
+                // CRITICAL: Log this failure to the mapping table so you can fix it later
+                console.log(`⚠️ Auto-creating mapping entry for: ${item.name}`);
+                // Optional: Insert into a 'missing_mappings' table
+                try {
+                  await supabase
+                    .from('missing_mappings')
+                    .upsert({
+                      order_product_name: item.name,
+                      order_sku: item.sku,
+                      order_variant: item.variant,
+                      last_seen_at: now,
+                      created_at: now
+                    }, {
+                      onConflict: 'order_product_name'
+                    });
+                } catch (logError) {
+                  console.warn(`Failed to log missing mapping for ${item.name}:`, logError.message);
+                }
                 continue;
               }
 
