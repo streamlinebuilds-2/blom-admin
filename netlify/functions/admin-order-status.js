@@ -249,8 +249,8 @@ export const handler = async (e) => {
       try {
         const { data: rpcResult, error: rpcError } = await s.rpc('update_order_status', {
           p_order_id: id,
-          p_new_status: status,
-          p_timestamp: now
+          p_status: status,
+          p_updated_at: now
         });
 
         console.log(`📤 RPC update result:`, { rpcResult, rpcError });
