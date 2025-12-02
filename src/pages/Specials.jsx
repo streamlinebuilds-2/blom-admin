@@ -870,7 +870,7 @@ export default function Specials() {
                         <td>{normalizeCouponType(coupon.type) === 'percent' ? 'Percentage' : 'Fixed Amount'}</td>
                         <td>
                           {normalizeCouponType(coupon.type) === 'percent'
-                            ? `${coupon.value}%`
+                            ? `${coupon.percent || coupon.value}%`
                             : `R${Number(coupon.value).toFixed(2)}`}
                         </td>
                         <td>{formatRands(coupon.min_order_cents)}</td>
@@ -930,6 +930,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     is_active: coupon?.is_active ?? true,
     type: normalizeCouponType(coupon?.type),
     value: coupon?.value || 0,
+    percent: coupon?.percent || coupon?.value || 0, // Separate field for percentage
     min_spend: coupon ? (coupon.min_order_cents / 100).toFixed(2) : '0.00',
     max_discount: coupon ? (coupon.max_discount_cents ? (coupon.max_discount_cents / 100).toFixed(2) : '') : '',
     max_uses: coupon?.max_uses || 1,
@@ -964,10 +965,33 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormState(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    setFormState(prev => {
+      const newState = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      };
+      
+      // When discount type changes, clear the other field
+      if (name === 'type') {
+        if (value === 'fixed') {
+          newState.percent = 0; // Clear percentage when switching to fixed
+        } else {
+          newState.value = 0; // Clear fixed value when switching to percentage
+        }
+      }
+      
+      // Validate percentage field
+      if (name === 'percent') {
+        const percentValue = parseInt(value);
+        if (percentValue > 100) {
+          newState.percent = 100;
+        } else if (percentValue < 0) {
+          newState.percent = 1;
+        }
+      }
+      
+      return newState;
+    });
   };
 
   const handleProductExclusionToggle = (productId) => {
@@ -996,7 +1020,30 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    mutation.mutate(formState);
+    
+    // Validation for discount values
+    if (formState.type === 'percentage') {
+      const percentValue = parseInt(formState.percent);
+      if (!percentValue || percentValue < 1 || percentValue > 100) {
+        showToast('error', 'Please enter a valid percentage between 1 and 100');
+        return;
+      }
+    } else if (formState.type === 'fixed') {
+      const fixedValue = parseFloat(formState.value);
+      if (!fixedValue || fixedValue <= 0) {
+        showToast('error', 'Please enter a valid discount amount greater than 0');
+        return;
+      }
+    }
+    
+    // Prepare the data for submission based on discount type
+    const submissionData = {
+      ...formState,
+      // Use percent field for percentage discounts, value field for fixed discounts
+      value: formState.type === 'percentage' ? formState.percent : formState.value,
+    };
+    
+    mutation.mutate(submissionData);
   };
 
   return (
@@ -1060,19 +1107,41 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 <option value="fixed">Fixed Amount (R)</option>
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">
-                Value ({formState.type === 'percentage' ? '%' : 'R'}) *
-              </label>
+            
+            {/* Fixed Amount Field (for 'fixed' type) */}
+            <div className="form-group" id="fixedField" style={{ display: formState.type === 'fixed' ? 'block' : 'none' }}>
+              <label className="form-label">Discount Amount (Rands) *</label>
               <input
                 type="number"
                 name="value"
                 value={formState.value}
                 onChange={handleChange}
                 className="form-input"
+                placeholder="250"
                 step="0.01"
-                required
+                min="0"
+                required={formState.type === 'fixed'}
               />
+            </div>
+
+            {/* Percentage Field (for 'percentage' type) */}
+            <div className="form-group" id="percentField" style={{ display: formState.type === 'percentage' ? 'block' : 'none' }}>
+              <label className="form-label">Discount Percentage (%) *</label>
+              <input
+                type="number"
+                name="percent"
+                value={formState.percent}
+                onChange={handleChange}
+                className="form-input"
+                placeholder="20"
+                step="1"
+                min="1"
+                max="100"
+                required={formState.type === 'percentage'}
+              />
+              <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                Enter a value between 1 and 100 (e.g., 20 for 20% discount)
+              </small>
             </div>
             <div className="form-group">
               <label className="form-label">Total Usage Limit</label>
