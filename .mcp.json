@@ -1,10 +1,9 @@
 {
   "mcpServers": {
     "supabase": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@0.5.5"
+        "node_modules/@supabase/mcp-server-supabase/dist/index.js"
       ],
       "env": {
         "SUPABASE_ACCESS_TOKEN": "sbp_9d4da630529492a9c9829dac1c4c5391aaf8fb66",
