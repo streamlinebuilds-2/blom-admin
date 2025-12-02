@@ -72,7 +72,8 @@ async function sendStatusWebhook(orderData, newStatus, currentStatus, orderItems
   
   if (!webhookUrl) {
     console.log(`ℹ️ No webhook configured for status: ${newStatus} (${orderData.fulfillment_type})`);
-    return { called: false, ok: false, error: null };
+    // CHANGE: Return ok: true. It's not an error, we just intentionally skipped it.
+    return { called: false, ok: true, error: null }; 
   }
   
   console.log(`📡 Sending webhook to: ${webhookUrl}`);
