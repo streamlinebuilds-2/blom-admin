@@ -939,6 +939,11 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     excluded_product_ids: coupon?.excluded_product_ids || [],
   });
 
+  // Debug logging for form state
+  console.log('📝 CouponForm - Coupon data:', coupon);
+  console.log('📝 CouponForm - Form state:', formState);
+  console.log('📝 CouponForm - Type:', formState.type, 'Percent:', formState.percent);
+
   const [productSearchTerm, setProductSearchTerm] = useState('');
 
   const mutation = useMutation({
@@ -1129,8 +1134,8 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
               />
             </div>
 
-            {/* Percentage Field (for 'percentage' type) */}
-            <div className="form-group" id="percentField" style={{ display: formState.type === 'percentage' ? 'block' : 'none' }}>
+            {/* Percentage Field (for 'percent' type) */}
+            <div className="form-group" id="percentField" style={{ display: formState.type === 'percent' ? 'block' : 'none' }}>
               <label className="form-label">Discount Percentage (%) *</label>
               <input
                 type="number"
@@ -1142,7 +1147,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 step="1"
                 min="1"
                 max="100"
-                required={formState.type === 'percentage'}
+                required={formState.type === 'percent'}
               />
               <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
                 Enter a value between 1 and 100 (e.g., 20 for 20% discount)
@@ -1189,7 +1194,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 disabled={formState.type === 'fixed'}
               />
               <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                {formState.type === 'percentage'
+                {formState.type === 'percent'
                   ? 'Max R value off for % discounts.'
                   : 'Not needed for fixed discounts.'}
               </small>
