@@ -109,7 +109,7 @@ export const handler: Handler = async (e) => {
     const to = from + size - 1;
 
     let query = s.from("orders")
-      .select("id,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived,invoice_url", { count: "exact" })
+      .select("id,order_number,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived,invoice_url", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -161,7 +161,7 @@ export const handler: Handler = async (e) => {
       ...r,
       item_count: byOrder[r.id] || 0,
       is_workshop: workshopOrders.has(r.id),
-      short_code: "BL-" + (r.m_payment_id || "").replace(/[^A-Za-z0-9]/g,"").slice(-8).toUpperCase(),
+      short_code: r.order_number || "BL-" + (r.m_payment_id || "").replace(/[^A-Za-z0-9]/g,"").slice(-8).toUpperCase(),
       // Normalize field names (use buyer_* or fallback to customer_*)
       buyer_name: r.buyer_name || r.customer_name,
       buyer_email: r.buyer_email || r.customer_email,

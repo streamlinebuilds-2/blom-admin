@@ -844,7 +844,7 @@ export default function Orders() {
                 filteredOrders.map((order) => (
                   <tr key={order.id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                      {order.short_code || order.m_payment_id?.slice(0, 12) || order.id?.slice(0, 8)}
+                      {order.order_number || order.short_code || order.m_payment_id?.slice(0, 12)}
                     </td>
                     <td style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
                       {order.placed_at

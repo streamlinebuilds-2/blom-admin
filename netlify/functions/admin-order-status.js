@@ -6,6 +6,16 @@ const s = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_RO
 function extractOrderData(order) {
   if (!order) return null;
   
+  // CHECK BOTH COLUMNS: Some rows use type, some use method
+  const rawType = order.fulfillment_type || order.fulfillment_method || 'delivery';
+  
+  // Normalize: Ensure it matches what the logic expects ('collection' or 'delivery')
+  // This handles cases like 'pickup', 'store-pickup', etc.
+  let normalizedType = 'delivery';
+  if (rawType && (rawType.includes('collection') || rawType.includes('pickup'))) {
+    normalizedType = 'collection';
+  }
+
   return {
     id: order.id,
     order_number: order.order_number,
@@ -14,7 +24,8 @@ function extractOrderData(order) {
     buyer_phone: order.buyer_phone,
     shipping_address: order.shipping_address,
     delivery_address: order.delivery_address,
-    fulfillment_type: order.fulfillment_type || 'delivery',
+    // Use the robust normalized type
+    fulfillment_type: normalizedType, 
     total_cents: order.total_cents || 0,
     subtotal_cents: order.subtotal_cents || 0,
     shipping_cents: order.shipping_cents || 0,
