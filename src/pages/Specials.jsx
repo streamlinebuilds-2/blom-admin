@@ -106,7 +106,7 @@ export default function Specials() {
     return /^BLOM\d{4}-[A-Z0-9]+$/i.test(code);
   };
 
-  // Filtered coupons based on selected filter
+  // Filtered coupons based on selected filter (sign-up coupons are hidden by default)
   const filteredCoupons = useMemo(() => {
     if (!coupons || coupons.length === 0) return [];
 
@@ -116,11 +116,12 @@ export default function Specials() {
       case 'created':
         return coupons.filter(c => !isSignupCoupon(c.code));
       case 'active':
-        return coupons.filter(c => c.is_active);
+        return coupons.filter(c => c.is_active && !isSignupCoupon(c.code));
       case 'inactive':
-        return coupons.filter(c => !c.is_active);
+        return coupons.filter(c => !c.is_active && !isSignupCoupon(c.code));
       default:
-        return coupons;
+        // Default 'all' filter now excludes sign-up coupons
+        return coupons.filter(c => !isSignupCoupon(c.code));
     }
   }, [coupons, couponFilter]);
 
@@ -792,15 +793,15 @@ export default function Specials() {
                 onChange={(e) => setCouponFilter(e.target.value)}
                 style={{ width: 'auto', minWidth: '180px' }}
               >
-                <option value="all">All Coupons ({coupons.length})</option>
+                <option value="all">All Displayed Coupons ({coupons.filter(c => !isSignupCoupon(c.code)).length})</option>
                 <option value="signup">Sign-up Coupons ({coupons.filter(c => isSignupCoupon(c.code)).length})</option>
                 <option value="created">Created Coupons ({coupons.filter(c => !isSignupCoupon(c.code)).length})</option>
-                <option value="active">Active ({coupons.filter(c => c.is_active).length})</option>
-                <option value="inactive">Inactive ({coupons.filter(c => !c.is_active).length})</option>
+                <option value="active">Active ({coupons.filter(c => c.is_active && !isSignupCoupon(c.code)).length})</option>
+                <option value="inactive">Inactive ({coupons.filter(c => !c.is_active && !isSignupCoupon(c.code)).length})</option>
               </select>
 
-              {/* Fix Sign-up Coupons Button */}
-              {coupons.filter(c => isSignupCoupon(c.code) && (c.type !== 'percentage' || c.value !== 10)).length > 0 && (
+              {/* Fix Sign-up Coupons Button - Only show when viewing sign-up coupons specifically */}
+              {couponFilter === 'signup' && coupons.filter(c => isSignupCoupon(c.code) && (c.type !== 'percentage' || c.value !== 10)).length > 0 && (
                 <button
                   className="btn-secondary"
                   onClick={handleFixSignupCoupons}
@@ -826,8 +827,8 @@ export default function Specials() {
 
           <div className="specials-list">
             <h3 className="preview-title">
-              {couponFilter === 'all' && 'All Coupons'}
-              {couponFilter === 'signup' && 'Sign-up Coupons'}
+              {couponFilter === 'all' && 'All Displayed Coupons'}
+              {couponFilter === 'signup' && 'Sign-up Coupons (Hidden by Default)'}
               {couponFilter === 'created' && 'Created Coupons'}
               {couponFilter === 'active' && 'Active Coupons'}
               {couponFilter === 'inactive' && 'Inactive Coupons'}
