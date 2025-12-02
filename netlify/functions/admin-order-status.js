@@ -6,15 +6,16 @@ const s = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_RO
 function extractOrderData(order) {
   if (!order) return null;
   
-  // CHECK BOTH COLUMNS: Some rows use type, some use method
-  const rawType = order.fulfillment_type || order.fulfillment_method || 'delivery';
+  // 1. ROBUST DETECTION: Check both columns
+  const rawType = (order.fulfillment_type || order.fulfillment_method || '').toLowerCase();
   
-  // Normalize: Ensure it matches what the logic expects ('collection' or 'delivery')
-  // This handles cases like 'pickup', 'store-pickup', etc.
-  let normalizedType = 'delivery';
-  if (rawType && (rawType.includes('collection') || rawType.includes('pickup'))) {
+  // 2. NORMALIZE: Detect 'collection', 'pickup', or 'self-collect'
+  let normalizedType = 'delivery'; // Default
+  if (rawType.includes('collection') || rawType.includes('pickup')) {
     normalizedType = 'collection';
   }
+
+  console.log(`🔍 Fulfillment Logic: Raw='${rawType}' -> Normalized='${normalizedType}'`);
 
   return {
     id: order.id,
@@ -24,8 +25,7 @@ function extractOrderData(order) {
     buyer_phone: order.buyer_phone,
     shipping_address: order.shipping_address,
     delivery_address: order.delivery_address,
-    // Use the robust normalized type
-    fulfillment_type: normalizedType, 
+    fulfillment_type: normalizedType, // <--- Uses the fixed value
     total_cents: order.total_cents || 0,
     subtotal_cents: order.subtotal_cents || 0,
     shipping_cents: order.shipping_cents || 0,
