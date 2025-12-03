@@ -41,6 +41,7 @@ export const handler: Handler = async (event) => {
         shipping_cost_cents, 
         fulfillment_method,
         customer_email,
+        archived,
         order_items (
           quantity, 
           product_id, 
@@ -50,7 +51,10 @@ export const handler: Handler = async (event) => {
       `)
       .gte('created_at', startDate.toISOString())
       .lte('created_at', now.toISOString())
-      .or('payment_status.eq.paid,status.in.(paid,packed,shipped,delivered,collected)')
+      // MATCHING ORDERS PAGE LOGIC:
+      .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
+      // EXCLUDE ARCHIVED ORDERS:
+      .or('archived.is.null,archived.eq.false')
       .order('created_at', { ascending: false });
 
     console.log('Orders found:', orders?.length || 0);

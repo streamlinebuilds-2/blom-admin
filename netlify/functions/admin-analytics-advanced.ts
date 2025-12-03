@@ -42,7 +42,8 @@ export const handler: Handler = async (e) => {
           total_cents,
           discount_cents,
           fulfillment_method,
-          customer_email
+          customer_email,
+          archived
         ),
         products!inner (
           id,
@@ -51,7 +52,10 @@ export const handler: Handler = async (e) => {
           stock_qty
         )
       `)
-      .gte("orders.created_at", fromIso);
+      .gte("orders.created_at", fromIso)
+      // ADD THESE FILTERS to exclude junk data:
+      .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)', { foreignTable: 'orders' })
+      .or('archived.is.null,archived.eq.false', { foreignTable: 'orders' });
 
     if (productId) {
       topProductsQuery = topProductsQuery.eq("product_id", productId);
@@ -123,7 +127,9 @@ export const handler: Handler = async (e) => {
       .from("orders")
       .select("id, total_cents, subtotal_cents, fulfillment_method, created_at, payment_status, customer_email")
       .gte("created_at", fromIso)
-      .eq("payment_status", "paid");
+      // REPLACE .eq("payment_status", "paid") WITH ROBUST LOGIC:
+      .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
+      .or('archived.is.null,archived.eq.false');
 
     if (fulfillmentError) throw fulfillmentError;
 
@@ -149,7 +155,10 @@ export const handler: Handler = async (e) => {
       .from("orders")
       .select("customer_email, total_cents, created_at")
       .gte("created_at", fromIso)
-      .not("customer_email", "is", null);
+      .not("customer_email", "is", null)
+      // ADD ROBUST LOGIC to exclude junk data:
+      .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
+      .or('archived.is.null,archived.eq.false');
 
     if (customersError) throw customersError;
 
