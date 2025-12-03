@@ -32,6 +32,9 @@ export const handler: Handler = async (e) => {
       query = query.eq('movement_type', 'manual');
     } else if (filter === 'order') {
       query = query.eq('movement_type', 'order');
+    } else {
+      // Default: Only show manual movements, exclude all order-related movements
+      query = query.eq('movement_type', 'manual');
     }
 
     // Filter out movements for archived products (only show movements for active products)
