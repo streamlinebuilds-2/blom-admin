@@ -104,26 +104,63 @@ export default function PaymentsEnhanced() {
     
     // Use the new API to get reliable top selling products
     try {
-      const { data: topSellingData } = await supabase.functions.invoke('admin-top-selling-products', {
-        body: { period: selectedPeriod, limit: 5 }
-      });
-
-      if (topSellingData?.ok && topSellingData.data?.topProducts?.length > 0) {
-        const topProduct = topSellingData.data.topProducts[0];
-        topSellingProduct = topProduct.name;
-        topSellingCount = topProduct.totalUnitsSold;
-        
-        // Find most profitable from the list
-        const mostProfitable = topSellingData.data.topProducts.reduce((max, product) => 
-          product.totalRevenueCents > max.totalRevenueCents ? product : max
-        );
-        mostProfitableProduct = mostProfitable.name;
-        highestRevenue = mostProfitable.totalRevenueCents;
+      const res = await fetch(`/.netlify/functions/admin-top-selling-products?period=${selectedPeriod}&limit=5`);
+      if (res.ok) {
+        const topSellingData = await res.json();
+        if (topSellingData?.ok && topSellingData.data?.topProducts?.length > 0) {
+          const topProduct = topSellingData.data.topProducts[0];
+          topSellingProduct = topProduct.name;
+          topSellingCount = topProduct.totalUnitsSold;
+          
+          // Find most profitable from the list
+          const mostProfitable = topSellingData.data.topProducts.reduce((max, product) => 
+            product.totalRevenueCents > max.totalRevenueCents ? product : max
+          );
+          mostProfitableProduct = mostProfitable.name;
+          highestRevenue = mostProfitable.totalRevenueCents;
+        }
       }
     } catch (error) {
       console.warn('Failed to fetch top selling products from new API, using fallback logic:', error);
       
-      // Fallback to the old logic if API fails
+      // Fallback: Get top selling products directly from orders
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - selectedPeriod);
+      const fromIso = fromDate.toISOString();
+      
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select(`
+          product_id,
+          name,
+          quantity,
+          total_cents,
+          orders!inner(id, created_at, payment_status, paid_at)
+        `)
+        .gte('orders.created_at', fromIso)
+        .eq('orders.payment_status', 'paid')
+        .limit(500);
+
+      // Aggregate sales data by product
+      const productSales = {};
+      const productRevenue = {};
+      if (orderItems) {
+        orderItems.forEach(item => {
+          if (item.product_id) {
+            const productName = item.name || 'Unknown Product';
+            
+            // Track units sold
+            if (!productSales[productName]) {
+              productSales[productName] = 0;
+              productRevenue[productName] = 0;
+            }
+            productSales[productName] += item.quantity || 1;
+            productRevenue[productName] += item.total_cents || 0;
+          }
+        });
+      }
+
+      // Set top selling product from fallback data
       Object.entries(productSales).forEach(([product, count]) => {
         if (count > topSellingCount) {
           topSellingCount = count;

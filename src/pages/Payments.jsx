@@ -53,16 +53,64 @@ export default function Payments() {
       }
 
       // Use the new top selling products API (based on stock movement logic)
-      const { data: topSellingData, error: topSellingError } = await supabase.functions.invoke('admin-top-selling-products', {
-        body: { period: selectedPeriod, limit: 10 }
-      });
+      let topProducts = [];
+      try {
+        const res = await fetch(`/.netlify/functions/admin-top-selling-products?period=${selectedPeriod}&limit=10`);
+        if (res.ok) {
+          const topSellingData = await res.json();
+          if (topSellingData?.ok && topSellingData.data?.topProducts) {
+            topProducts = topSellingData.data.topProducts;
+          }
+        }
+      } catch (error) {
+        console.warn('Edge function not available, using fallback method:', error);
+        
+        // Fallback: Get top selling products directly from orders
+        const fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - selectedPeriod);
+        const fromIso = fromDate.toISOString();
+        
+        const { data: orderItems } = await supabase
+          .from('order_items')
+          .select(`
+            product_id,
+            name,
+            quantity,
+            total_cents,
+            orders!inner(id, created_at, payment_status, paid_at)
+          `)
+          .gte('orders.created_at', fromIso)
+          .eq('orders.payment_status', 'paid')
+          .limit(1000);
 
-      if (topSellingError) {
-        console.warn('Error fetching top selling products from new API, falling back to empty:', topSellingError);
+        // Aggregate sales data by product
+        const productSales = {};
+        if (orderItems) {
+          orderItems.forEach(item => {
+            if (item.product_id) {
+              if (!productSales[item.product_id]) {
+                productSales[item.product_id] = {
+                  id: item.product_id,
+                  name: item.name || 'Unknown Product',
+                  totalUnitsSold: 0,
+                  totalRevenueCents: 0,
+                  totalOrders: new Set()
+                };
+              }
+              productSales[item.product_id].totalUnitsSold += item.quantity || 1;
+              productSales[item.product_id].totalRevenueCents += item.total_cents || 0;
+            }
+          });
+        }
+        
+        topProducts = Object.values(productSales)
+          .map(product => ({
+            ...product,
+            totalOrders: product.totalOrders.size
+          }))
+          .sort((a, b) => b.totalUnitsSold - a.totalUnitsSold)
+          .slice(0, 10);
       }
-
-      // Get top selling products from the new API or fallback to empty
-      const topProducts = (topSellingData?.ok ? topSellingData.data?.topProducts : []) || [];
 
       console.log('Top selling products from new API:', topProducts);
 
