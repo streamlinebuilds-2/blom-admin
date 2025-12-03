@@ -184,7 +184,6 @@ export default function Specials() {
         discount_type: "percent",
         discount_value: ""
       });
-      setActiveTab("active");
     },
     onError: (error) => {
       console.error('Error activating special:', error);
@@ -226,8 +225,11 @@ export default function Specials() {
 
   // Coupon handlers
   const handleAddNewCoupon = () => {
+    console.log('🎯 handleAddNewCoupon clicked!');
     setSelectedCoupon(null);
     setIsCouponFormOpen(true);
+    console.log('🎯 Form should now be open, isCouponFormOpen:', true);
+    console.log('🎯 State change complete - selectedCoupon:', selectedCoupon, 'isCouponFormOpen:', isCouponFormOpen);
   };
 
   const handleEditCoupon = (coupon) => {
@@ -779,7 +781,10 @@ export default function Specials() {
       {/* COUPONS CONTENT */}
         <div>
           <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-            <button className="btn-activate" onClick={handleAddNewCoupon}>
+            <button 
+              className="btn-activate" 
+              onClick={handleAddNewCoupon}
+            >
               <Plus className="w-5 h-5" />
               New Coupon
             </button>
@@ -923,19 +928,13 @@ export default function Specials() {
 // --- Coupon Form Component with neumorphic styling ---
 function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false, showToast }) {
   const queryClient = useQueryClient();
+  console.log('🎯 CouponForm Component RENDERED!');
   const [formState, setFormState] = useState(() => {
     const normalizedType = normalizeCouponType(coupon?.type);
     const initialPercent = normalizedType === 'percent' ? (coupon?.percent || coupon?.value || 0) : 0;
     const initialValue = normalizedType === 'fixed' ? (coupon?.value || 0) : 0;
     
-    console.log('🔄 Initializing CouponForm with:', {
-      coupon,
-      normalizedType,
-      initialPercent,
-      initialValue,
-      couponValue: coupon?.value,
-      couponPercent: coupon?.percent
-    });
+    console.log('🔄 Initializing CouponForm - Coupon:', coupon?.code || 'new');
     
     return {
       id: coupon?.id || null,
@@ -1041,7 +1040,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Debug logging
+    console.log('🚀 CouponForm handleSubmit called!');
     console.log('📋 Form submission data:', formState);
     console.log('📊 Percentage field value:', formState.percent, 'Type:', typeof formState.percent);
     console.log('📊 Value field value:', formState.value, 'Type:', typeof formState.value);
@@ -1071,6 +1070,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     
     console.log('📤 Final submission data with mapped value:', submissionData);
     console.log('📤 Mapped value field:', submissionData.value, 'Type:', typeof submissionData.value);
+    console.log('🚀 About to call mutation.mutate...');
     mutation.mutate(submissionData);
   };
 
@@ -1318,7 +1318,12 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
           <button type="button" onClick={onClose} className="btn-secondary">
             Cancel
           </button>
-          <button type="submit" className="btn-activate" disabled={mutation.isPending}>
+          <button 
+            type="submit" 
+            className="btn-activate" 
+            disabled={mutation.isPending}
+            onClick={() => console.log('🎯 CREATE COUPON SUBMIT BUTTON CLICKED!')}
+          >
             <Sparkles className="w-5 h-5" />
             {mutation.isPending ? 'Saving...' : (coupon ? 'Save Changes' : 'Create Coupon')}
           </button>
