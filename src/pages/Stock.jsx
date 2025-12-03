@@ -554,11 +554,13 @@ function StockHistory() {
     if (filter === 'all') return true;
     
     const reason = move.reason || '';
+    const normalizedReason = reason.toLowerCase();
+    
     if (filter === 'manual') {
-      return reason.startsWith('manual_') || reason === 'manual_adjustment';
+      return normalizedReason.includes('manual') || normalizedReason.includes('adjustment');
     }
     if (filter === 'order') {
-      return reason.startsWith('order_') || reason === 'order_fulfillment';
+      return normalizedReason.includes('order') || normalizedReason.includes('sale');
     }
     return true;
   }) || [];
@@ -570,15 +572,13 @@ function StockHistory() {
     // Normalize to lowercase for checking
     const normalized = type.toLowerCase();
     
-    // Check for patterns that match the actual data structure
-    if (normalized.startsWith('manual_') || normalized === 'manual_adjustment') return 'Manual';
-    if (normalized.startsWith('order_') || normalized === 'order_fulfillment') return 'Order';
+    // Handle the actual data patterns from Supabase
+    if (normalized.includes('manual') || normalized.includes('adjustment')) return 'Manual';
+    if (normalized.includes('order') || normalized.includes('sale')) return 'Order';
     
     // Additional patterns
     if (normalized === 'restock') return 'Restock';
-    if (normalized === 'adjustment') return 'Adjustment';
     if (normalized === 'return') return 'Return';
-    if (normalized === 'sale') return 'Order'; // Treat sales as orders
     
     // Fallback: Capitalize first letter of whatever it is
     return type.charAt(0).toUpperCase() + type.slice(1);
@@ -624,7 +624,10 @@ function StockHistory() {
                 : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}
           >
-            Manual ({movements?.filter(m => (m.reason?.startsWith('manual_') || m.reason === 'manual_adjustment')).length || 0})
+            Manual ({movements?.filter(m => {
+              const reason = m.reason?.toLowerCase() || '';
+              return reason.includes('manual') || reason.includes('adjustment');
+            }).length || 0})
           </button>
           <button
             onClick={() => setFilter('order')}
@@ -634,7 +637,10 @@ function StockHistory() {
                 : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}
           >
-            Order ({movements?.filter(m => (m.reason?.startsWith('order_') || m.reason === 'order_fulfillment')).length || 0})
+            Order ({movements?.filter(m => {
+              const reason = m.reason?.toLowerCase() || '';
+              return reason.includes('order') || reason.includes('sale');
+            }).length || 0})
           </button>
         </div>
       </div>
