@@ -953,13 +953,27 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
 
   const mutation = useMutation({
     mutationFn: async (formData) => {
+      console.log('🌐 Making API call to save-coupon...');
+      console.log('📤 API payload:', formData);
+      
       const response = await fetch('/.netlify/functions/save-coupon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
+      
+      console.log('📡 API response status:', response.status);
+      console.log('📡 API response ok:', response.ok);
+      
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to save coupon');
+      console.log('📡 API response data:', result);
+      
+      if (!response.ok) {
+        console.error('❌ API call failed:', result);
+        throw new Error(result.error || 'Failed to save coupon');
+      }
+      
+      console.log('✅ API call successful');
       return result.coupon;
     },
     onSuccess: (result) => {
@@ -970,7 +984,8 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
       showToast('success', 'Coupon saved successfully');
     },
     onError: (error) => {
-      console.error('Save error:', error);
+      console.error('❌ Mutation error:', error);
+      console.error('❌ Error message:', error.message);
       showToast('error', 'Error saving coupon: ' + error.message);
     }
   });
@@ -1033,8 +1048,12 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    console.log('🚀 Form submission started!');
+    console.log('📋 Current form state:', formState);
+    
     // Basic validation
     if (!formState.code.trim()) {
+      console.error('❌ Validation failed: No coupon code');
       showToast('error', 'Please enter a coupon code');
       return;
     }
@@ -1042,13 +1061,17 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     // Validation for discount values
     if (formState.type === 'percent') {
       const percentValue = parseInt(formState.percent);
+      console.log('📊 Percent validation:', { percentValue, type: typeof percentValue });
       if (!percentValue || percentValue < 1 || percentValue > 100) {
+        console.error('❌ Validation failed: Invalid percentage');
         showToast('error', 'Please enter a valid percentage between 1 and 100');
         return;
       }
     } else if (formState.type === 'fixed') {
       const fixedValue = parseFloat(formState.value);
+      console.log('📊 Fixed validation:', { fixedValue, type: typeof fixedValue });
       if (!fixedValue || fixedValue <= 0) {
+        console.error('❌ Validation failed: Invalid fixed amount');
         showToast('error', 'Please enter a valid discount amount greater than 0');
         return;
       }
@@ -1060,6 +1083,9 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
       // Use percent field for percent discounts, value field for fixed discounts
       value: formState.type === 'percent' ? parseInt(formState.percent) : parseFloat(formState.value),
     };
+    
+    console.log('📤 Submission data prepared:', submissionData);
+    console.log('🌐 Starting mutation...');
     
     mutation.mutate(submissionData);
   };
