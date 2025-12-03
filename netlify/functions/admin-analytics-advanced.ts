@@ -65,10 +65,17 @@ export const handler: Handler = async (e) => {
     
     (orderItems || []).forEach((item: any) => {
       const productId = item.product_id;
+      
+      // 🛡️ ANALYTICS FILTER: Skip items with no ID or valid Product Name
+      // This hides "Unknown" rows from the chart completely
+      if (!productId || !item.products?.name) {
+        return; 
+      }
+
       if (!productAnalytics[productId]) {
         productAnalytics[productId] = {
           id: productId,
-          name: item.products?.name || 'Unknown Product',
+          name: item.products?.name, // Now guaranteed to exist
           totalUnitsSold: 0,
           totalRevenueCents: 0,
           totalOrders: 0,
