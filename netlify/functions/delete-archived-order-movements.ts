@@ -5,32 +5,39 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 export const handler: Handler = async (e) => {
   try {
-    // Delete stock movements for archived orders
-    const { data, error } = await s.rpc('exec', {
-      query: `
-        -- Delete stock movements for archived orders
-        DELETE FROM stock_movements 
-        WHERE order_id IN (
-            SELECT id FROM orders WHERE archived = true
-        );
-        
-        -- Show the count of deleted movements
-        SELECT 'Deleted stock movements for archived orders' as action, 
-               COUNT(*) as deleted_count
-        FROM stock_movements 
-        WHERE order_id NOT IN (
-            SELECT id FROM orders WHERE archived = false
-        );
-      `
-    });
+    // First, get all archived order IDs
+    const { data: archivedOrders, error: orderError } = await s
+      .from('orders')
+      .select('id')
+      .eq('archived', true);
+
+    if (orderError) {
+      throw new Error(`Failed to fetch archived orders: ${orderError.message}`);
+    }
+
+    const archivedOrderIds = archivedOrders?.map(order => order.id) || [];
+    
+    if (archivedOrderIds.length === 0) {
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ 
+          ok: true, 
+          message: 'No archived orders found',
+          deletedCount: 0
+        })
+      };
+    }
+
+    // Delete stock movements for these archived orders
+    const { data, error } = await s
+      .from('stock_movements')
+      .delete()
+      .in('order_id', archivedOrderIds)
+      .select('id, order_id, product_name');
 
     if (error) {
-      console.error('Error deleting archived order movements:', error);
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ ok: false, error: error.message })
-      };
+      throw new Error(`Failed to delete stock movements: ${error.message}`);
     }
 
     return {
@@ -38,8 +45,10 @@ export const handler: Handler = async (e) => {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ 
         ok: true, 
-        message: 'Stock movements for archived orders have been permanently deleted',
-        data: data
+        message: `Successfully deleted ${data?.length || 0} stock movements for archived orders`,
+        deletedCount: data?.length || 0,
+        archivedOrdersCount: archivedOrderIds.length,
+        deletedMovements: data || []
       })
     };
   } catch (err: any) {
