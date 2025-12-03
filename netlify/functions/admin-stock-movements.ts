@@ -22,7 +22,7 @@ export const handler: Handler = async (e) => {
         movement_type,
         notes,
         created_at,
-        product:products(id, name, slug)
+        product:products(id, name, slug, status)
       `)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -33,6 +33,9 @@ export const handler: Handler = async (e) => {
     } else if (filter === 'order') {
       query = query.eq('movement_type', 'order');
     }
+
+    // Filter out movements for archived products (only show movements for active products)
+    query = query.eq('product.status', 'active');
 
     const { data, error } = await query;
     
