@@ -62,11 +62,18 @@ export default function Analytics() {
         .header-title {
           font-size: 28px;
           font-weight: 700;
-          color: #111827;
+          color: var(--text);
           display: flex;
           align-items: center;
           gap: 12px;
+          margin-bottom: 8px;
         }
+
+        .header-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+
         .metrics-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -74,12 +81,39 @@ export default function Analytics() {
           margin-bottom: 32px;
         }
         .metric-card {
-          background: white;
+          background: var(--card);
           border-radius: 16px;
           padding: 24px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-          border: 1px solid #e5e7eb;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          position: relative;
+          overflow: hidden;
         }
+
+        .metric-card.revenue::before {
+          background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        .metric-card.orders::before {
+          background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+
+        .metric-card.value::before {
+          background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+        }
+
+        .metric-card.inventory::before {
+          background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        .metric-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+        }
+
         .metric-header {
           display: flex;
           align-items: flex-start;
@@ -90,27 +124,30 @@ export default function Analytics() {
           width: 48px;
           height: 48px;
           border-radius: 12px;
-          background: #eff6ff;
+          background: var(--card);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #3b82f6;
+          color: var(--accent);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
         .metric-info { flex: 1; }
         .metric-label {
           font-size: 14px;
-          color: #6b7280;
+          color: var(--text-muted);
           font-weight: 500;
           margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
         .metric-value {
           font-size: 28px;
           font-weight: 700;
-          color: #111827;
+          color: var(--text);
         }
         .metric-subtitle {
           font-size: 13px;
-          color: #9ca3af;
+          color: var(--text-muted);
         }
         .charts-grid {
           display: grid;
@@ -122,18 +159,106 @@ export default function Analytics() {
           .charts-grid { grid-template-columns: 1fr 1fr; }
         }
         .chart-card {
-          background: white;
+          background: var(--card);
           border-radius: 16px;
           padding: 24px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-          border: 1px solid #e5e7eb;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           min-height: 400px;
+          overflow: hidden;
         }
         .chart-title {
           font-size: 18px;
           font-weight: 700;
-          color: #111827;
+          color: var(--text);
           margin-bottom: 20px;
+        }
+
+        .top-products-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .product-rank-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px;
+          background: var(--bg);
+          border-radius: 12px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          transition: all 0.2s ease;
+        }
+
+        .product-rank-item:hover {
+          background: var(--card);
+          transform: translateY(-1px);
+        }
+
+        .product-rank-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .product-rank-number {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: var(--card);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--accent);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .product-rank-details {
+          flex: 1;
+        }
+
+        .product-rank-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text);
+          margin-bottom: 2px;
+        }
+
+        .product-rank-stats {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+
+        .product-rank-value {
+          text-align: right;
+        }
+
+        .product-rank-revenue {
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 2px;
+        }
+
+        .product-rank-orders {
+          font-size: 12px;
+          color: #16a34a;
+        }
+
+        .empty-state {
+          padding: 40px 20px;
+          text-align: center;
+          color: var(--text-muted);
+        }
+
+        .empty-state-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--text);
+          margin-bottom: 8px;
         }
       `}</style>
 
@@ -143,37 +268,46 @@ export default function Analytics() {
             <BarChart3 className="w-8 h-8 text-blue-500" />
             Performance Analytics
           </h1>
+          <p className="header-subtitle">Detailed insights into your business performance</p>
         </div>
 
         <div className="metrics-grid">
-          <MetricCard
-            title="Total Revenue"
-            value={moneyZAR(stats.totalRevenueCents || 0)}
-            subtitle="Last 30 Days"
-            icon={DollarSign}
-            loading={isLoading}
-          />
-          <MetricCard
-            title="Total Orders"
-            value={stats.totalOrders || 0}
-            subtitle="Last 30 Days"
-            icon={ShoppingCart}
-            loading={isLoading}
-          />
-          <MetricCard
-            title="Avg Order Value"
-            value={moneyZAR(stats.avgOrderValue || 0)}
-            subtitle="Per Transaction"
-            icon={TrendingUp}
-            loading={isLoading}
-          />
-          <MetricCard
-            title="Inventory Value"
-            value={moneyZAR(inventory.totalInventoryValue || 0)}
-            subtitle={`${inventory.activeProducts || 0} Active Products`}
-            icon={Package}
-            loading={isLoading}
-          />
+          <div className="metric-card revenue">
+            <MetricCard
+              title="Total Revenue"
+              value={moneyZAR(stats.totalRevenueCents || 0)}
+              subtitle="Last 30 Days"
+              icon={DollarSign}
+              loading={isLoading}
+            />
+          </div>
+          <div className="metric-card orders">
+            <MetricCard
+              title="Total Orders"
+              value={stats.totalOrders || 0}
+              subtitle="Last 30 Days"
+              icon={ShoppingCart}
+              loading={isLoading}
+            />
+          </div>
+          <div className="metric-card value">
+            <MetricCard
+              title="Avg Order Value"
+              value={moneyZAR(stats.avgOrderValue || 0)}
+              subtitle="Per Transaction"
+              icon={TrendingUp}
+              loading={isLoading}
+            />
+          </div>
+          <div className="metric-card inventory">
+            <MetricCard
+              title="Inventory Value"
+              value={moneyZAR(inventory.totalInventoryValue || 0)}
+              subtitle={`${inventory.activeProducts || 0} Active Products`}
+              icon={Package}
+              loading={isLoading}
+            />
+          </div>
         </div>
 
         <div className="charts-grid">
@@ -201,24 +335,27 @@ export default function Analytics() {
 
           <div className="chart-card">
             <h3 className="chart-title">Top Selling Products</h3>
-            <div className="space-y-4 mt-4">
+            <div className="top-products-list">
               {topProducts.length === 0 && !isLoading && (
-                <p className="text-gray-500 text-center py-8">No sales data available yet.</p>
+                <div className="empty-state">
+                  <div className="empty-state-title">No sales data available yet.</div>
+                  <div>Start making sales to see your top products here.</div>
+                </div>
               )}
               {topProducts.map((product, i) => (
-                <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 flex items-center justify-center bg-white rounded-full text-sm font-bold text-blue-600 border border-blue-100">
+                <div key={product.id} className="product-rank-item">
+                  <div className="product-rank-info">
+                    <div className="product-rank-number">
                       {i + 1}
-                    </span>
-                    <div>
-                      <div className="font-semibold text-gray-900">{product.name}</div>
-                      <div className="text-xs text-gray-500">{product.totalUnitsSold} units sold</div>
+                    </div>
+                    <div className="product-rank-details">
+                      <div className="product-rank-name">{product.name}</div>
+                      <div className="product-rank-stats">{product.totalUnitsSold} units sold</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-gray-900">{moneyZAR(product.totalRevenueCents)}</div>
-                    <div className="text-xs text-green-600">{product.totalOrders} orders</div>
+                  <div className="product-rank-value">
+                    <div className="product-rank-revenue">{moneyZAR(product.totalRevenueCents)}</div>
+                    <div className="product-rank-orders">{product.totalOrders} orders</div>
                   </div>
                 </div>
               ))}
