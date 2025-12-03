@@ -570,11 +570,15 @@ function StockHistory() {
     // Normalize to lowercase for checking
     const normalized = type.toLowerCase();
     
-    if (normalized === 'order' || normalized === 'sale') return 'Order';
-    if (normalized === 'manual') return 'Manual';
+    // Check for patterns that match the actual data structure
+    if (normalized.startsWith('manual_') || normalized === 'manual_adjustment') return 'Manual';
+    if (normalized.startsWith('order_') || normalized === 'order_fulfillment') return 'Order';
+    
+    // Additional patterns
     if (normalized === 'restock') return 'Restock';
     if (normalized === 'adjustment') return 'Adjustment';
     if (normalized === 'return') return 'Return';
+    if (normalized === 'sale') return 'Order'; // Treat sales as orders
     
     // Fallback: Capitalize first letter of whatever it is
     return type.charAt(0).toUpperCase() + type.slice(1);
