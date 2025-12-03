@@ -113,6 +113,19 @@ export let api = {
       console.warn('Failed to fetch bundles via Netlify functions, returning empty array:', error);
       return [];
     }
+  },
+
+  // 9. Get Top Selling Products (using stock movement logic)
+  async getTopSellingProducts(period = 30, limit = 10) {
+    try {
+      const response = await fetch(`/.netlify/functions/admin-top-selling-products?period=${period}&limit=${limit}`);
+      if (!response.ok) throw new Error("Failed to fetch top selling products.");
+      const result = await response.json();
+      return result.ok ? result.data : { topProducts: [], summary: {} };
+    } catch (error) {
+      console.warn('Failed to fetch top selling products, returning empty data:', error);
+      return { topProducts: [], summary: {} };
+    }
   }
 };
 

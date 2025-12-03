@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, ShoppingCart, DollarSign, Package, Target, Calendar, Users, BarChart3, RefreshCw, Download } from 'lucide-react';
 import { moneyZAR } from '../components/formatUtils';
+import { supabase } from '../lib/supabase';
 
 // Helper to format numbers
 const formatNumber = (num) => {
@@ -95,25 +96,48 @@ export default function PaymentsEnhanced() {
       }
     });
 
-    // Find top selling product and most profitable
+    // Use the new top selling products API (based on stock movement logic)
     let topSellingProduct = 'No sales';
     let topSellingCount = 0;
     let mostProfitableProduct = 'No data';
     let highestRevenue = 0;
     
-    Object.entries(productSales).forEach(([product, count]) => {
-      if (count > topSellingCount) {
-        topSellingCount = count;
-        topSellingProduct = product;
-      }
-    });
+    // Use the new API to get reliable top selling products
+    try {
+      const { data: topSellingData } = await supabase.functions.invoke('admin-top-selling-products', {
+        body: { period: selectedPeriod, limit: 5 }
+      });
 
-    Object.entries(productRevenue).forEach(([product, revenue]) => {
-      if (revenue > highestRevenue) {
-        highestRevenue = revenue;
-        mostProfitableProduct = product;
+      if (topSellingData?.ok && topSellingData.data?.topProducts?.length > 0) {
+        const topProduct = topSellingData.data.topProducts[0];
+        topSellingProduct = topProduct.name;
+        topSellingCount = topProduct.totalUnitsSold;
+        
+        // Find most profitable from the list
+        const mostProfitable = topSellingData.data.topProducts.reduce((max, product) => 
+          product.totalRevenueCents > max.totalRevenueCents ? product : max
+        );
+        mostProfitableProduct = mostProfitable.name;
+        highestRevenue = mostProfitable.totalRevenueCents;
       }
-    });
+    } catch (error) {
+      console.warn('Failed to fetch top selling products from new API, using fallback logic:', error);
+      
+      // Fallback to the old logic if API fails
+      Object.entries(productSales).forEach(([product, count]) => {
+        if (count > topSellingCount) {
+          topSellingCount = count;
+          topSellingProduct = product;
+        }
+      });
+
+      Object.entries(productRevenue).forEach(([product, revenue]) => {
+        if (revenue > highestRevenue) {
+          highestRevenue = revenue;
+          mostProfitableProduct = product;
+        }
+      });
+    }
 
     // Calculate conversion metrics (assuming we have total visits or can estimate)
     const conversionRate = totalOrders > 0 ? (totalOrders / Math.max(totalOrders * 5, 1)) * 100 : 0;

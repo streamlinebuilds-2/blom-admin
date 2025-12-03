@@ -543,7 +543,7 @@ function AdjustStockModal({ product, onClose, showToast }) {
 }
 
 function StockHistory() {
-  const [filter, setFilter] = useState('manual'); // 'all', 'manual', 'order'
+  const [filter, setFilter] = useState('all'); // 'all', 'manual', 'order'
   const { data: movements, isLoading } = useQuery({
     queryKey: ['stock_movements'],
     queryFn: api.listStockMovements,

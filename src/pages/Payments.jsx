@@ -52,19 +52,23 @@ export default function Payments() {
         throw dailyError;
       }
 
-      // Query our product_sales_stats table for best sellers
-      const { data: bestSellers, error: bestSellersError } = await supabase
-        .from('best_selling_products')
-        .select('*')
-        .limit(5);
+      // Use the new top selling products API (based on stock movement logic)
+      const { data: topSellingData, error: topSellingError } = await supabase.functions.invoke('admin-top-selling-products', {
+        body: { period: selectedPeriod, limit: 10 }
+      });
 
-      if (bestSellersError) {
-        console.error('Error fetching best sellers:', bestSellersError);
+      if (topSellingError) {
+        console.warn('Error fetching top selling products from new API, falling back to empty:', topSellingError);
       }
+
+      // Get top selling products from the new API or fallback to empty
+      const topProducts = (topSellingData?.ok ? topSellingData.data?.topProducts : []) || [];
+
+      console.log('Top selling products from new API:', topProducts);
 
       return {
         dailySales: dailySales || [],
-        bestSellers: bestSellers || []
+        topProducts: topProducts
       };
     },
     refetchInterval: 30000 // Refresh every 30 seconds
@@ -103,7 +107,7 @@ export default function Payments() {
       };
     }
 
-    const { dailySales, bestSellers } = salesData;
+    const { dailySales, topProducts } = salesData;
     
     // Aggregate data from our analytics tables
     const totalRevenue = dailySales.reduce((sum, day) => sum + (day.total_sales_cents || 0), 0);
@@ -112,8 +116,11 @@ export default function Payments() {
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     // Get top selling product from our processed data
-    const topSellingProduct = bestSellers.length > 0 ? bestSellers[0].product_name : 'No sales';
-    const topSellingCount = bestSellers.length > 0 ? (bestSellers[0].total_quantity_sold || 0) : 0;
+    const topSellingProduct = topProducts && topProducts.length > 0 ? topProducts[0].name : 'No sales';
+    const topSellingCount = topProducts && topProducts.length > 0 ? (topProducts[0].totalUnitsSold || 0) : 0;
+
+    console.log('Top selling products from analytics:', topProducts);
+    console.log('Selected top product:', topSellingProduct, 'with count:', topSellingCount);
 
     return {
       totalRevenue,
@@ -476,6 +483,18 @@ export default function Payments() {
               <div>COGS: R{(stats.cogs || 0) / 100}</div>
               <div>Expenses: R{(stats.expenses || 0) / 100}</div>
               <div style={{ fontWeight: 'bold', marginTop: '8px' }}>Net Profit: R{(stats.profit || 0) / 100}</div>
+              
+              <div style={{ marginTop: '16px', fontWeight: 'bold' }}>Top Selling Products:</div>
+              <div>Total Top Products Found: {salesData?.topProducts?.length || 0}</div>
+              {salesData?.topProducts?.map((product, index) => (
+                <div key={index}>
+                  #{index + 1}: {product.name} ({product.totalUnitsSold} sold, R{(product.totalRevenueCents / 100).toFixed(2)})
+                </div>
+              ))}
+              
+              <div style={{ marginTop: '8px', fontStyle: 'italic' }}>
+                Currently Showing: "{salesMetrics.topSellingProduct}" with {salesMetrics.topSellingCount} sold
+              </div>
             </div>
           </div>
         )}

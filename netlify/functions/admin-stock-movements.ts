@@ -22,7 +22,8 @@ export const handler: Handler = async (e) => {
         movement_type,
         notes,
         created_at,
-        product:products(id, name, slug, status)
+        product:products(id, name, slug, status),
+        orders:orders(id, archived)
       `)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -32,15 +33,42 @@ export const handler: Handler = async (e) => {
       query = query.eq('movement_type', 'manual');
     } else if (filter === 'order') {
       query = query.eq('movement_type', 'order');
-    } else {
-      // Default: Only show manual movements, exclude all order-related movements
-      query = query.eq('movement_type', 'manual');
     }
 
     // Filter out movements for archived products (only show movements for active products)
     query = query.eq('product.status', 'active');
 
+    // Filter out movements for archived orders (only show movements for non-archived orders)
+    // We'll use a more direct approach by checking the order_id relationship
+
     const { data, error } = await query;
+    
+    if (error) {
+      console.error('Stock movements query error:', error);
+      return { statusCode: 500, body: JSON.stringify({ ok: false, error: error.message }) };
+    }
+    
+    // Filter out movements for archived orders
+    let filteredData = data || [];
+    if (filteredData.length > 0) {
+      // Get unique order IDs that have movements
+      const orderIds = [...new Set(filteredData.map(m => m.order_id).filter(id => id))];
+      
+      if (orderIds.length > 0) {
+        // Check which orders are archived
+        const { data: archivedOrders, error: archiveError } = await s
+          .from('orders')
+          .select('id, archived')
+          .in('id', orderIds);
+          
+        if (!archiveError && archivedOrders) {
+          const archivedOrderIds = new Set(archivedOrders.filter(o => o.archived).map(o => o.id));
+          filteredData = filteredData.filter(movement => 
+            !movement.order_id || !archivedOrderIds.has(movement.order_id)
+          );
+        }
+      }
+    }
     
     if (error) {
       console.error('Stock movements query error:', error);
@@ -51,9 +79,10 @@ export const handler: Handler = async (e) => {
       statusCode: 200, 
       body: JSON.stringify({ 
         ok: true, 
-        data: data || [],
+        data: filteredData,
         filter,
-        count: data?.length || 0
+        count: filteredData.length,
+        originalCount: data?.length || 0
       }) 
     };
   } catch (err: any) {
