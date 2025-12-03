@@ -77,8 +77,10 @@
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.171.0",
+    "tr46": "^6.0.0",
     "tslib": "^2.8.1",
     "vaul": "^1.1.2",
+    "webidl-conversions": "^8.0.0",
     "whatwg-url": "^15.1.0",
     "ws": "^8.18.3",
     "zod": "^3.24.2"
