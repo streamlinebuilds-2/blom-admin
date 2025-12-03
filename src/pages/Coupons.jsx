@@ -76,8 +76,9 @@ export default function Coupons() {
       const { data, error } = await supabase
         .from('products')
         .select('id, name, sku, product_type')
-        .or('status.eq.active,status.is.null')
+        .eq('is_active', true) // <--- FILTER: Only show currently active products
         .order('name', { ascending: true });
+        
       if (error) throw new Error(error.message);
       return data || [];
     }
