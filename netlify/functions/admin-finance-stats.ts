@@ -127,7 +127,7 @@ export const handler: Handler = async (event) => {
         totalDiscounts: totalDiscounts,
         totalShipping: totalShipping,
         cogs: cogs,
-        expenses: operatingExpenses,
+        expenses: netRevenue * 0.10, // 10% estimated expenses
         profit: profit,
         period_label: period === '1' ? 'Today' : `Last ${period} Days`,
         date_range: {
