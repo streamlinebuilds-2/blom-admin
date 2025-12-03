@@ -1164,7 +1164,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 placeholder="250"
                 step="0.01"
                 min="0"
-                data-required={formState.type === 'fixed' ? 'true' : 'false'}
+                disabled={formState.type !== 'fixed'}
               />
             </div>
 
@@ -1181,7 +1181,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 step="1"
                 min="1"
                 max="100"
-                data-required={formState.type === 'percent' ? 'true' : 'false'}
+                disabled={formState.type !== 'percent'}
               />
               <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
                 Enter a value between 1 and 100 (e.g., 20 for 20% discount)
