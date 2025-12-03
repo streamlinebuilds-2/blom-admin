@@ -112,9 +112,8 @@ export const handler: Handler = async (event) => {
     console.log('Net revenue:', netRevenue);
     console.log('COGS:', cogs);
 
-    // Calculate Net Profit
-    const operatingExpenses = 0; // Future: add fixed costs
-    profit = netRevenue - cogs - operatingExpenses;
+    // Calculate Net Profit (Simplified: Total Sales - 10% for costs/expenses)
+    profit = netRevenue - (netRevenue * 0.10); // 10% of total sales as estimated costs
     
     console.log('Final profit:', profit);
 
