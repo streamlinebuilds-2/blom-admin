@@ -122,8 +122,23 @@ export default function AnalyticsEnhanced() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [viewMode, setViewMode] = useState('overview'); // overview, products, customers, inventory
 
-  // Fetch advanced analytics data
-  const { data: analyticsData, isLoading, refetch } = useQuery({
+  // Fetch top selling products data first (using stock movement logic)
+  const { data: topSellingData, isLoading: topSellingLoading } = useQuery({
+    queryKey: ['top-selling-products', selectedPeriod],
+    queryFn: async () => {
+      const res = await fetch(`/.netlify/functions/admin-top-selling-products?period=${selectedPeriod}&limit=10`);
+      if (!res.ok) {
+        console.warn('Failed to fetch top selling products, using empty data');
+        return { topProducts: [], summary: {} };
+      }
+      const json = await res.json();
+      return json.ok ? json.data : { topProducts: [], summary: {} };
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch advanced analytics data (keeping existing data for other metrics)
+  const { data: analyticsData, isLoading: analyticsLoading, refetch } = useQuery({
     queryKey: ['advanced-analytics', selectedPeriod],
     queryFn: async () => {
       const res = await fetch(`/.netlify/functions/admin-analytics-advanced?period=${selectedPeriod}`);
@@ -134,6 +149,8 @@ export default function AnalyticsEnhanced() {
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 1000 * 60 * 5 // Consider data stale after 5 minutes
   });
+
+  const isLoading = topSellingLoading || analyticsLoading;
 
   // Fetch existing orders for backward compatibility
   const { data: ordersData = [] } = useQuery({
@@ -147,17 +164,19 @@ export default function AnalyticsEnhanced() {
 
   // Enhanced metrics calculation
   const enhancedMetrics = useMemo(() => {
-    if (!analyticsData) return null;
+    if (!analyticsData && !topSellingData) return null;
 
+    // Use reliable top selling products from stock movement logic
+    const topProducts = topSellingData?.topProducts || [];
+    
     const {
-      topProducts,
-      fulfillment,
-      customers,
-      conversions,
-      inventory,
-      trends,
-      summary
-    } = analyticsData;
+      fulfillment = { delivery: {}, collection: {} },
+      customers = {},
+      conversions = {},
+      inventory = {},
+      trends = [],
+      summary = {}
+    } = analyticsData || {};
 
     // Delivery vs Collection Performance
     const deliveryPerformance = {
