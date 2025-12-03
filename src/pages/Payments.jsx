@@ -74,11 +74,16 @@ export default function Payments() {
   const { data: financeStats, isLoading: financeLoading } = useQuery({
     queryKey: ['finance-stats', selectedPeriod],
     queryFn: async () => {
+      console.log('Fetching finance stats for period:', selectedPeriod);
       // Use dynamic period param with exact days
       const periodParam = selectedPeriod.toString();
       const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${periodParam}`);
-      if (!res.ok) return {};
+      if (!res.ok) {
+        console.error('Finance stats fetch failed:', res.status, res.statusText);
+        return {};
+      }
       const json = await res.json();
+      console.log('Finance stats response:', json);
       return json.data || {};
     }
   });
@@ -120,6 +125,11 @@ export default function Payments() {
       periodLabel: getPeriodLabel(selectedPeriod)
     };
   }, [salesData, financeStats, selectedPeriod]);
+
+  // Debug logging for financial calculations
+  console.log('Current selectedPeriod:', selectedPeriod);
+  console.log('Finance stats:', financeStats);
+  console.log('Sales metrics:', salesMetrics);
 
   if (salesLoading || financeLoading) {
     return (
@@ -448,6 +458,27 @@ export default function Payments() {
             </div>
           </div>
         </div>
+
+        {/* Debug Information */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="summary-card">
+            <h2 className="summary-title">
+              🔧 Debug Information ({salesMetrics.periodLabel})
+            </h2>
+            <div style={{ fontSize: '12px', fontFamily: 'monospace', background: '#f5f5f5', padding: '12px', borderRadius: '8px' }}>
+              <div>Orders Count: {stats.orders_count || 0}</div>
+              <div>Period: {selectedPeriod} days</div>
+              <div>Period Label: {stats.period_label}</div>
+              <div>Date Range: {stats.date_range?.from?.split('T')[0]} to {stats.date_range?.to?.split('T')[0]}</div>
+              <div>Gross Revenue: R{(stats.totalRevenue || stats.revenue || 0) / 100}</div>
+              <div>Total Discounts: R{(stats.totalDiscounts || 0) / 100}</div>
+              <div>Net Revenue: R{(stats.netRevenue || 0) / 100}</div>
+              <div>COGS: R{(stats.cogs || 0) / 100}</div>
+              <div>Expenses: R{(stats.expenses || 0) / 100}</div>
+              <div style={{ fontWeight: 'bold', marginTop: '8px' }}>Net Profit: R{(stats.profit || 0) / 100}</div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
