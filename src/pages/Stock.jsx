@@ -607,6 +607,16 @@ function StockHistory() {
         {/* Filter Controls */}
         <div className="flex gap-2 mb-4">
           <button
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              filter === 'all' 
+                ? 'bg-[var(--accent)] text-white' 
+                : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            All ({movements?.length || 0})
+          </button>
+          <button
             onClick={() => setFilter('manual')}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
               filter === 'manual' 
@@ -614,7 +624,10 @@ function StockHistory() {
                 : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}
           >
-            Stock Adjustments ({movements?.length || 0})
+            Manual ({movements?.filter(m => {
+              const reason = m.reason?.toLowerCase() || '';
+              return reason.includes('manual') || reason.includes('adjustment');
+            }).length || 0})
           </button>
           <button
             onClick={() => setFilter('order')}
@@ -624,7 +637,10 @@ function StockHistory() {
                 : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}
           >
-            Order Sales (Hidden)
+            Order ({movements?.filter(m => {
+              const reason = m.reason?.toLowerCase() || '';
+              return reason.includes('order') || reason.includes('sale');
+            }).length || 0})
           </button>
         </div>
       </div>
