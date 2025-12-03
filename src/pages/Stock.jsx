@@ -563,16 +563,27 @@ function StockHistory() {
     return true;
   }) || [];
 
+  // Helper to format the type nicely, regardless of casing
+  const formatMovementType = (type) => {
+    if (!type) return '-';
+    
+    // Normalize to lowercase for checking
+    const normalized = type.toLowerCase();
+    
+    if (normalized === 'order' || normalized === 'sale') return 'Order';
+    if (normalized === 'manual') return 'Manual';
+    if (normalized === 'restock') return 'Restock';
+    if (normalized === 'adjustment') return 'Adjustment';
+    if (normalized === 'return') return 'Return';
+    
+    // Fallback: Capitalize first letter of whatever it is
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
   // Helper to determine movement type for display
   const getMovementType = (move) => {
     const reason = move.reason || '';
-    if (reason.startsWith('manual_') || reason === 'manual_adjustment') {
-      return 'Manual';
-    }
-    if (reason.startsWith('order_') || reason === 'order_fulfillment') {
-      return 'Order';
-    }
-    return 'Other';
+    return formatMovementType(reason);
   };
 
   // Helper to format reason for display
@@ -660,13 +671,13 @@ function StockHistory() {
                   </td>
                   <td className="p-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      getMovementType(move) === 'Manual' 
+                      formatMovementType(move.reason) === 'Manual' 
                         ? 'bg-blue-500/10 text-blue-500' 
-                        : getMovementType(move) === 'Order'
+                        : formatMovementType(move.reason) === 'Order'
                           ? 'bg-purple-500/10 text-purple-500'
                           : 'bg-gray-500/10 text-gray-500'
                     }`}>
-                      {getMovementType(move)}
+                      {formatMovementType(move.reason)}
                     </span>
                   </td>
                   <td className="p-4 text-sm text-[var(--text-muted)]">
