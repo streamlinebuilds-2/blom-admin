@@ -4,13 +4,49 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 export const handler: Handler = async (e) => {
   try {
-    // Handle PATCH request for order status updates
+    // Handle PATCH request for order status updates and archiving
     if (e.httpMethod === 'PATCH') {
       const body = JSON.parse(e.body || '{}');
-      const { id, status } = body;
+      const { id, status, archived } = body;
 
       if (!id) {
         return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing order id" }) };
+      }
+
+      // Handle archiving
+      if (archived !== undefined) {
+        console.log('📦 Archiving order:', { id, archived });
+
+        const { data: updatedOrder, error: archiveError } = await s
+          .from("orders")
+          .update({ 
+            archived: archived,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", id)
+          .select()
+          .single();
+
+        if (archiveError) {
+          throw new Error(`Failed to archive order: ${archiveError.message}`);
+        }
+
+        console.log(`✅ Order ${id} ${archived ? 'archived' : 'unarchived'} successfully`);
+
+        return {
+          statusCode: 200,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ 
+            ok: true, 
+            order: updatedOrder,
+            archived: archived
+          })
+        };
+      }
+
+      // Handle status updates (existing logic)
+      if (!status) {
+        return { statusCode: 400, body: JSON.stringify({ ok: false, error: "Missing status" }) };
       }
 
       console.log('🔄 Updating order status:', { id, status });
