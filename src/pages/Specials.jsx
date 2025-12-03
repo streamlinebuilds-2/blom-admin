@@ -225,11 +225,8 @@ export default function Specials() {
 
   // Coupon handlers
   const handleAddNewCoupon = () => {
-    console.log('🎯 handleAddNewCoupon clicked!');
     setSelectedCoupon(null);
     setIsCouponFormOpen(true);
-    console.log('🎯 Form should now be open, isCouponFormOpen:', true);
-    console.log('🎯 State change complete - selectedCoupon:', selectedCoupon, 'isCouponFormOpen:', isCouponFormOpen);
   };
 
   const handleEditCoupon = (coupon) => {
@@ -928,13 +925,10 @@ export default function Specials() {
 // --- Coupon Form Component with neumorphic styling ---
 function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false, showToast }) {
   const queryClient = useQueryClient();
-  console.log('🎯 CouponForm Component RENDERED!');
   const [formState, setFormState] = useState(() => {
     const normalizedType = normalizeCouponType(coupon?.type);
     const initialPercent = normalizedType === 'percent' ? (coupon?.percent || coupon?.value || 0) : 0;
     const initialValue = normalizedType === 'fixed' ? (coupon?.value || 0) : 0;
-    
-    console.log('🔄 Initializing CouponForm - Coupon:', coupon?.code || 'new');
     
     return {
       id: coupon?.id || null,
@@ -953,10 +947,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
     };
   });
 
-  // Debug logging for form state
-  console.log('📝 CouponForm - Coupon data:', coupon);
-  console.log('📝 CouponForm - Form state:', formState);
-  console.log('📝 CouponForm - Type:', formState.type, 'Percent:', formState.percent, 'Value:', formState.value);
+
 
   const [productSearchTerm, setProductSearchTerm] = useState('');
 
@@ -971,8 +962,10 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
       if (!response.ok) throw new Error(result.error || 'Failed to save coupon');
       return result.coupon;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('✅ Coupon saved successfully:', result);
       queryClient.invalidateQueries({ queryKey: ['coupons'] });
+      queryClient.refetchQueries({ queryKey: ['coupons'] });
       onClose();
       showToast('success', 'Coupon saved successfully');
     },
@@ -1040,15 +1033,15 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    console.log('🚀 CouponForm handleSubmit called!');
-    console.log('📋 Form submission data:', formState);
-    console.log('📊 Percentage field value:', formState.percent, 'Type:', typeof formState.percent);
-    console.log('📊 Value field value:', formState.value, 'Type:', typeof formState.value);
+    // Basic validation
+    if (!formState.code.trim()) {
+      showToast('error', 'Please enter a coupon code');
+      return;
+    }
     
     // Validation for discount values
     if (formState.type === 'percent') {
       const percentValue = parseInt(formState.percent);
-      console.log('📊 Parsed percentage value:', percentValue, 'Type:', typeof percentValue);
       if (!percentValue || percentValue < 1 || percentValue > 100) {
         showToast('error', 'Please enter a valid percentage between 1 and 100');
         return;
@@ -1068,9 +1061,6 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
       value: formState.type === 'percent' ? parseInt(formState.percent) : parseFloat(formState.value),
     };
     
-    console.log('📤 Final submission data with mapped value:', submissionData);
-    console.log('📤 Mapped value field:', submissionData.value, 'Type:', typeof submissionData.value);
-    console.log('🚀 About to call mutation.mutate...');
     mutation.mutate(submissionData);
   };
 
@@ -1148,7 +1138,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 placeholder="250"
                 step="0.01"
                 min="0"
-                required={formState.type === 'fixed'}
+                data-required={formState.type === 'fixed' ? 'true' : 'false'}
               />
             </div>
 
@@ -1165,7 +1155,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
                 step="1"
                 min="1"
                 max="100"
-                required={formState.type === 'percent'}
+                data-required={formState.type === 'percent' ? 'true' : 'false'}
               />
               <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
                 Enter a value between 1 and 100 (e.g., 20 for 20% discount)
@@ -1322,7 +1312,6 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
             type="submit" 
             className="btn-activate" 
             disabled={mutation.isPending}
-            onClick={() => console.log('🎯 CREATE COUPON SUBMIT BUTTON CLICKED!')}
           >
             <Sparkles className="w-5 h-5" />
             {mutation.isPending ? 'Saving...' : (coupon ? 'Save Changes' : 'Create Coupon')}
