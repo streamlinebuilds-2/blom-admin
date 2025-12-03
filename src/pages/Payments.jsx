@@ -21,11 +21,18 @@ const getPeriodLabel = (days) => {
 export default function Payments() {
   const [selectedPeriod, setSelectedPeriod] = useState(30);
 
-  // Calculate date range for query
-  const { now, periodStart } = React.useMemo(() => {
+  // 1. FIX DATE LOGIC: "Today" means 00:00:00 to NOW, not last 24h
+  const { periodStart, now } = React.useMemo(() => {
     const now = new Date();
-    const periodStart = new Date(now.getTime() - selectedPeriod * 24 * 60 * 60 * 1000);
-    return { now, periodStart };
+    const start = new Date();
+    
+    if (selectedPeriod === 1) {
+      start.setHours(0, 0, 0, 0); // Start of today
+    } else {
+      start.setDate(now.getDate() - selectedPeriod); // Start of X days ago
+    }
+    
+    return { now, periodStart: start };
   }, [selectedPeriod]);
 
   // Fetch data directly from our analytics database tables
@@ -67,8 +74,10 @@ export default function Payments() {
   const { data: financeStats, isLoading: financeLoading } = useQuery({
     queryKey: ['finance-stats', selectedPeriod],
     queryFn: async () => {
-      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=analytics`);
-      if (!res.ok) throw new Error('Failed to fetch finance stats');
+      // Use dynamic period param
+      const periodParam = selectedPeriod === 1 ? 'today' : selectedPeriod === 7 ? 'week' : 'analytics';
+      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${periodParam}`);
+      if (!res.ok) return {};
       const json = await res.json();
       return json.data || {};
     }
@@ -380,7 +389,7 @@ export default function Payments() {
                 <div className={`metric-value ${stats.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
                   {moneyZAR(stats.profit)}
                 </div>
-                <div className="metric-subtitle">Last 30 days</div>
+                <div className="metric-subtitle">{salesMetrics.periodLabel}</div>
               </div>
             </div>
           </div>
