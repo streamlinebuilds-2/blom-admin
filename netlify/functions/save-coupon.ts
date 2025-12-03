@@ -58,8 +58,11 @@ export const handler: Handler = async (event) => {
       notes: body.description, // Map description -> notes
       is_active: body.is_active ?? true,
 
-      type: finalType, // 'percentage' or 'fixed' (validated and mapped)
-      value: parseFloat(body.value), // The % or R value
+      type: finalType, // 'percent' or 'fixed'
+      
+      // FIX: Populate BOTH columns to prevent "0%" errors
+      value: parseFloat(body.value), 
+      percent: finalType === 'percent' ? parseFloat(body.value) : null,
 
       // Limitations (convert Rands from form to Cents for DB)
       min_order_cents: body.min_spend ? Math.round(parseFloat(body.min_spend) * 100) : 0,
