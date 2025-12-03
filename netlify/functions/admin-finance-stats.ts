@@ -1,128 +1,88 @@
-import type { Handler } from "@netlify/functions";
+import { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-export const handler: Handler = async (e) => {
+export const handler: Handler = async (event) => {
   try {
-    // 1. Get Date Range (default to last 30 days, or from query params)
+    // 1. Get the period from the Frontend (today, week, month)
+    const period = event.queryStringParameters?.period || '30'; 
+    
+    // 2. Calculate the Date Range
     const now = new Date();
-    let days = 30; // Default to 30 days
+    let startDate = new Date();
     
-    // Parse query parameters if provided
-    const url = new URL(e.rawUrl);
-    const period = url.searchParams.get('period');
-    if (period === 'today') days = 1;
-    else if (period === 'week') days = 7;
-    else if (period === 'month') days = 30;
-    else if (period && !isNaN(Number(period))) days = Math.max(1, Math.min(365, Number(period)));
-    
-    const fromDate = new Date();
-    fromDate.setDate(now.getDate() - days);
-    const fromIso = fromDate.toISOString();
+    if (period === 'today' || period === '1') {
+      startDate.setHours(0, 0, 0, 0); // Start of today (Midnight)
+    } else if (period === 'week' || period === '7') {
+      startDate.setDate(now.getDate() - 7);
+    } else {
+      startDate.setDate(now.getDate() - 30); // Default 30 days
+    }
 
-    // 2. Fetch Orders (Revenue)
-    // Status: paid, packed, collected, out_for_delivery, delivered
-    const { data: orders, error: oErr } = await s
-      .from("orders")
-      .select("id, total_cents, created_at, status, subtotal_cents, discount_cents, shipping_cost_cents")
-      .gte("created_at", fromIso)
-      .in("status", ["paid", "packed", "collected", "out_for_delivery", "delivered"]);
-    
-    if (oErr) throw oErr;
+    // 3. Fetch Orders for this Period
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select(`
+        id, total_cents, created_at, payment_status,
+        order_items ( quantity, product_id )
+      `)
+      .or('payment_status.eq.paid,status.in.(paid,packed,shipped,delivered,collected)')
+      .gte('created_at', startDate.toISOString());
 
-    // Calculate revenue and additional financial metrics
-    const revenueCents = (orders || []).reduce((sum, o) => sum + (o.total_cents || 0), 0);
-    const totalDiscountsCents = (orders || []).reduce((sum, o) => sum + (o.discount_cents || 0), 0);
-    const totalShippingCostsCents = (orders || []).reduce((sum, o) => sum + (o.shipping_cost_cents || 0), 0);
-    const grossRevenueCents = (orders || []).reduce((sum, o) => sum + ((o.subtotal_cents || o.total_cents || 0) + (o.discount_cents || 0)), 0);
+    if (error) throw error;
 
-    // 3. Fetch Operating Costs (Expenses)
-    const { data: expenses, error: eErr } = await s
-      .from("operating_costs")
-      .select("amount, category, description, occurred_on")
-      .gte("occurred_on", fromIso.slice(0, 10)) // occurred_on is usually YYYY-MM-DD
-      .order("occurred_on", { ascending: false });
+    // 4. Fetch Product Costs to calculate Profit
+    // We need the cost_price to know how much money you actually made
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, cost_price, price');
 
-    if (eErr) throw eErr;
+    const productCostMap = new Map();
+    products?.forEach(p => {
+      // Use cost_price, or fallback to 40% of price if cost is missing
+      const cost = p.cost_price > 0 ? p.cost_price : (p.price * 0.4); 
+      productCostMap.set(p.id, cost);
+    });
 
-    const expensesTotal = (expenses || []).reduce((sum, ex) => sum + (Number(ex.amount) || 0), 0);
+    // 5. Calculate Stats
+    let revenue = 0;
+    let cogs = 0; // Cost of Goods Sold
 
-    // 4. Calculate COGS (Cost of Goods Sold)
-    // We need order items for the fetched orders to calculate COGS based on product cost price
-    // Note: This is an approximation using CURRENT cost price. 
-    // Ideally, we'd snapshot cost price at time of order, but for now we fetch current product cost.
-    let cogsCents = 0;
-    if (orders && orders.length > 0) {
-      const orderIds = orders.map(o => o.id);
+    orders.forEach(order => {
+      revenue += (order.total_cents || 0);
       
-      // Fetch items for these orders
-      const { data: items, error: iErr } = await s
-        .from("order_items")
-        .select("product_id, qty")
-        .in("order_id", orderIds);
-
-      if (iErr) throw iErr;
-
-      if (items && items.length > 0) {
-        // Get unique product IDs to fetch cost prices
-        const productIds = [...new Set(items.map(i => i.product_id).filter(Boolean))];
-        
-        const { data: products, error: pErr } = await s
-          .from("products")
-          .select("id, cost_price_cents")
-          .in("id", productIds);
-          
-        if (pErr) throw pErr;
-
-        // Map product cost
-        const costMap: Record<string, number> = {};
-        products?.forEach(p => {
-          costMap[p.id] = p.cost_price_cents || 0;
-        });
-
-        // Sum up COGS
-        items.forEach(item => {
+      // Calculate cost for each item in the order
+      if (order.order_items) {
+        order.order_items.forEach((item: any) => {
           if (item.product_id) {
-            const cost = costMap[item.product_id] || 0;
-            cogsCents += cost * (item.qty || 0);
+            const unitCost = productCostMap.get(item.product_id) || 0;
+            // Convert Rands to Cents for calculation if cost_price is in Rands
+            // Assuming cost_price in DB is standard float (e.g. 50.00)
+            cogs += (unitCost * 100) * item.quantity; 
           }
         });
       }
-    }
+    });
 
-    // 5. Recent Expenses (Last 5)
-    const recentExpenses = (expenses || []).slice(0, 5);
-
-    // 6. Calculate Net Profit with all factors:
-    // Net Profit = Total Revenue - Cost of Goods Sold - Operating Expenses - Shipping Costs
-    // All calculations in Rands (decimal) for consistency
-    const netProfit = (revenueCents - cogsCents - totalShippingCostsCents) / 100 - expensesTotal;
+    const expenses = 0; // Add fixed operating costs here later if needed
+    const profit = revenue - cogs - expenses;
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         ok: true,
         data: {
-          revenue: revenueCents, // Keep in cents for consistency
-          grossRevenue: grossRevenueCents,
-          totalDiscounts: totalDiscountsCents,
-          totalShippingCosts: totalShippingCostsCents,
-          expenses: expensesTotal * 100, // Convert to cents
-          cogs: cogsCents,
-          profit: netProfit * 100, // Convert to cents
-          recentExpenses: recentExpenses.map(exp => ({...exp, amount: exp.amount * 100}))
+          revenue,
+          cogs,
+          expenses,
+          profit,
+          period_label: period === 'today' ? 'Today' : `Last ${period} Days`
         }
       })
     };
 
-  } catch (err: any) {
-    console.error("Finance Stats Error:", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: false, error: err.message || "Failed to fetch finance stats" })
-    };
+  } catch (error: any) {
+    return { statusCode: 500, body: JSON.stringify({ ok: false, error: error.message }) };
   }
 };
