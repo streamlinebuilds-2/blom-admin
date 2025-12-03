@@ -5,9 +5,8 @@ const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_R
 
 export const handler: Handler = async (e) => {
   try {
-    // Parse query parameters
     const url = new URL(e.rawUrl);
-    const period = url.searchParams.get('period') || '30'; // Default 30 days
+    const period = url.searchParams.get('period') || '30';
     const productId = url.searchParams.get('product_id');
     const startDate = url.searchParams.get('start_date');
     const endDate = url.searchParams.get('end_date');
@@ -15,7 +14,6 @@ export const handler: Handler = async (e) => {
     let fromDate: Date;
     const now = new Date();
     
-    // Handle date range or period
     if (startDate && endDate) {
       fromDate = new Date(startDate);
     } else {
@@ -25,14 +23,17 @@ export const handler: Handler = async (e) => {
     
     const fromIso = fromDate.toISOString();
 
-    // 1. TOP SELLING PRODUCTS ANALYTICS
+    // 1. TOP SELLING PRODUCTS - Updated Selection
     let topProductsQuery = s
       .from("order_items")
       .select(`
         product_id,
         qty,
+        quantity,
         line_total_cents,
+        line_total,
         unit_price_cents,
+        unit_price,
         orders!inner (
           id,
           created_at,
@@ -53,7 +54,7 @@ export const handler: Handler = async (e) => {
         )
       `)
       .gte("orders.created_at", fromIso)
-      // ADD THESE FILTERS to exclude junk data:
+      // Standardize status filtering
       .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)', { foreignTable: 'orders' })
       .or('archived.is.null,archived.eq.false', { foreignTable: 'orders' });
 
@@ -64,22 +65,17 @@ export const handler: Handler = async (e) => {
     const { data: orderItems, error: itemsError } = await topProductsQuery;
     if (itemsError) throw itemsError;
 
-    // Process top products data
     const productAnalytics: Record<string, any> = {};
     
     (orderItems || []).forEach((item: any) => {
-      const productId = item.product_id;
+      const pId = item.product_id;
       
-      // 🛡️ ANALYTICS FILTER: Skip items with no ID or valid Product Name
-      // This hides "Unknown" rows from the chart completely
-      if (!productId || !item.products?.name) {
-        return; 
-      }
+      if (!pId || !item.products?.name) return; 
 
-      if (!productAnalytics[productId]) {
-        productAnalytics[productId] = {
-          id: productId,
-          name: item.products?.name, // Now guaranteed to exist
+      if (!productAnalytics[pId]) {
+        productAnalytics[pId] = {
+          id: pId,
+          name: item.products?.name,
           totalUnitsSold: 0,
           totalRevenueCents: 0,
           totalOrders: 0,
@@ -90,28 +86,29 @@ export const handler: Handler = async (e) => {
         };
       }
       
-      const analytics = productAnalytics[productId];
-      analytics.totalUnitsSold += item.qty || 0;
-      analytics.totalRevenueCents += item.line_total_cents || 0;
+      const analytics = productAnalytics[pId];
+      
+      // SMART DATA RESOLUTION: Check both field names
+      const qty = item.quantity || item.qty || 0;
+      // Prefer cents, fallback to float * 100
+      const revenueCents = item.line_total_cents || (item.line_total ? Math.round(item.line_total * 100) : 0);
+      
+      analytics.totalUnitsSold += qty;
+      analytics.totalRevenueCents += revenueCents;
       analytics.totalOrders += 1;
       
       if (item.orders?.customer_email) {
         analytics.uniqueCustomers.add(item.orders.customer_email);
       }
       
-      // Cost calculation
       const costPrice = item.products?.cost_price_cents || 0;
-      analytics.estimatedCOGS += (costPrice * (item.qty || 0));
+      analytics.estimatedCOGS += (costPrice * qty);
+      analytics.estimatedProfitCents += (revenueCents - (costPrice * qty));
       
-      // Profit calculation
-      analytics.estimatedProfitCents += (item.line_total_cents || 0) - (costPrice * (item.qty || 0));
-      
-      // Daily tracking
       const orderDate = new Date(item.orders?.created_at).toISOString().split('T')[0];
-      analytics.dailySales[orderDate] = (analytics.dailySales[orderDate] || 0) + (item.qty || 0);
+      analytics.dailySales[orderDate] = (analytics.dailySales[orderDate] || 0) + qty;
     });
 
-    // Convert to array and sort
     const topProducts = Object.values(productAnalytics)
       .map((product: any) => ({
         ...product,
@@ -120,14 +117,13 @@ export const handler: Handler = async (e) => {
         profitMargin: product.totalRevenueCents > 0 ? (product.estimatedProfitCents / product.totalRevenueCents) * 100 : 0
       }))
       .sort((a, b) => b.totalUnitsSold - a.totalUnitsSold)
-      .slice(0, 10); // Top 10 for comprehensive view
+      .slice(0, 10);
 
-    // 2. DELIVERY vs COLLECTION PERFORMANCE
+    // 2. FULFILLMENT & OTHER METRICS (Keep existing structure but add status filters)
     const { data: fulfillmentData, error: fulfillmentError } = await s
       .from("orders")
       .select("id, total_cents, subtotal_cents, fulfillment_method, created_at, payment_status, customer_email")
       .gte("created_at", fromIso)
-      // REPLACE .eq("payment_status", "paid") WITH ROBUST LOGIC:
       .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
       .or('archived.is.null,archived.eq.false');
 
@@ -139,9 +135,13 @@ export const handler: Handler = async (e) => {
     };
 
     (fulfillmentData || []).forEach((order: any) => {
-      const method = order.fulfillment_method === 'delivery' ? 'delivery' : 'collection';
-      const analytics = deliveryAnalytics[method];
+      // Normalize 'delivery' vs 'courier', 'collection' vs 'pickup'
+      let method = 'collection';
+      if (order.fulfillment_method && (order.fulfillment_method.includes('delivery') || order.fulfillment_method.includes('courier'))) {
+        method = 'delivery';
+      }
       
+      const analytics = deliveryAnalytics[method];
       analytics.count += 1;
       analytics.revenueCents += order.total_cents || 0;
       
@@ -156,7 +156,6 @@ export const handler: Handler = async (e) => {
       .select("customer_email, total_cents, created_at")
       .gte("created_at", fromIso)
       .not("customer_email", "is", null)
-      // ADD ROBUST LOGIC to exclude junk data:
       .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
       .or('archived.is.null,archived.eq.false');
 
@@ -169,7 +168,6 @@ export const handler: Handler = async (e) => {
       totalCustomerRevenue: 0
     };
 
-    // Group by customer and time
     const customerOrders: Record<string, any[]> = {};
     (customersData || []).forEach((order: any) => {
       const email = order.customer_email;
@@ -189,56 +187,29 @@ export const handler: Handler = async (e) => {
       customerAnalytics.totalCustomerRevenue += order.total_cents || 0;
     });
 
+    // ... (Keep existing Conversion & Inventory sections as they were) ...
     // 4. CONVERSION RATE ANALYTICS
-    const { data: contactsData, error: contactsError } = await s
-      .from("contacts")
-      .select("created_at")
-      .gte("created_at", fromIso);
-
-    if (contactsError) throw contactsError;
+    const { data: contactsData } = await s.from("contacts").select("created_at").gte("created_at", fromIso);
+    const { data: productsData } = await s.from("products").select("id, name, stock_qty, cost_price_cents, price_cents, status");
 
     const conversionAnalytics = {
       totalContacts: (contactsData || []).length,
       totalOrders: (fulfillmentData || []).length,
-      conversionRate: 0,
-      averageOrderValue: 0,
-      customerLifetimeValue: 0
+      conversionRate: (contactsData || []).length > 0 ? ((fulfillmentData || []).length / (contactsData || []).length) * 100 : 0,
+      averageOrderValue: (fulfillmentData || []).length > 0 ? (fulfillmentData || []).reduce((sum, o) => sum + (o.total_cents || 0), 0) / (fulfillmentData || []).length : 0,
+      customerLifetimeValue: customerAnalytics.totalCustomers.size > 0 ? customerAnalytics.totalCustomerRevenue / customerAnalytics.totalCustomers.size : 0
     };
-
-    conversionAnalytics.conversionRate = conversionAnalytics.totalContacts > 0 
-      ? (conversionAnalytics.totalOrders / conversionAnalytics.totalContacts) * 100 
-      : 0;
-
-    conversionAnalytics.averageOrderValue = conversionAnalytics.totalOrders > 0 
-      ? (fulfillmentData || []).reduce((sum, order) => sum + (order.total_cents || 0), 0) / conversionAnalytics.totalOrders
-      : 0;
-
-    conversionAnalytics.customerLifetimeValue = customerAnalytics.totalCustomers.size > 0
-      ? conversionAnalytics.totalCustomerRevenue / customerAnalytics.totalCustomers.size
-      : 0;
-
-    // 5. INVENTORY TURNOVER
-    const { data: productsData, error: productsError } = await s
-      .from("products")
-      .select("id, name, stock_qty, cost_price_cents, price_cents, status");
-
-    if (productsError) throw productsError;
 
     const inventoryAnalytics = {
       totalProducts: (productsData || []).length,
       activeProducts: (productsData || []).filter(p => p.status === 'active').length,
       lowStockProducts: (productsData || []).filter(p => (p.stock_qty || 0) < 5).length,
       outOfStockProducts: (productsData || []).filter(p => (p.stock_qty || 0) === 0).length,
-      totalInventoryValue: 0,
+      totalInventoryValue: (productsData || []).reduce((sum, p) => sum + ((p.stock_qty || 0) * (p.cost_price_cents || 0)), 0),
       averageInventoryTurnover: 0
     };
 
-    inventoryAnalytics.totalInventoryValue = (productsData || []).reduce(
-      (sum, product) => sum + ((product.stock_qty || 0) * (product.cost_price_cents || 0)), 
-      0
-    );
-
-    // 6. SALES TRENDS & TIME-BASED ANALYTICS
+    // 6. SALES TRENDS
     const salesTrends = {};
     const ordersTrends = {};
     
@@ -257,7 +228,6 @@ export const handler: Handler = async (e) => {
       }
     });
 
-    // Convert trends to arrays
     const trendData = Object.entries(salesTrends).map(([date, revenue]) => ({
       date,
       revenueCents: revenue,
@@ -270,13 +240,9 @@ export const handler: Handler = async (e) => {
       body: JSON.stringify({
         ok: true,
         data: {
-          period: {
-            from: fromIso,
-            to: now.toISOString(),
-            days: parseInt(period)
-          },
-          topProducts: topProducts.slice(0, 3), // Top 3 for main view
-          allTopProducts: topProducts, // Full list for drill-down
+          period: { from: fromIso, to: now.toISOString(), days: parseInt(period) },
+          topProducts: topProducts.slice(0, 3),
+          allTopProducts: topProducts,
           fulfillment: {
             delivery: {
               count: deliveryAnalytics.delivery.count,
@@ -306,9 +272,7 @@ export const handler: Handler = async (e) => {
             totalRevenueCents: (fulfillmentData || []).reduce((sum, order) => sum + (order.total_cents || 0), 0),
             totalOrders: (fulfillmentData || []).length,
             avgOrderValue: conversionAnalytics.averageOrderValue,
-            avgProfitPerTransaction: topProducts.length > 0 
-              ? topProducts.reduce((sum, p) => sum + p.estimatedProfitCents, 0) / (fulfillmentData || []).length 
-              : 0
+            avgProfitPerTransaction: topProducts.length > 0 ? topProducts.reduce((sum, p) => sum + p.estimatedProfitCents, 0) / (fulfillmentData || []).length : 0
           }
         }
       })
