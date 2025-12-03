@@ -74,8 +74,8 @@ export default function Payments() {
   const { data: financeStats, isLoading: financeLoading } = useQuery({
     queryKey: ['finance-stats', selectedPeriod],
     queryFn: async () => {
-      // Use dynamic period param
-      const periodParam = selectedPeriod === 1 ? 'today' : selectedPeriod === 7 ? 'week' : 'analytics';
+      // Use dynamic period param with exact days
+      const periodParam = selectedPeriod.toString();
       const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${periodParam}`);
       if (!res.ok) return {};
       const json = await res.json();
@@ -417,20 +417,28 @@ export default function Payments() {
         <div className="summary-card">
           <h2 className="summary-title">
             <DollarSign className="w-5 h-5" />
-            Financial Summary (Last 30 Days)
+            Financial Summary ({salesMetrics.periodLabel})
           </h2>
           <div className="summary-row">
             <div className="summary-item">
               <span className="summary-label">Gross Revenue</span>
-              <span className="summary-value">{moneyZAR(stats.revenue)}</span>
+              <span className="summary-value">{moneyZAR(stats.totalRevenue || stats.revenue || 0)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Discounts</span>
+              <span className="summary-value">-{moneyZAR(stats.totalDiscounts || 0)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Net Revenue</span>
+              <span className="summary-value">{moneyZAR(stats.netRevenue || stats.totalRevenue || 0)}</span>
             </div>
             <div className="summary-item">
               <span className="summary-label">Cost of Goods</span>
-              <span className="summary-value">{moneyZAR(stats.cogs)}</span>
+              <span className="summary-value">-{moneyZAR(stats.cogs)}</span>
             </div>
             <div className="summary-item">
               <span className="summary-label">Operating Expenses</span>
-              <span className="summary-value">{moneyZAR(stats.expenses)}</span>
+              <span className="summary-value">-{moneyZAR(stats.expenses)}</span>
             </div>
             <div className="summary-item">
               <span className="summary-label">Net Profit</span>
