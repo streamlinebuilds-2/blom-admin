@@ -5,34 +5,31 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
 
 export const handler: Handler = async (event) => {
   try {
-    // 1. Get the period from the Frontend (1, 7, 30 days)
     const period = event.queryStringParameters?.period || '30';
-    console.log('Period requested:', period);
     
-    // 2. Calculate the Date Range
+    // Calculate Date Range
     const now = new Date();
     let startDate = new Date();
     
     if (period === '1') {
-      startDate.setHours(0, 0, 0, 0); // Start of today (Midnight)
+      startDate.setHours(0, 0, 0, 0); 
     } else {
       const days = parseInt(period) || 30;
       startDate.setDate(now.getDate() - days);
     }
 
-    // 3. Fetch Product Info (Costs & Names) - Optimized Map
+    // Fetch Products
     const { data: products } = await supabase
       .from('products')
       .select('id, cost_price_cents, price_cents, name');
 
-    const productMap = new Map(); // id -> { cost, name }
+    const productMap = new Map();
     products?.forEach(p => {
-      // Use cost_price_cents directly, fallback to 40% of price_cents if missing
       const cost = p.cost_price_cents > 0 ? p.cost_price_cents : (p.price_cents * 0.4); 
       productMap.set(p.id, { cost, name: p.name });
     });
 
-    // 4. Fetch Orders for this Period with Strict "Current Order" Filters
+    // Fetch Orders
     const { data: orders, error } = await supabase
       .from('orders')
       .select(`
@@ -51,23 +48,22 @@ export const handler: Handler = async (event) => {
       `)
       .gte('created_at', startDate.toISOString())
       .lte('created_at', now.toISOString())
-      // LOGIC: Only Paid/Active statuses, No Archived orders
       .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
       .or('archived.is.null,archived.eq.false')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // 5. Calculate Stats
-    let totalRevenue = 0;   // Gross revenue (subtotal)
+    // Calculate Stats
+    let totalRevenue = 0;
     let totalDiscounts = 0; 
     let totalShipping = 0;
-    let netRevenue = 0;     // Actual Total (paid by customer)
-    let cogs = 0;           // Cost of Goods Sold
+    let netRevenue = 0;
+    let cogs = 0;
     let orderCount = 0;
-    let totalItemsSold = 0; // NEW: Total items count
+    let totalItemsSold = 0;
     
-    const productSales = new Map(); // id -> quantity sold
+    const productSales = new Map();
 
     orders?.forEach(order => {
       orderCount++;
@@ -76,7 +72,6 @@ export const handler: Handler = async (event) => {
       totalShipping += order.shipping_cost_cents || 0;
       netRevenue += order.total_cents || 0;
       
-      // Calculate COGS and Items Sold
       if (order.order_items) {
         order.order_items.forEach((item: any) => {
           const qty = item.quantity || item.qty || 0;
@@ -86,8 +81,6 @@ export const handler: Handler = async (event) => {
             const pInfo = productMap.get(item.product_id);
             if (pInfo) {
               cogs += pInfo.cost * qty;
-              
-              // Track for Top Selling
               const currentQty = productSales.get(item.product_id) || 0;
               productSales.set(item.product_id, currentQty + qty);
             }
@@ -96,7 +89,7 @@ export const handler: Handler = async (event) => {
       }
     });
 
-    // Find Top Selling Product
+    // Determine Top Product
     let topProduct = { name: 'No sales', count: 0 };
     let maxSold = 0;
     
@@ -111,38 +104,29 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // Calculate Net Profit
-    // Profit = Net Revenue - COGS - Estimated Expenses (10%)
     const expenses = netRevenue * 0.10;
     const profit = netRevenue - cogs - expenses;
-
-    // 6. Return Comprehensive Data
-    const result = {
-      ok: true,
-      data: {
-        orders_count: orderCount,
-        items_sold: totalItemsSold,
-        top_selling_product: topProduct.name,
-        top_selling_count: topProduct.count,
-        revenue: totalRevenue,
-        netRevenue: netRevenue,
-        totalDiscounts: totalDiscounts,
-        totalShipping: totalShipping,
-        cogs: cogs,
-        expenses: expenses,
-        profit: profit,
-        period_label: period === '1' ? 'Today' : `Last ${period} Days`,
-        date_range: {
-          from: startDate.toISOString(),
-          to: now.toISOString()
-        }
-      }
-    };
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(result)
+      body: JSON.stringify({
+        ok: true,
+        data: {
+          orders_count: orderCount,
+          items_sold: totalItemsSold,
+          top_selling_product: topProduct.name,
+          top_selling_count: topProduct.count,
+          revenue: totalRevenue,
+          netRevenue: netRevenue,
+          totalDiscounts: totalDiscounts,
+          totalShipping: totalShipping,
+          cogs: cogs,
+          expenses: expenses,
+          profit: profit,
+          period_label: period === '1' ? 'Today' : `Last ${period} Days`
+        }
+      })
     };
 
   } catch (error: any) {

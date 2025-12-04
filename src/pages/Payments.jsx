@@ -13,16 +13,21 @@ export default function Payments() {
   const [selectedPeriod, setSelectedPeriod] = useState(30);
 
   // Fetch ALL financial data directly from the unified Backend Function
-  // This uses the exact same filtering logic as the Analytics page
   const { data: stats, isLoading } = useQuery({
     queryKey: ['finance-stats-unified', selectedPeriod],
     queryFn: async () => {
-      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${selectedPeriod}`);
-      if (!res.ok) {
-        throw new Error('Failed to fetch finance stats');
+      try {
+        const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${selectedPeriod}`);
+        if (!res.ok) {
+          console.warn('Finance stats fetch failed:', res.status);
+          return {};
+        }
+        const json = await res.json();
+        return json.data || {};
+      } catch (err) {
+        console.error('Error loading finance stats:', err);
+        return {};
       }
-      const json = await res.json();
-      return json.data || {};
     }
   });
 
@@ -34,22 +39,33 @@ export default function Payments() {
     );
   }
 
-  // Fallback values if API returns null/undefined
-  const data = stats || {
+  // 🛡️ SAFE DATA MERGING: 
+  // Ensure we always have default values even if the API returns an empty object or old data structure.
+  const defaults = {
     revenue: 0,
     orders_count: 0,
     items_sold: 0,
     netRevenue: 0,
     profit: 0,
-    top_selling_product: 'No sales',
+    top_selling_product: 'No sales yet',
     top_selling_count: 0,
-    period_label: 'Loading...',
+    period_label: selectedPeriod === 1 ? 'Today' : `Last ${selectedPeriod} Days`,
     cogs: 0,
     expenses: 0,
     totalDiscounts: 0
   };
 
+  // Merge defaults with fetched stats to guarantee all fields exist
+  const data = { ...defaults, ...(stats || {}) };
+
+  // Calculate average order value safely
   const avgOrderValue = data.orders_count > 0 ? data.netRevenue / data.orders_count : 0;
+
+  // Safe string handling for top selling product
+  const topProductName = data.top_selling_product || 'No sales yet';
+  const displayProductName = topProductName.length > 20 
+    ? topProductName.substring(0, 20) + '...'
+    : topProductName;
 
   return (
     <>
@@ -322,10 +338,7 @@ export default function Payments() {
               <div className="metric-info">
                 <div className="metric-label">Top Selling</div>
                 <div className="metric-value" style={{ fontSize: '20px' }}>
-                  {data.top_selling_product.length > 20 
-                    ? data.top_selling_product.substring(0, 20) + '...'
-                    : data.top_selling_product
-                  }
+                  {displayProductName}
                 </div>
                 <div className="metric-subtitle">{formatNumber(data.top_selling_count)} units sold</div>
               </div>
