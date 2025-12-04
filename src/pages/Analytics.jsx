@@ -1,7 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-// ADDED new icons for clarity
-import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Users, Package, Loader2, MinusCircle, Truck, Percent } from "lucide-react";
+import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Users, Package, Loader2 } from "lucide-react";
 import { moneyZAR } from "../components/formatUtils";
 import {
   BarChart,
@@ -14,15 +13,6 @@ import {
   LineChart,
   Line
 } from "recharts";
-
-// Helper for formatting profitability numbers and coloring
-const formatProfit = (cents) => {
-    const value = moneyZAR(cents || 0);
-    // Use existing classes for consistency
-    if (cents > 0) return { value, color: 'text-green-600' };
-    if (cents < 0) return { value, color: 'text-red-600' };
-    return { value, color: 'text-gray-500' };
-};
 
 function MetricCard({ title, value, subtitle, icon: Icon, loading }) {
   return (
@@ -57,24 +47,8 @@ export default function Analytics() {
 
   const stats = analytics?.summary || {};
   const trends = analytics?.trends || [];
+  const topProducts = analytics?.topProducts || [];
   const inventory = analytics?.inventory || {};
-  
-  // 🚨 NEW: Extract all products (for profitability table) and financial losses
-  const allTopProducts = analytics?.allTopProducts || []; 
-  const losses = analytics?.financialLosses || {};
-
-  // Calculate Net Shipping Profit/Loss: Revenue from delivery minus cost of shipping.
-  const deliveryRevenueCents = analytics?.fulfillment?.delivery?.revenueCents || 0;
-  const actualShippingCostCents = losses.totalShippingCostCents || 0;
-  const netShippingCents = (deliveryRevenueCents || 0) - actualShippingCostCents;
-
-  const netShippingInfo = formatProfit(netShippingCents);
-  const netShippingSubtitle = netShippingCents >= 0 ? "Net Profit/Break-even" : "Net Loss";
-
-  // Sort products by Profit (highest first) for the new table
-  const productsByProfit = [...allTopProducts]
-    .filter(p => p.totalUnitsSold > 0)
-    .sort((a, b) => b.estimatedProfitCents - a.estimatedProfitCents);
 
   return (
     <>
@@ -286,65 +260,6 @@ export default function Analytics() {
           color: var(--text);
           margin-bottom: 8px;
         }
-
-        /* 🚨 ADDED STYLES FOR NEW METRICS/TABLE */
-        /* Reusing the existing dark shadow/color scheme */
-        .metric-card.discount::before { background: linear-gradient(90deg, #ef4444, #f87171); }
-        .metric-card.shipping::before { background: linear-gradient(90deg, #1d4ed8, #3b82f6); }
-        
-        /* ADJUST GRID TO FIT NEW CARDS BETTER */
-        .metrics-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 24px;
-          margin-bottom: 32px;
-        }
-
-        /* Full width for the table when container is too small */
-        .charts-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr; 
-          gap: 24px;
-          margin-bottom: 32px;
-        }
-        .chart-card.full-width { 
-            grid-column: 1 / -1; 
-        }
-
-        /* --- NEW Profitability Table Styles (Reusing existing colors) --- */
-        .profitability-table-container {
-            margin-top: 20px;
-            overflow-x: auto;
-        }
-        .profit-item {
-            display: grid;
-            /* Column layout: Name | Units | Revenue | Profit */
-            grid-template-columns: 4fr 1.5fr 1.5fr 1.5fr; 
-            align-items: center;
-            padding: 12px 24px;
-            border-bottom: 1px solid var(--border);
-            font-size: 14px;
-        }
-        .profit-item:first-child { 
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-size: 12px;
-            padding-bottom: 10px;
-            padding-top: 0;
-            border-bottom: 2px solid var(--border);
-        }
-        .profit-item:hover {
-            background: rgba(110, 193, 255, 0.05); /* Reuse light hover color */
-        }
-        .profit-col-units, .profit-col-revenue, .profit-col-profit { 
-             text-align: right; 
-        }
-        .profit-col-name { font-weight: 600; }
-        .text-green-600 { color: #10b981; } /* Reusing existing green class */
-        .text-red-600 { color: #ef4444; }   /* Reusing existing red class */
-        .text-gray-500 { color: var(--text-muted); }
-        /* --- End NEW Profitability Table Styles --- */
       `}</style>
 
       <div className="analytics-container">
@@ -393,27 +308,6 @@ export default function Analytics() {
               loading={isLoading}
             />
           </div>
-          
-          {/* 🚨 NEW METRIC 1: DISCOUNTS GIVEN */}
-          <div className="metric-card discount">
-            <MetricCard
-              title="Discounts Given"
-              value={`-${moneyZAR(losses.totalDiscountsCents || 0)}`}
-              subtitle="Coupon and Promo Loss"
-              icon={Percent} /* Changed from MinusCircle to Percent for clarity */
-              loading={isLoading}
-            />
-          </div>
-          {/* 🚨 NEW METRIC 2: NET SHIPPING (Profit/Loss) */}
-          <div className="metric-card shipping">
-            <MetricCard
-              title="Net Shipping"
-              value={netShippingInfo.value}
-              subtitle={netShippingSubtitle}
-              icon={Truck}
-              loading={isLoading}
-            />
-          </div>
         </div>
 
         <div className="charts-grid">
@@ -439,45 +333,32 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* 🚨 REPLACING Top Selling Products List with Profitability Table */}
-          {/* The full-width class ensures it spans both columns on large screens */}
-          <div className="chart-card full-width">
-            <h3 className="chart-title">Product Profitability (Top 10 by Net Profit)</h3>
-            <div className="profitability-table-container">
-                {/* Header Row */}
-                <div className="profit-item profit-header">
-                    <div className="profit-col-name">Product Name</div>
-                    <div className="profit-col-units">Units Sold</div>
-                    <div className="profit-col-revenue">Revenue</div>
-                    <div className="profit-col-profit">Net Profit</div>
+          <div className="chart-card">
+            <h3 className="chart-title">Top Selling Products</h3>
+            <div className="top-products-list">
+              {topProducts.length === 0 && !isLoading && (
+                <div className="empty-state">
+                  <div className="empty-state-title">No sales data available yet.</div>
+                  <div>Start making sales to see your top products here.</div>
                 </div>
-                {/* Data Rows (Filtered and Sorted) */}
-                {productsByProfit.slice(0, 10).map((product, i) => {
-                    const profitInfo = formatProfit(product.estimatedProfitCents);
-                    const revenueDisplay = moneyZAR(product.totalRevenueCents);
-                    return (
-                        <div key={product.id || i} className="profit-item">
-                            <div className="profit-col-name" title={product.name}>
-                                {product.name.length > 25 ? product.name.substring(0, 25) + '...' : product.name}
-                            </div>
-                            <div className="profit-col-units">
-                                {product.totalUnitsSold}
-                            </div>
-                            <div className="profit-col-revenue">
-                                {revenueDisplay}
-                            </div>
-                            <div className={`profit-col-profit ${profitInfo.color}`}>
-                                {profitInfo.value}
-                            </div>
-                        </div>
-                    );
-                })}
-                {productsByProfit.length === 0 && !isLoading && (
-                    <div className="empty-state">
-                        <div className="empty-state-title">No products sold in the selected period.</div>
-                        <div>Profitability will appear here after sales are made.</div>
+              )}
+              {topProducts.map((product, i) => (
+                <div key={product.id} className="product-rank-item">
+                  <div className="product-rank-info">
+                    <div className="product-rank-number">
+                      {i + 1}
                     </div>
-                )}
+                    <div className="product-rank-details">
+                      <div className="product-rank-name">{product.name}</div>
+                      <div className="product-rank-stats">{product.totalUnitsSold} units sold</div>
+                    </div>
+                  </div>
+                  <div className="product-rank-value">
+                    <div className="product-rank-revenue">{moneyZAR(product.totalRevenueCents)}</div>
+                    <div className="product-rank-orders">{product.totalOrders} orders</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

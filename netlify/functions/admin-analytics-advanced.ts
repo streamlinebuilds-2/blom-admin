@@ -42,7 +42,6 @@ export const handler: Handler = async (e) => {
           subtotal_cents,
           total_cents,
           discount_cents,
-          shipping_cost_cents, /* 🚨 ADDED SHIPPING COST */
           fulfillment_method,
           customer_email,
           archived
@@ -123,7 +122,7 @@ export const handler: Handler = async (e) => {
     // 2. FULFILLMENT & OTHER METRICS (Keep existing structure but add status filters)
     const { data: fulfillmentData, error: fulfillmentError } = await s
       .from("orders")
-      .select("id, total_cents, subtotal_cents, fulfillment_method, created_at, payment_status, customer_email, discount_cents, shipping_cost_cents") /* 🚨 ADDED DISCOUNT & SHIPPING COST */
+      .select("id, total_cents, subtotal_cents, fulfillment_method, created_at, payment_status, customer_email")
       .gte("created_at", fromIso)
       .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
       .or('archived.is.null,archived.eq.false');
@@ -131,12 +130,9 @@ export const handler: Handler = async (e) => {
     if (fulfillmentError) throw fulfillmentError;
 
     const deliveryAnalytics = {
-      delivery: { count: 0, revenueCents: 0, customers: new Set() },
-      collection: { count: 0, revenueCents: 0, customers: new Set() }
+      delivery: { count: 0, revenueCents: 0, totalProfitCents: 0, customers: new Set() },
+      collection: { count: 0, revenueCents: 0, totalProfitCents: 0, customers: new Set() }
     };
-    
-    let totalDiscountsCents = 0; /* 🚨 NEW AGGREGATOR */
-    let totalShippingCostCents = 0; /* 🚨 NEW AGGREGATOR */
 
     (fulfillmentData || []).forEach((order: any) => {
       // Normalize 'delivery' vs 'courier', 'collection' vs 'pickup'
@@ -152,10 +148,6 @@ export const handler: Handler = async (e) => {
       if (order.customer_email) {
         analytics.customers.add(order.customer_email);
       }
-      
-      // 🚨 AGGREGATE FINANCIAL LOSSES
-      totalDiscountsCents += order.discount_cents || 0;
-      totalShippingCostCents += order.shipping_cost_cents || 0; 
     });
 
     // 3. CUSTOMER ANALYTICS
@@ -276,11 +268,6 @@ export const handler: Handler = async (e) => {
           conversions: conversionAnalytics,
           inventory: inventoryAnalytics,
           trends: trendData,
-          // 🚨 NEW: FINANCIAL LOSSES (for frontend metrics)
-          financialLosses: {
-            totalDiscountsCents: totalDiscountsCents,
-            totalShippingCostCents: totalShippingCostCents
-          },
           summary: {
             totalRevenueCents: (fulfillmentData || []).reduce((sum, order) => sum + (order.total_cents || 0), 0),
             totalOrders: (fulfillmentData || []).length,
