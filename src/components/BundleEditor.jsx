@@ -115,9 +115,16 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
 
   const containerWidth = viewMode === "mobile" ? "375px" : "100%";
 
-  const filteredProducts = products.filter(p =>
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // FIX: Filter products to only show active ones matching the search term
+  const filteredProducts = products.filter(p => {
+    // Check if product is active
+    const isActive = p.status === 'active' && p.is_active !== false;
+    
+    // Check if it matches search
+    const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return isActive && matchesSearch;
+  });
 
   const addGalleryImage = () => {
     const current = formData.images || [];
@@ -890,6 +897,7 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
         </div>
 
         <div className="drawer-content">
+          {/* This now uses the strictly filtered list */}
           {filteredProducts.map(product => (
             <div
               key={product.id}
@@ -900,6 +908,11 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
               <div className="product-list-price">{moneyZAR(product.price_cents)}</div>
             </div>
           ))}
+          {filteredProducts.length === 0 && (
+             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+               {searchTerm ? 'No active products found matching search' : 'No active products available'}
+             </div>
+          )}
         </div>
       </div>
     </>

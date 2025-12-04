@@ -69,7 +69,7 @@ export default function BundleNew() {
     return data.secure_url;
   };
 
-  // UPDATED: Load ALL products with pagination handling
+  // UPDATED: Load ALL products with strict status filtering and pagination handling
   useEffect(() => {
     async function loadAllProducts() {
       let allData = [];
@@ -81,8 +81,9 @@ export default function BundleNew() {
         while (keepFetching) {
           const { data, error } = await supabase
             .from('products')
-            .select('id, name, price, price_cents, variants, is_active')
+            .select('id, name, price, price_cents, variants, status') // Added status and price_cents
             .eq('is_active', true)
+            .eq('status', 'active') // FIX: Only show strictly active products
             .order('name')
             .range(from, from + limit - 1);
 
