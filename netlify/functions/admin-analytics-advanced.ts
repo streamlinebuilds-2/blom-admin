@@ -122,16 +122,12 @@ export const handler: Handler = async (e) => {
     // 2. FULFILLMENT & OTHER METRICS (Keep existing structure but add status filters)
     const { data: fulfillmentData, error: fulfillmentError } = await s
       .from("orders")
-      .select("id, total_cents, subtotal_cents, discount_cents, shipping_cost_cents, fulfillment_method, created_at, payment_status, customer_email")
+      .select("id, total_cents, subtotal_cents, fulfillment_method, created_at, payment_status, customer_email")
       .gte("created_at", fromIso)
       .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
       .or('archived.is.null,archived.eq.false');
 
     if (fulfillmentError) throw fulfillmentError;
-
-    // ADD NEW AGGREGATION VARIABLES
-    let totalDiscountsCents = 0;
-    let totalShippingCostCents = 0; // Actual cost paid to courier
 
     const deliveryAnalytics = {
       delivery: { count: 0, revenueCents: 0, totalProfitCents: 0, customers: new Set() },
@@ -152,10 +148,6 @@ export const handler: Handler = async (e) => {
       if (order.customer_email) {
         analytics.customers.add(order.customer_email);
       }
-
-      // 🚨 AGGREGATE DISCOUNTS AND SHIPPING COST
-      totalDiscountsCents += order.discount_cents || 0;
-      totalShippingCostCents += order.shipping_cost_cents || 0; 
     });
 
     // 3. CUSTOMER ANALYTICS
@@ -276,11 +268,6 @@ export const handler: Handler = async (e) => {
           conversions: conversionAnalytics,
           inventory: inventoryAnalytics,
           trends: trendData,
-          // 🚨 NEW FINANCIAL LOSSES METRICS
-          financialLosses: {
-            totalDiscountsCents: totalDiscountsCents,
-            totalShippingCostCents: totalShippingCostCents
-          },
           summary: {
             totalRevenueCents: (fulfillmentData || []).reduce((sum, order) => sum + (order.total_cents || 0), 0),
             totalOrders: (fulfillmentData || []).length,
