@@ -9,26 +9,30 @@ export const handler: Handler = async (event) => {
     const period = event.queryStringParameters?.period || '30';
     console.log('Period requested:', period);
     
-    // 2. Calculate the Date Range based on numeric periods
+    // 2. Calculate the Date Range
     const now = new Date();
     let startDate = new Date();
     
     if (period === '1') {
       startDate.setHours(0, 0, 0, 0); // Start of today (Midnight)
-      console.log('Today calculation - from:', startDate.toISOString(), 'to:', now.toISOString());
-    } else if (period === '7') {
-      startDate.setDate(now.getDate() - 7);
-      console.log('7 days calculation - from:', startDate.toISOString(), 'to:', now.toISOString());
-    } else if (period === '30') {
-      startDate.setDate(now.getDate() - 30);
-      console.log('30 days calculation - from:', startDate.toISOString(), 'to:', now.toISOString());
     } else {
-      // Fallback to 30 days if unknown
-      startDate.setDate(now.getDate() - 30);
-      console.log('Fallback 30 days - from:', startDate.toISOString(), 'to:', now.toISOString());
+      const days = parseInt(period) || 30;
+      startDate.setDate(now.getDate() - days);
     }
 
-    // 3. Fetch Orders for this Period - More specific query
+    // 3. Fetch Product Info (Costs & Names) - Optimized Map
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, cost_price_cents, price_cents, name');
+
+    const productMap = new Map(); // id -> { cost, name }
+    products?.forEach(p => {
+      // Use cost_price_cents directly, fallback to 40% of price_cents if missing
+      const cost = p.cost_price_cents > 0 ? p.cost_price_cents : (p.price_cents * 0.4); 
+      productMap.set(p.id, { cost, name: p.name });
+    });
+
+    // 4. Fetch Orders for this Period with Strict "Current Order" Filters
     const { data: orders, error } = await supabase
       .from('orders')
       .select(`
@@ -39,99 +43,93 @@ export const handler: Handler = async (event) => {
         created_at, 
         payment_status,
         shipping_cost_cents, 
-        fulfillment_method,
-        customer_email,
-        archived,
         order_items (
           quantity, 
           product_id, 
-          line_total_cents,
           qty
         )
       `)
       .gte('created_at', startDate.toISOString())
       .lte('created_at', now.toISOString())
-      // MATCHING ORDERS PAGE LOGIC:
+      // LOGIC: Only Paid/Active statuses, No Archived orders
       .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
-      // EXCLUDE ARCHIVED ORDERS:
       .or('archived.is.null,archived.eq.false')
       .order('created_at', { ascending: false });
 
-    console.log('Orders found:', orders?.length || 0);
     if (error) throw error;
 
-    // 4. Fetch Product Costs to calculate Profit
-    const { data: products } = await supabase
-      .from('products')
-      .select('id, cost_price_cents, price_cents');
-
-    const productCostMap = new Map();
-    products?.forEach(p => {
-      // Use cost_price_cents directly, fallback to 40% of price_cents if missing
-      const cost = p.cost_price_cents > 0 ? p.cost_price_cents : (p.price_cents * 0.4); 
-      productCostMap.set(p.id, cost);
-    });
-
-    console.log('Product cost map size:', productCostMap.size);
-
-    // 5. Calculate Stats - Debug and fix period filtering
-    let totalRevenue = 0; // Gross revenue
-    let totalDiscounts = 0; // Coupons, promotions
-    let totalShipping = 0; // Shipping costs
-    let netRevenue = 0; // Actual amount received
-    let cogs = 0; // Cost of Goods Sold
-    let profit = 0;
+    // 5. Calculate Stats
+    let totalRevenue = 0;   // Gross revenue (subtotal)
+    let totalDiscounts = 0; 
+    let totalShipping = 0;
+    let netRevenue = 0;     // Actual Total (paid by customer)
+    let cogs = 0;           // Cost of Goods Sold
     let orderCount = 0;
-
-    console.log('Processing orders for period:', period);
+    let totalItemsSold = 0; // NEW: Total items count
+    
+    const productSales = new Map(); // id -> quantity sold
 
     orders?.forEach(order => {
       orderCount++;
-      const orderTotal = order.total_cents || 0;
-      const subtotal = order.subtotal_cents || 0;
-      const discount = order.discount_cents || 0;
-      const shipping = order.shipping_cost_cents || 0;
+      totalRevenue += order.subtotal_cents || 0;
+      totalDiscounts += order.discount_cents || 0;
+      totalShipping += order.shipping_cost_cents || 0;
+      netRevenue += order.total_cents || 0;
       
-      totalRevenue += subtotal;
-      totalDiscounts += discount;
-      totalShipping += shipping;
-      netRevenue += orderTotal;
-      
-      // Calculate cost for each item in the order
+      // Calculate COGS and Items Sold
       if (order.order_items) {
         order.order_items.forEach((item: any) => {
+          const qty = item.quantity || item.qty || 0;
+          totalItemsSold += qty;
+
           if (item.product_id) {
-            const unitCost = productCostMap.get(item.product_id) || 0;
-            // Use quantity from either field
-            const quantity = item.quantity || item.qty || 0;
-            cogs += unitCost * quantity; 
+            const pInfo = productMap.get(item.product_id);
+            if (pInfo) {
+              cogs += pInfo.cost * qty;
+              
+              // Track for Top Selling
+              const currentQty = productSales.get(item.product_id) || 0;
+              productSales.set(item.product_id, currentQty + qty);
+            }
           }
         });
       }
     });
 
-    console.log('Orders processed:', orderCount);
-    console.log('Total revenue:', totalRevenue);
-    console.log('Total discounts:', totalDiscounts);
-    console.log('Net revenue:', netRevenue);
-    console.log('COGS:', cogs);
-
-    // Calculate Net Profit (Simplified: Total Sales - 10% for costs/expenses)
-    profit = netRevenue - (netRevenue * 0.10); // 10% of total sales as estimated costs
+    // Find Top Selling Product
+    let topProduct = { name: 'No sales', count: 0 };
+    let maxSold = 0;
     
-    console.log('Final profit:', profit);
+    for (const [productId, qty] of productSales.entries()) {
+      if (qty > maxSold) {
+        maxSold = qty;
+        const pInfo = productMap.get(productId);
+        topProduct = { 
+          name: pInfo?.name || 'Unknown Product', 
+          count: qty 
+        };
+      }
+    }
 
-    // 6. Return comprehensive financial data
+    // Calculate Net Profit
+    // Profit = Net Revenue - COGS - Estimated Expenses (10%)
+    const expenses = netRevenue * 0.10;
+    const profit = netRevenue - cogs - expenses;
+
+    // 6. Return Comprehensive Data
     const result = {
       ok: true,
       data: {
         orders_count: orderCount,
+        items_sold: totalItemsSold,
+        top_selling_product: topProduct.name,
+        top_selling_count: topProduct.count,
         revenue: totalRevenue,
         netRevenue: netRevenue,
         totalDiscounts: totalDiscounts,
         totalShipping: totalShipping,
         cogs: cogs,
-        expenses: netRevenue * 0.10, // 10% estimated expenses
+        expenses: expenses,
         profit: profit,
         period_label: period === '1' ? 'Today' : `Last ${period} Days`,
         date_range: {
@@ -140,8 +138,6 @@ export const handler: Handler = async (event) => {
         }
       }
     };
-
-    console.log('Final result:', JSON.stringify(result, null, 2));
 
     return {
       statusCode: 200,

@@ -928,7 +928,7 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
   const [formState, setFormState] = useState(() => {
     const normalizedType = normalizeCouponType(coupon?.type);
     const initialPercent = normalizedType === 'percent' ? (coupon?.percent || coupon?.value || 0) : 0;
-    const initialValue = normalizedType === 'fixed' ? (coupon?.value || 0) : 0;
+    const initialValue = normalizedType === 'fixed' ? (coupon?.value || 0) : '';
     
     return {
       id: coupon?.id || null,
@@ -1002,8 +1002,10 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
       if (name === 'type') {
         if (value === 'fixed') {
           newState.percent = 0; // Clear percentage when switching to fixed
+          newState.value = newState.value || ''; // Ensure value is string for fixed
         } else {
-          newState.value = 0; // Clear fixed value when switching to percent
+          newState.value = ''; // Clear fixed value when switching to percent
+          newState.percent = newState.percent || 0; // Ensure percent is number
         }
       }
       
@@ -1069,8 +1071,8 @@ function CouponForm({ coupon, onClose, products = [], isLoadingProducts = false,
       }
     } else if (formState.type === 'fixed') {
       const fixedValue = parseFloat(formState.value);
-      console.log('📊 Fixed validation:', { fixedValue, type: typeof fixedValue });
-      if (!fixedValue || fixedValue <= 0) {
+      console.log('📊 Fixed validation:', { fixedValue, type: typeof fixedValue, rawValue: formState.value });
+      if (isNaN(fixedValue) || fixedValue <= 0) {
         console.error('❌ Validation failed: Invalid fixed amount');
         showToast('error', 'Please enter a valid discount amount greater than 0');
         return;

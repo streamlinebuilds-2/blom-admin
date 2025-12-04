@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, ShoppingCart, DollarSign, Package, Target, Calendar } from 'lucide-react';
+import { TrendingUp, ShoppingCart, DollarSign, Package, Target } from 'lucide-react';
 import { moneyZAR } from '../components/formatUtils';
-import { supabase } from '../lib/supabase';
 
 // Helper to format numbers
 const formatNumber = (num) => {
@@ -10,183 +9,24 @@ const formatNumber = (num) => {
   return new Intl.NumberFormat().format(num);
 };
 
-// Helper to get period label
-const getPeriodLabel = (days) => {
-  if (days === 1) return 'Today';
-  if (days === 7) return 'Last 7 Days';
-  if (days === 30) return 'Last 30 Days';
-  return `Last ${days} Days`;
-};
-
 export default function Payments() {
   const [selectedPeriod, setSelectedPeriod] = useState(30);
 
-  // 1. FIX DATE LOGIC: "Today" means 00:00:00 to NOW, not last 24h
-  const { periodStart, now } = React.useMemo(() => {
-    const now = new Date();
-    const start = new Date();
-    
-    if (selectedPeriod === 1) {
-      start.setHours(0, 0, 0, 0); // Start of today
-    } else {
-      start.setDate(now.getDate() - selectedPeriod); // Start of X days ago
-    }
-    
-    return { now, periodStart: start };
-  }, [selectedPeriod]);
-
-  // Fetch data directly from our analytics database tables
-  const { data: salesData, isLoading: salesLoading } = useQuery({
-    queryKey: ['sales-analytics-direct', selectedPeriod],
+  // Fetch ALL financial data directly from the unified Backend Function
+  // This uses the exact same filtering logic as the Analytics page
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['finance-stats-unified', selectedPeriod],
     queryFn: async () => {
-      // Query our daily_sales table for the period
-      const { data: dailySales, error: dailyError } = await supabase
-        .from('daily_sales')
-        .select('total_sales_cents, total_orders, total_items_sold, date')
-        .gte('date', periodStart.toISOString().split('T')[0])
-        .lte('date', now.toISOString().split('T')[0])
-        .order('date', { ascending: false });
-
-      if (dailyError) {
-        console.error('Error fetching daily sales:', dailyError);
-        throw dailyError;
-      }
-
-      // Use the new top selling products API (based on stock movement logic)
-      let topProducts = [];
-      try {
-        const res = await fetch(`/.netlify/functions/admin-top-selling-products?period=${selectedPeriod}&limit=10`);
-        if (res.ok) {
-          const topSellingData = await res.json();
-          if (topSellingData?.ok && topSellingData.data?.topProducts) {
-            topProducts = topSellingData.data.topProducts;
-          }
-        }
-      } catch (error) {
-        console.warn('Edge function not available, using fallback method:', error);
-        
-        // Fallback: Get top selling products directly from orders
-        const fromDate = new Date();
-        fromDate.setDate(fromDate.getDate() - selectedPeriod);
-        const fromIso = fromDate.toISOString();
-        
-        const { data: orderItems } = await supabase
-          .from('order_items')
-          .select(`
-            product_id,
-            name,
-            quantity,
-            total_cents,
-            orders!inner(id, created_at, payment_status, paid_at)
-          `)
-          .gte('orders.created_at', fromIso)
-          .eq('orders.payment_status', 'paid')
-          .limit(1000);
-
-        // Aggregate sales data by product
-        const productSales = {};
-        if (orderItems) {
-          orderItems.forEach(item => {
-            if (item.product_id) {
-              if (!productSales[item.product_id]) {
-                productSales[item.product_id] = {
-                  id: item.product_id,
-                  name: item.name || 'Unknown Product',
-                  totalUnitsSold: 0,
-                  totalRevenueCents: 0,
-                  totalOrders: new Set()
-                };
-              }
-              productSales[item.product_id].totalUnitsSold += item.quantity || 1;
-              productSales[item.product_id].totalRevenueCents += item.total_cents || 0;
-            }
-          });
-        }
-        
-        topProducts = Object.values(productSales)
-          .map(product => ({
-            ...product,
-            totalOrders: product.totalOrders.size
-          }))
-          .sort((a, b) => b.totalUnitsSold - a.totalUnitsSold)
-          .slice(0, 10);
-      }
-
-      console.log('Top selling products from new API:', topProducts);
-
-      return {
-        dailySales: dailySales || [],
-        topProducts: topProducts
-      };
-    },
-    refetchInterval: 30000 // Refresh every 30 seconds
-  });
-
-  // Query existing financial data for COGS and expenses
-  const { data: financeStats, isLoading: financeLoading } = useQuery({
-    queryKey: ['finance-stats', selectedPeriod],
-    queryFn: async () => {
-      console.log('Fetching finance stats for period:', selectedPeriod);
-      // Use dynamic period param with exact days
-      const periodParam = selectedPeriod.toString();
-      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${periodParam}`);
+      const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${selectedPeriod}`);
       if (!res.ok) {
-        console.error('Finance stats fetch failed:', res.status, res.statusText);
-        return {};
+        throw new Error('Failed to fetch finance stats');
       }
       const json = await res.json();
-      console.log('Finance stats response:', json);
       return json.data || {};
     }
   });
 
-  // Calculate sales metrics from our analytics tables
-  const salesMetrics = React.useMemo(() => {
-    // If no data loaded yet, return zeros
-    if (!salesData || !financeStats) {
-      return {
-        totalRevenue: 0,
-        totalOrders: 0,
-        avgOrderValue: 0,
-        totalProductsSold: 0,
-        topSellingProduct: 'No sales',
-        topSellingCount: 0,
-        periodLabel: getPeriodLabel(selectedPeriod)
-      };
-    }
-
-    const { dailySales, topProducts } = salesData;
-    
-    // Aggregate data from our analytics tables
-    const totalRevenue = dailySales.reduce((sum, day) => sum + (day.total_sales_cents || 0), 0);
-    const totalOrders = dailySales.reduce((sum, day) => sum + (day.total_orders || 0), 0);
-    const totalProductsSold = dailySales.reduce((sum, day) => sum + (day.total_items_sold || 0), 0);
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-    // Get top selling product from our processed data
-    const topSellingProduct = topProducts && topProducts.length > 0 ? topProducts[0].name : 'No sales';
-    const topSellingCount = topProducts && topProducts.length > 0 ? (topProducts[0].totalUnitsSold || 0) : 0;
-
-    console.log('Top selling products from analytics:', topProducts);
-    console.log('Selected top product:', topSellingProduct, 'with count:', topSellingCount);
-
-    return {
-      totalRevenue,
-      totalOrders,
-      avgOrderValue,
-      totalProductsSold,
-      topSellingProduct,
-      topSellingCount,
-      periodLabel: getPeriodLabel(selectedPeriod)
-    };
-  }, [salesData, financeStats, selectedPeriod]);
-
-  // Debug logging for financial calculations
-  console.log('Current selectedPeriod:', selectedPeriod);
-  console.log('Finance stats:', financeStats);
-  console.log('Sales metrics:', salesMetrics);
-
-  if (salesLoading || financeLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -194,7 +34,22 @@ export default function Payments() {
     );
   }
 
-  const stats = financeStats || { revenue: 0, cogs: 0, expenses: 0, profit: 0 };
+  // Fallback values if API returns null/undefined
+  const data = stats || {
+    revenue: 0,
+    orders_count: 0,
+    items_sold: 0,
+    netRevenue: 0,
+    profit: 0,
+    top_selling_product: 'No sales',
+    top_selling_count: 0,
+    period_label: 'Loading...',
+    cogs: 0,
+    expenses: 0,
+    totalDiscounts: 0
+  };
+
+  const avgOrderValue = data.orders_count > 0 ? data.netRevenue / data.orders_count : 0;
 
   return (
     <>
@@ -371,10 +226,10 @@ export default function Payments() {
         <div className="sales-header">
           <h1 className="header-title">
             <TrendingUp className="w-8 h-8" />
-            Sales Overview
+            Financial Overview
           </h1>
           <p className="header-subtitle">
-            Track your business performance and key sales metrics.
+            Track net profit and business performance.
           </p>
 
           <div className="period-selector">
@@ -384,7 +239,7 @@ export default function Payments() {
                 className={`period-btn ${selectedPeriod === days ? 'active' : ''}`}
                 onClick={() => setSelectedPeriod(days)}
               >
-                {getPeriodLabel(days)}
+                {days === 1 ? 'Today' : `Last ${days} Days`}
               </button>
             ))}
           </div>
@@ -399,8 +254,8 @@ export default function Payments() {
               </div>
               <div className="metric-info">
                 <div className="metric-label">Total Sales</div>
-                <div className="metric-value">{moneyZAR(salesMetrics.totalRevenue)}</div>
-                <div className="metric-subtitle">{salesMetrics.periodLabel}</div>
+                <div className="metric-value">{moneyZAR(data.revenue)}</div>
+                <div className="metric-subtitle">{data.period_label}</div>
               </div>
             </div>
           </div>
@@ -412,8 +267,8 @@ export default function Payments() {
               </div>
               <div className="metric-info">
                 <div className="metric-label">Total Orders</div>
-                <div className="metric-value">{formatNumber(salesMetrics.totalOrders)}</div>
-                <div className="metric-subtitle">{salesMetrics.periodLabel}</div>
+                <div className="metric-value">{formatNumber(data.orders_count)}</div>
+                <div className="metric-subtitle">{data.period_label}</div>
               </div>
             </div>
           </div>
@@ -425,7 +280,7 @@ export default function Payments() {
               </div>
               <div className="metric-info">
                 <div className="metric-label">Average Order Value</div>
-                <div className="metric-value">{moneyZAR(salesMetrics.avgOrderValue)}</div>
+                <div className="metric-value">{moneyZAR(avgOrderValue)}</div>
                 <div className="metric-subtitle">Per transaction</div>
               </div>
             </div>
@@ -438,7 +293,7 @@ export default function Payments() {
               </div>
               <div className="metric-info">
                 <div className="metric-label">Items Sold</div>
-                <div className="metric-value">{formatNumber(salesMetrics.totalProductsSold)}</div>
+                <div className="metric-value">{formatNumber(data.items_sold)}</div>
                 <div className="metric-subtitle">Total quantity</div>
               </div>
             </div>
@@ -451,10 +306,10 @@ export default function Payments() {
               </div>
               <div className="metric-info">
                 <div className="metric-label">Net Profit</div>
-                <div className={`metric-value ${stats.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
-                  {moneyZAR(stats.profit)}
+                <div className={`metric-value ${data.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
+                  {moneyZAR(data.profit)}
                 </div>
-                <div className="metric-subtitle">{salesMetrics.periodLabel}</div>
+                <div className="metric-subtitle">{data.period_label}</div>
               </div>
             </div>
           </div>
@@ -467,12 +322,12 @@ export default function Payments() {
               <div className="metric-info">
                 <div className="metric-label">Top Selling</div>
                 <div className="metric-value" style={{ fontSize: '20px' }}>
-                  {salesMetrics.topSellingProduct.length > 20 
-                    ? salesMetrics.topSellingProduct.substring(0, 20) + '...'
-                    : salesMetrics.topSellingProduct
+                  {data.top_selling_product.length > 20 
+                    ? data.top_selling_product.substring(0, 20) + '...'
+                    : data.top_selling_product
                   }
                 </div>
-                <div className="metric-subtitle">{formatNumber(salesMetrics.topSellingCount)} sold</div>
+                <div className="metric-subtitle">{formatNumber(data.top_selling_count)} units sold</div>
               </div>
             </div>
           </div>
@@ -482,70 +337,37 @@ export default function Payments() {
         <div className="summary-card">
           <h2 className="summary-title">
             <DollarSign className="w-5 h-5" />
-            Financial Summary ({salesMetrics.periodLabel})
+            Financial Breakdown ({data.period_label})
           </h2>
           <div className="summary-row">
             <div className="summary-item">
               <span className="summary-label">Gross Revenue</span>
-              <span className="summary-value">{moneyZAR(stats.totalRevenue || stats.revenue || 0)}</span>
+              <span className="summary-value">{moneyZAR(data.revenue)}</span>
             </div>
             <div className="summary-item">
               <span className="summary-label">Discounts</span>
-              <span className="summary-value">-{moneyZAR(stats.totalDiscounts || 0)}</span>
+              <span className="summary-value text-red-500">-{moneyZAR(data.totalDiscounts)}</span>
             </div>
             <div className="summary-item">
               <span className="summary-label">Net Revenue</span>
-              <span className="summary-value">{moneyZAR(stats.netRevenue || stats.totalRevenue || 0)}</span>
+              <span className="summary-value">{moneyZAR(data.netRevenue)}</span>
             </div>
             <div className="summary-item">
-              <span className="summary-label">Cost of Goods</span>
-              <span className="summary-value">-{moneyZAR(stats.cogs)}</span>
+              <span className="summary-label">Cost of Goods (COGS)</span>
+              <span className="summary-value text-red-500">-{moneyZAR(data.cogs)}</span>
             </div>
             <div className="summary-item">
-              <span className="summary-label">Operating Expenses</span>
-              <span className="summary-value">-{moneyZAR(stats.expenses)}</span>
+              <span className="summary-label">Operating Expenses (Est. 10%)</span>
+              <span className="summary-value text-red-500">-{moneyZAR(data.expenses)}</span>
             </div>
-            <div className="summary-item">
-              <span className="summary-label">Net Profit</span>
-              <span className={`summary-value ${stats.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
-                {moneyZAR(stats.profit)}
+            <div className="summary-item" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+              <span className="summary-label font-bold text-gray-900">Net Profit</span>
+              <span className={`summary-value font-bold ${data.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
+                {moneyZAR(data.profit)}
               </span>
             </div>
           </div>
         </div>
-
-        {/* Debug Information */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="summary-card">
-            <h2 className="summary-title">
-              🔧 Debug Information ({salesMetrics.periodLabel})
-            </h2>
-            <div style={{ fontSize: '12px', fontFamily: 'monospace', background: '#f5f5f5', padding: '12px', borderRadius: '8px' }}>
-              <div>Orders Count: {stats.orders_count || 0}</div>
-              <div>Period: {selectedPeriod} days</div>
-              <div>Period Label: {stats.period_label}</div>
-              <div>Date Range: {stats.date_range?.from?.split('T')[0]} to {stats.date_range?.to?.split('T')[0]}</div>
-              <div>Gross Revenue: R{(stats.totalRevenue || stats.revenue || 0) / 100}</div>
-              <div>Total Discounts: R{(stats.totalDiscounts || 0) / 100}</div>
-              <div>Net Revenue: R{(stats.netRevenue || 0) / 100}</div>
-              <div>COGS: R{(stats.cogs || 0) / 100}</div>
-              <div>Expenses: R{(stats.expenses || 0) / 100}</div>
-              <div style={{ fontWeight: 'bold', marginTop: '8px' }}>Net Profit: R{(stats.profit || 0) / 100}</div>
-              
-              <div style={{ marginTop: '16px', fontWeight: 'bold' }}>Top Selling Products:</div>
-              <div>Total Top Products Found: {salesData?.topProducts?.length || 0}</div>
-              {salesData?.topProducts?.map((product, index) => (
-                <div key={index}>
-                  #{index + 1}: {product.name} ({product.totalUnitsSold} sold, R{(product.totalRevenueCents / 100).toFixed(2)})
-                </div>
-              ))}
-              
-              <div style={{ marginTop: '8px', fontStyle: 'italic' }}>
-                Currently Showing: "{salesMetrics.topSellingProduct}" with {salesMetrics.topSellingCount} sold
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );
