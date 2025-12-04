@@ -1,4 +1,3 @@
-// netlify/functions/admin-stock-movements.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
@@ -9,6 +8,7 @@ export const handler: Handler = async (e) => {
     const limit = Number(e.queryStringParameters?.limit || 100);
     const filter = e.queryStringParameters?.filter || 'all'; // 'all', 'manual', 'order'
     
+    // 1. Select stock movements AND the archived status of the related order
     let query = s
       .from("stock_movements")
       .select(`
@@ -22,16 +22,17 @@ export const handler: Handler = async (e) => {
         movement_type,
         notes,
         created_at,
-        product:products(id, name, slug)
+        product:products(id, name, slug),
+        orders(archived)
       `)
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit + 50); // Fetch extra to account for filtering
 
-    // Apply filters
+    // Apply type filters
     if (filter === 'manual') {
       query = query.eq('movement_type', 'manual');
     } else if (filter === 'order') {
-      query = query.eq('movement_type', 'order');
+      query = query.eq('movement_type', 'order_fulfillment');
     }
 
     const { data, error } = await query;
@@ -40,14 +41,28 @@ export const handler: Handler = async (e) => {
       console.error('Stock movements query error:', error);
       return { statusCode: 500, body: JSON.stringify({ ok: false, error: error.message }) };
     }
+
+    // 2. Filter out movements belonging to ARCHIVED orders
+    // We keep the row if:
+    // - It's NOT an order movement (e.g. manual adjustment)
+    // - OR if the associated order is NOT archived
+    const filteredData = (data || []).filter((row: any) => {
+      if (row.orders && row.orders.archived === true) {
+        return false; // Hide this movement
+      }
+      return true; // Show everything else
+    });
+    
+    // Trim back to requested limit
+    const finalData = filteredData.slice(0, limit);
     
     return { 
       statusCode: 200, 
       body: JSON.stringify({ 
         ok: true, 
-        data: data || [],
+        data: finalData,
         filter,
-        count: data?.length || 0
+        count: finalData.length
       }) 
     };
   } catch (err: any) {
