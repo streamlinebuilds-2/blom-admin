@@ -48,9 +48,9 @@ export const handler = async (event: any) => {
       return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'ID required' }) };
     }
 
-    // 1) Load Order Data
+    // 1) Load Order Data - ADDED 'coupon_code' to selection
     const orderResponse: any = await fetchJson(
-      `${SUPABASE_URL}/rest/v1/orders?m_payment_id=eq.${encodeURIComponent(m_payment_id)}&select=id,buyer_name,buyer_email,buyer_phone,fulfillment_method,delivery_address,collection_location,total,subtotal_cents,shipping_cents,discount_cents,status,created_at`
+      `${SUPABASE_URL}/rest/v1/orders?m_payment_id=eq.${encodeURIComponent(m_payment_id)}&select=id,buyer_name,buyer_email,buyer_phone,fulfillment_method,delivery_address,collection_location,total,subtotal_cents,shipping_cents,discount_cents,coupon_code,status,created_at`
     )
     const order = Array.isArray(orderResponse) ? orderResponse[0] : orderResponse
     if (!order) return { statusCode: 404, body: "ORDER_NOT_FOUND" }
@@ -191,9 +191,12 @@ export const handler = async (event: any) => {
       y -= 16
     }
 
-    // Display Discount
+    // --- UPDATED: Display Discount WITH CODE ---
     if (discountAmount > 0) {
-      drawText("Coupon Discount", left, y, 10, false, rgb(0, 0.5, 0.2)) // Green text
+      // Check if code exists, otherwise just show "Coupon Discount"
+      const label = order.coupon_code ? `Coupon Discount (${order.coupon_code})` : "Coupon Discount"
+      
+      drawText(label, left, y, 10, false, rgb(0, 0.5, 0.2)) // Green text
       drawRightText("-" + money(discountAmount), right - 20, y, 10, false, rgb(0, 0.5, 0.2))
       y -= 16
     }
