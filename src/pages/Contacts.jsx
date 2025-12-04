@@ -12,7 +12,6 @@ export default function Contacts() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [searchQuery, setSearchQuery] = useState("");
-  const [hiddenContacts, setHiddenContacts] = useState(new Set()); // Local state for hidden contacts
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -26,8 +25,7 @@ export default function Contacts() {
   const contacts = useMemo(() => {
     let data = Array.isArray(contactsData.data) ? contactsData.data : (Array.isArray(contactsData) ? contactsData : []);
      
-    // Filter out hidden contacts
-    data = data.filter(c => !hiddenContacts.has(c.id));
+    // All contacts are now displayed (no local hiding)
     
     // Filter
     if (sourceFilter !== "all") {
@@ -60,7 +58,7 @@ export default function Contacts() {
       }
       return 0;
     });
-  }, [contactsData, sourceFilter, sortConfig, searchQuery, hiddenContacts]);
+  }, [contactsData, sourceFilter, sortConfig, searchQuery]);
 
   const handleSort = (key) => {
     setSortConfig(current => ({
@@ -99,13 +97,25 @@ export default function Contacts() {
     createMutation.mutate(formData);
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (contactId) => {
+      return await api.deleteContact(contactId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      showToast('success', 'Contact deleted successfully');
+    },
+    onError: (error) => {
+      showToast('error', error.message || 'Failed to delete contact');
+    },
+  });
+
   const handleDeleteContact = (contactId, contactName) => {
-    if (!confirm(`Are you sure you want to remove "${contactName || 'this contact'}" from the list? This will only hide them from the display - they won't be removed from the database.`)) {
+    if (!confirm(`Are you sure you want to permanently delete "${contactName || 'this contact'}"? This action cannot be undone.`)) {
       return;
     }
     
-    setHiddenContacts(prev => new Set([...prev, contactId]));
-    showToast('success', 'Contact removed from list');
+    deleteMutation.mutate(contactId);
   };
 
   const handleExportCSV = () => {
@@ -578,9 +588,10 @@ export default function Contacts() {
                       <button
                         onClick={() => handleDeleteContact(contact.id, contact.full_name)}
                         className="btn-delete"
-                        title="Remove from list"
+                        title="Permanently delete contact"
+                        disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {deleteMutation.isPending ? '...' : <Trash2 className="w-4 h-4" />}
                       </button>
                     </td>
                   </tr>

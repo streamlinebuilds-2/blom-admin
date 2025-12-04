@@ -29,6 +29,28 @@ export let api = {
     }
   },
 
+  // 3. Delete a contact
+  async deleteContact(contactId) {
+    try {
+      const response = await fetch("/.netlify/functions/admin-contact-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "Failed to delete contact");
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Failed to delete contact:', error);
+      throw error;
+    }
+  },
+
   // 3. Adjust Stock
   async adjustStock(payload) {
     try {

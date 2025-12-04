@@ -472,9 +472,9 @@ export default function Dashboard() {
           icon={Package}
         />
         <QuickLink
-          title="Finance"
+          title="View Reports"
           description="View reports"
-          url="Finance"
+          url="Analytics"
           icon={DollarSign}
         />
         <QuickLink
