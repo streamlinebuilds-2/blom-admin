@@ -12,40 +12,33 @@ export const handler: Handler = async (event) => {
     const now = new Date();
     let startDate = new Date();
     
-    if (period === '1') {
-      // For "Today", set to midnight last night
-      startDate.setHours(0, 0, 0, 0); 
+    if (period === 'today') {
+      startDate.setHours(0, 0, 0, 0); // Start of today
+    } else if (period === '1') {
+       startDate.setHours(0, 0, 0, 0); 
     } else {
       const days = parseInt(period) || 30;
       startDate.setDate(now.getDate() - days);
     }
 
-    // 2. Fetch All Products first (to get Cost Prices for Profit calc)
+    // 2. Fetch Products (for Cost calculation) - Using * to be safe against missing columns
     const { data: products } = await supabase
       .from('products')
-      .select('id, name, cost_price_cents, price_cents');
+      .select('*');
 
-    // Create a quick lookup map: ProductID -> { Cost, Name }
     const productMap = new Map();
     products?.forEach(p => {
-      // Fallback: If no cost price, assume 40% of sell price (or 0 if preferred)
-      const cost = p.cost_price_cents || 0; 
+      // Fallback: If no cost price, assume 40% of sell price
+      const cost = p.cost_price_cents || (p.price_cents ? p.price_cents * 0.4 : 0); 
       productMap.set(p.id, { cost, name: p.name });
     });
 
-    // 3. Fetch "Active" Orders
-    // Logic: Created in date range AND (Paid OR Status implies active) AND Not Archived
+    // 3. Fetch Orders - REMOVED STRICT FILTERS to see all data first
+    // We will filter in Javascript which is safer and easier to debug
     const { data: orders, error } = await supabase
       .from('orders')
       .select(`
-        id, 
-        total_cents, 
-        subtotal_cents,
-        discount_cents,
-        shipping_cost_cents,
-        created_at,
-        status,
-        payment_status,
+        *,
         order_items (
           product_id, 
           quantity,
@@ -55,42 +48,60 @@ export const handler: Handler = async (event) => {
       `)
       .gte('created_at', startDate.toISOString())
       .lte('created_at', now.toISOString())
-      // Filter: Only include valid, active orders (Paid OR Active Status)
-      .or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)')
-      .or('archived.is.null,archived.eq.false');
+      .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error("❌ Database Error:", error);
+      throw error;
+    }
 
-    // 4. Calculate Metrics by iterating through the fetched orders
+    // 4. Calculate Stats in Memory
     let totalRevenue = 0;
-    let totalCOGS = 0; // Cost of Goods Sold
+    let totalCOGS = 0;
     let totalOrders = 0;
     let totalItemsSold = 0;
     let totalDiscounts = 0;
     
-    // Track product sales for "Best Seller"
-    const productSales = new Map<string, number>(); // Name -> Quantity
+    const productSales = new Map<string, number>();
 
     orders?.forEach(order => {
-      totalOrders++;
-      totalRevenue += (order.total_cents || 0);
-      totalDiscounts += (order.discount_cents || 0);
+      // SKIP Archived orders
+      if (order.archived === true) return;
 
-      // Process Items in this order
+      // SKIP Cancelled orders
+      if (order.status === 'cancelled') return;
+
+      // ✅ Count this as an active order (even if unpaid)
+      totalOrders++;
+
+      // CHECK Payment Status for Revenue
+      // Consider paid if: payment_status is 'paid' OR status implies movement
+      const isPaid = 
+        order.payment_status === 'paid' || 
+        ['paid', 'packed', 'shipped', 'collected', 'out_for_delivery', 'delivered'].includes(order.status);
+
+      if (isPaid) {
+        totalRevenue += (order.total_cents || 0);
+        totalDiscounts += (order.discount_cents || 0);
+      }
+
+      // Process Items (Count them regardless of payment to show demand, or restrict to paid if preferred)
+      // Currently counting ALL active demand
       const items = order.order_items || [];
       items.forEach((item: any) => {
-        // Handle both 'quantity' and 'qty' fields depending on DB schema
         const qty = item.quantity || item.qty || 0;
         totalItemsSold += qty;
 
-        // Calculate Cost for this item
+        // COGS & Best Sellers
         if (item.product_id) {
           const pInfo = productMap.get(item.product_id);
           if (pInfo) {
-            totalCOGS += (pInfo.cost * qty);
+            // Only add COGS if we added Revenue (to keep Profit accurate)
+            if (isPaid) {
+              totalCOGS += (pInfo.cost * qty);
+            }
             
-            // Add to best seller tracker
-            // We use the Product Name from the Products table to ensure consistency
+            // Track popularity (demand) even if unpaid
             const prodName = pInfo.name || item.name || 'Unknown Product';
             const currentQty = productSales.get(prodName) || 0;
             productSales.set(prodName, currentQty + qty);
@@ -99,10 +110,9 @@ export const handler: Handler = async (event) => {
       });
     });
 
-    // 5. Determine Best Selling Product
+    // 5. Top Seller
     let topProduct = "No sales yet";
     let topCount = 0;
-
     for (const [name, count] of productSales.entries()) {
       if (count > topCount) {
         topCount = count;
@@ -110,8 +120,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 6. Calculate Expenses (Operating Costs)
-    // We also subtract any recorded operating expenses for this period
+    // 6. Expenses
     const { data: expenses } = await supabase
       .from('operating_costs')
       .select('amount')
@@ -120,34 +129,30 @@ export const handler: Handler = async (event) => {
 
     const totalOperatingCosts = expenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
 
-    // 7. Final Profit Calculation
-    // Net Profit = Revenue - COGS - Discounts - Operating Costs
-    // (Note: Revenue usually already accounts for discounts, but COGS is raw)
+    // 7. Net Profit
     const netProfit = totalRevenue - totalCOGS - totalOperatingCosts;
 
-    const resultData = {
-      orders_count: totalOrders,
-      items_sold: totalItemsSold,
-      revenue: totalRevenue,         // Total Money In
-      netRevenue: totalRevenue,      // Same for now (unless you separate Gross/Net)
-      cogs: totalCOGS,              // Cost of items
-      expenses: totalOperatingCosts, // Extra expenses
-      profit: netProfit,             // Final money kept
-      top_selling_product: topProduct,
-      top_selling_count: topCount,
-      totalDiscounts: totalDiscounts,
-      period_label: period === '1' ? 'Today' : `Last ${period} Days`
-    };
+    // Debug Log
+    console.log(`✅ Stats Calculated: ${totalOrders} orders, R${totalRevenue/100} revenue`);
 
     return {
       statusCode: 200,
-      headers: { 
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         ok: true,
-        data: resultData
+        data: {
+          orders_count: totalOrders,
+          items_sold: totalItemsSold,
+          revenue: totalRevenue,
+          netRevenue: totalRevenue,
+          cogs: totalCOGS,
+          expenses: totalOperatingCosts,
+          profit: netProfit,
+          top_selling_product: topProduct,
+          top_selling_count: topCount,
+          totalDiscounts: totalDiscounts,
+          period_label: period === 'today' || period === '1' ? 'Today' : `Last ${period} Days`
+        }
       })
     };
 
