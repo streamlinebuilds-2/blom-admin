@@ -77,11 +77,17 @@ export default function BundleNew() {
 
   useEffect(() => {
     async function loadProducts() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, variants')
+        .select('id, name, price, price_cents, variants') // Added price_cents for robustness
         .eq('is_active', true)
-        .order('name');
+        .order('name')
+        .range(0, 9999); // Increased limit to ensure all products (including all acrylic colors) are loaded
+      
+      if (error) {
+        console.error("Error loading products:", error);
+        showToast("error", "Failed to load complete product list");
+      }
       setAllProducts(data || []);
     }
     loadProducts();
@@ -108,13 +114,16 @@ export default function BundleNew() {
         // Fetch prices for the selected products
         const { data: products, error } = await supabase
           .from('products')
-          .select('id, price')
+          .select('id, price, price_cents') // Added price_cents
           .in('id', productIds);
 
         if (error) throw error;
 
-        // Create a map for quick price lookup
-        const priceMap = new Map(products.map(p => [p.id, p.price]));
+        // Create a map for quick price lookup, robustly handling price vs price_cents
+        const priceMap = new Map(products.map(p => [
+          p.id, 
+          p.price || (p.price_cents ? p.price_cents / 100 : 0)
+        ]));
 
         // Calculate the total compare_at_price
         const total = form.bundle_products.reduce((acc, item) => {
@@ -922,11 +931,15 @@ export default function BundleNew() {
                     required
                   >
                     <option value="">Select product...</option>
-                    {allProducts.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} - R{product.price}
-                      </option>
-                    ))}
+                    {allProducts.map(product => {
+                      // Calculate display price robustly
+                      const displayPrice = product.price || (product.price_cents ? product.price_cents / 100 : 0);
+                      return (
+                        <option key={product.id} value={product.id}>
+                          {product.name} - R{displayPrice}
+                        </option>
+                      );
+                    })}
                   </select>
 
                   {hasVariants && (
