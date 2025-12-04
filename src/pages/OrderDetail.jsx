@@ -59,7 +59,7 @@ export default function OrderDetail() {
 
   const [notes, setNotes] = useState("");
 
-  // 1. Fetch Order
+  // 1. Fetch Order - Updated to include discount_cents and coupon_code
   const { data, isLoading, error } = useQuery({
     queryKey: ['order', id],
     queryFn: async () => {
@@ -1088,33 +1088,36 @@ export default function OrderDetail() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <td colSpan="3" className="summary-label">Subtotal:</td>
-                    <td className="summary-value">{formatMoney(
-                      order.subtotal_cents || order.subtotal || 0
-                    )}</td>
+                  <tr className="border-t-2 border-gray-100">
+                    <td colSpan={2} className="py-3 px-3"></td>
+                    <td className="text-right py-2 px-3 text-sm text-gray-600">Subtotal</td>
+                    <td className="text-right py-2 px-3 text-sm font-medium">
+                      R {(order.total + (order.discount_cents ? order.discount_cents / 100 : 0)).toFixed(2)}
+                    </td>
                   </tr>
-                  {((order.shipping_cents || order.shipping || 0) > 0) && (
+                  {/* Discount Row */}
+                  {(order.discount_cents && order.discount_cents > 0) && (
                     <tr>
-                      <td colSpan="3" className="summary-label">Shipping:</td>
-                      <td className="summary-value">{formatMoney(
-                        order.shipping_cents || order.shipping || 0
-                      )}</td>
+                      <td colSpan={2} className="py-0 px-3"></td>
+                      <td className="text-right py-2 px-3 text-sm text-green-600">
+                        Coupon {order.coupon_code ? `(${order.coupon_code})` : ''}
+                      </td>
+                      <td className="text-right py-2 px-3 text-sm font-medium text-green-600">
+                        -R {(order.discount_cents / 100).toFixed(2)}
+                      </td>
                     </tr>
                   )}
-                   {((order.discount_cents || order.discount || 0) > 0) && (
-                    <tr>
-                      <td colSpan="3" className="summary-label">Discount:</td>
-                      <td className="summary-value discount">-{formatMoney(
-                        order.discount_cents || order.discount || 0
-                      )}</td>
-                    </tr>
-                  )}
-                  <tr className="total-row">
-                    <td colSpan="3" className="total-label">Total:</td>
-                    <td className="total-value">{formatMoney(
-                      order.total_cents || order.total || 0
-                    )}</td>
+                  {/* Final Total */}
+                  <tr className="border-t">
+                    <td colSpan={2} className="py-3 px-3"></td>
+                    <td className="text-right py-3 px-3 text-base font-bold">Total</td>
+                    <td className="text-right py-3 px-3 text-base font-bold">
+                      R {order.total.toFixed(2)} 
+                      {/* Note: order.total from DB usually reflects the paid amount. 
+                          If it's the pre-discount amount, use:
+                          R {(order.total - (order.discount_cents ? order.discount_cents/100 : 0)).toFixed(2)} 
+                       */}
+                    </td>
                   </tr>
                 </tfoot>
               </table>

@@ -203,16 +203,22 @@ export const handler = async (event: any) => {
 
     y -= 8; drawLine(left, y, right, y); y -= 18
 
-    // Totals
+    // --- TOTALS CALCULATION ---
+    // Ensure Total = Subtotal + Shipping - Discount
+    // This overrides any bad data stored in 'total' column
+    const finalTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount);
+
+    // Subtotal
     if (order.subtotal_cents || discountAmount > 0) {
       drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
       drawRightText(money(subtotalAmount), right - 20, y, 10)
       y -= 16
     }
 
+    // Total row
     drawLine(right - 250, y + 6, right, y + 6)
     drawText("Total", right - 140, y, 13, true)
-    drawRightText(money(order.total), right - 20, y, 13, true)
+    drawRightText(money(finalTotal), right - 20, y, 13, true) // Use calculated finalTotal
 
     // Footer
     y -= 32; drawLine(left, y, right, y); y -= 16
