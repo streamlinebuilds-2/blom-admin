@@ -1512,8 +1512,8 @@ export default function ProductNew() {
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
                         style={{ 
-                          flex: 4, 
-                          minWidth: '300px',
+                          flex: 2.5, 
+                          minWidth: '200px',
                           minHeight: '84px',
                           maxHeight: '120px',
                           resize: 'vertical',
