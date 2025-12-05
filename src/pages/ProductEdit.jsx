@@ -2047,7 +2047,7 @@ export default function ProductEdit() {
                         type="text"
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
-                        style={{ flex: 2 }}
+                        style={{ flex: 4, minWidth: '300px' }}
                         value={(() => {
                           if (typeof variant === 'string') {
                             return variant;
