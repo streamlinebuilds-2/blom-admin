@@ -1508,12 +1508,13 @@ export default function ProductNew() {
                           </button>
                         </div>
                       </div>
+                      
                       <textarea
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
                         style={{ 
-                          flex: 2.5, 
-                          minWidth: '200px',
+                          flex: 3, 
+                          minWidth: '250px',
                           minHeight: '84px',
                           maxHeight: '120px',
                           resize: 'vertical',
@@ -1542,41 +1543,48 @@ export default function ProductNew() {
                           }
                         }}
                       />
-                      <div className="variant-image-upload">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          id={`variant-image-${index}`}
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleVariantImageUpload(index, file);
-                          }}
-                        />
-                        <label htmlFor={`variant-image-${index}`} className="upload-btn">
-                          {variant?.image ? '📷 Change' : '📷 Upload'}
-                        </label>
-                        {variant?.image && (
-                          <img
-                            src={variant.image}
-                            alt={variant?.name || 'Variant'}
-                            className="variant-thumbnail"
-                          />
-                        )}
-                      </div>
                       
-                      {/* Custom Price Section */}
-                      <div className="flex flex-col gap-1" style={{ minWidth: '200px' }}>
-                        <label className="text-xs font-medium text-[var(--text-muted)]">Price</label>
-                        {getVariantPriceInput(index)}
+                      <div className="flex flex-col gap-2" style={{ minWidth: '180px' }}>
+                        {/* Image Upload/Change Button */}
+                        <div className="variant-image-upload">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            id={`variant-image-${index}`}
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleVariantImageUpload(index, file);
+                            }}
+                          />
+                          <label htmlFor={`variant-image-${index}`} className="upload-btn" style={{ width: '100%' }}>
+                            {variant?.image ? '📷 Change Image' : '📷 Upload Image'}
+                          </label>
+                          {variant?.image && (
+                            <img
+                              src={variant.image}
+                              alt={variant?.name || 'Variant'}
+                              className="variant-thumbnail"
+                            />
+                          )}
+                        </div>
+                        
+                        {/* Price Edit Button */}
+                        <div>
+                          <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Price</label>
+                          {getVariantPriceInput(index)}
+                        </div>
+                        
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => removeRow("variants", index)}
+                          className="product-btn-secondary"
+                          style={{ width: '100%', background: '#ef4444', color: 'white' }}
+                        >
+                          🗑️ Delete Variant
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeRow("variants", index)}
-                        className="product-btn-secondary"
-                      >
-                        Remove
-                      </button>
                     </div>
                   ))}
                 </div>
