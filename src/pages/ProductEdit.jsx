@@ -1259,7 +1259,7 @@ export default function ProductEdit() {
         .variant-row {
           display: flex;
           gap: 0.75rem;
-          align-items: center;
+          align-items: flex-start;
           padding: 1rem;
           background: var(--bg);
           border-radius: 12px;
@@ -2043,11 +2043,18 @@ export default function ProductEdit() {
                           </button>
                         </div>
                       </div>
-                      <input
-                        type="text"
+                      <textarea
                         placeholder="Variant name (e.g. 250ml, Pink)"
                         className="product-form-input"
-                        style={{ flex: 4, minWidth: '300px' }}
+                        style={{ 
+                          flex: 4, 
+                          minWidth: '300px',
+                          minHeight: '84px',
+                          maxHeight: '120px',
+                          resize: 'vertical',
+                          overflowY: 'auto'
+                        }}
+                        rows={3}
                         value={(() => {
                           if (typeof variant === 'string') {
                             return variant;
