@@ -643,9 +643,13 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
         .variant-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr auto;
-          gap: 12px;
+          grid-template-columns: 2fr 1.2fr auto;
+          gap: 16px;
           align-items: start;
+        }
+
+        .variant-name-input {
+          min-width: 200px;
         }
       `}</style>
 
@@ -959,7 +963,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                     <div className="variant-grid">
                       <input
                         type="text"
-                        className="form-input"
+                        className="form-input variant-name-input"
                         value={variant.name}
                         onChange={(e) => updateVariant(idx, 'name', e.target.value)}
                         placeholder="Variant name..."
