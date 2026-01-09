@@ -10,15 +10,35 @@ interface ProductPreviewProps {
     image_url?: string;
     gallery?: string[];
     status?: string;
+    inci_ingredients?: string;
+    how_to_use?: string;
+    shipping_info?: string;
+    description?: string;
   };
 }
 
 export function ProductPreview({ product }: ProductPreviewProps) {
-  const { name, price, compare_at_price, short_description, image_url, status } = product;
+  const { name, price, compare_at_price, short_description, image_url, status, inci_ingredients, how_to_use, shipping_info, description } = product;
   
+  // Helper function to check if content exists (strips HTML tags)
+  const hasContent = (content: string | undefined): boolean => {
+    if (!content) return false;
+    const strippedContent = content.replace(/<[^>]*>/g, '');
+    return strippedContent.trim() !== '';
+  };
+
   const displayPrice = price ? `R ${price.toFixed(2)}` : 'R 0.00';
   const displayComparePrice = compare_at_price ? `R ${compare_at_price.toFixed(2)}` : null;
   const hasDiscount = compare_at_price && price && compare_at_price > price;
+
+  // Check if content exists for each tab
+  const hasIngredients = hasContent(inci_ingredients);
+  const hasHowToUse = hasContent(how_to_use);
+  const hasShippingInfo = hasContent(shipping_info);
+  const hasDescription = hasContent(description);
+
+  // Check if any tabs have content
+  const hasAnyTabs = hasIngredients || hasHowToUse || hasShippingInfo || hasDescription;
 
   return (
     <div className="space-y-6">
@@ -151,6 +171,46 @@ export function ProductPreview({ product }: ProductPreviewProps) {
           )}
         </dl>
       </div>
+
+      {/* Product Information Section - Only shown if any tabs have content */}
+      {hasAnyTabs && (
+        <div className="bg-white rounded-lg p-4 border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Product Information</h3>
+          <div className="space-y-4">
+            {/* Description Tab */}
+            {hasDescription && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-1">Description</h4>
+                <div className="text-sm text-gray-600 prose max-w-none" dangerouslySetInnerHTML={{ __html: description || '' }} />
+              </div>
+            )}
+
+            {/* Ingredients Tab */}
+            {hasIngredients && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-1">Ingredients</h4>
+                <div className="text-sm text-gray-600 prose max-w-none" dangerouslySetInnerHTML={{ __html: inci_ingredients || '' }} />
+              </div>
+            )}
+
+            {/* How to Use Tab */}
+            {hasHowToUse && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-1">How to Use</h4>
+                <div className="text-sm text-gray-600 prose max-w-none" dangerouslySetInnerHTML={{ __html: how_to_use || '' }} />
+              </div>
+            )}
+
+            {/* Shipping Info Tab */}
+            {hasShippingInfo && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-1">Shipping Info</h4>
+                <div className="text-sm text-gray-600 prose max-w-none" dangerouslySetInnerHTML={{ __html: shipping_info || '' }} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
