@@ -579,7 +579,9 @@ export default function PriceUpdates() {
           <button
             className="btn-apply"
             onClick={handleApply}
-            disabled={selectedIds.length === 0 || !adjustmentValue || updateMutation.isPending}
+            disabled={selectedIds.length === 0 ||
+                     (showCostPriceSection ? !costPriceAdjustmentValue : !adjustmentValue) ||
+                     updateMutation.isPending}
           >
             <Check className="w-5 h-5" />
             Apply
