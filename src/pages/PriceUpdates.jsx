@@ -197,6 +197,54 @@ export default function PriceUpdates() {
           align-items: end;
         }
 
+        .search-select-panel {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 20px;
+          margin-bottom: 20px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          display: flex;
+          gap: 16px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .search-input {
+          flex: 1;
+          min-width: 250px;
+          padding: 12px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--bg);
+          color: var(--text);
+          font-size: 14px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .search-input:focus {
+          outline: none;
+        }
+
+        .btn-select-all {
+          padding: 12px 24px;
+          border-radius: 10px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: fit-content;
+        }
+
+        .btn-select-all:hover {
+          transform: translateY(-2px);
+        }
+
         @media (max-width: 768px) {
           .controls-grid {
             grid-template-columns: 1fr;
@@ -450,6 +498,31 @@ export default function PriceUpdates() {
             Cost Price
           </button>
         </div>
+      </div>
+
+      <div className="search-select-panel">
+        <input
+          type="text"
+          className="search-input"
+          placeholder="🔍 Search products by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        
+        <button
+          className="btn-select-all"
+          onClick={() => {
+            if (selectedIds.length === filteredProducts.length) {
+              setSelectedIds([]);
+            } else {
+              setSelectedIds(filteredProducts.map(p => p.id));
+            }
+          }}
+        >
+          {selectedIds.length === filteredProducts.length && filteredProducts.length > 0
+            ? 'Deselect All'
+            : 'Select All'}
+        </button>
       </div>
 
       <div className="controls-panel">
