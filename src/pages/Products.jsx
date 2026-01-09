@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api"; // Updated path for api
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Search, Infinity, Hammer } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Infinity, Hammer, Archive } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { useActiveSpecials } from "../components/hooks/useActiveSpecials";
@@ -32,6 +32,8 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, product: null });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkAction, setBulkAction] = useState(null);
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -86,6 +88,64 @@ export default function Products() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids) => {
+      // Bulk delete products
+      const results = await Promise.all(
+        ids.map(id =>
+          fetch('/.netlify/functions/delete-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, forceDelete: true })
+          }).then(res => res.json())
+        )
+      );
+      return results;
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      const archivedCount = results.filter(r => r.archived).length;
+      const deletedCount = results.filter(r => r.deleted).length;
+      
+      if (archivedCount > 0 && deletedCount > 0) {
+        showToast('info', `${deletedCount} products deleted, ${archivedCount} products archived (had existing orders)`);
+      } else if (archivedCount > 0) {
+        showToast('info', `${archivedCount} products archived (had existing orders)`);
+      } else {
+        showToast('success', `${deletedCount} products deleted successfully`);
+      }
+      
+      setSelectedIds([]);
+      setBulkAction(null);
+    },
+    onError: (error) => {
+      showToast('error', error.message || 'Failed to delete products');
+    },
+  });
+
+  const bulkArchiveMutation = useMutation({
+    mutationFn: async (ids) => {
+      // Bulk archive products
+      if (!api) throw new Error('API not available');
+      
+      const results = await Promise.all(
+        ids.map(id =>
+          api.partialUpdateProduct({ id, status: 'archived' })
+        )
+      );
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      showToast('success', `${selectedIds.length} products archived successfully`);
+      setSelectedIds([]);
+      setBulkAction(null);
+    },
+    onError: (error) => {
+      showToast('error', error.message || 'Failed to archive products');
+    },
+  });
+
   const handleDelete = (id, name) => {
     setConfirmDialog({
       isOpen: true,
@@ -96,6 +156,55 @@ export default function Products() {
   const confirmDelete = () => {
     if (confirmDialog.product) {
       deleteMutation.mutate(confirmDialog.product.id);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredProducts.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredProducts.map(p => p.id));
+    }
+  };
+
+  const handleBulkAction = (action) => {
+    if (selectedIds.length === 0) {
+      showToast('error', 'No products selected');
+      return;
+    }
+    
+    if (action === 'archive') {
+      setConfirmDialog({
+        isOpen: true,
+        product: {
+          id: 'bulk',
+          name: `${selectedIds.length} products`,
+          action: 'archive'
+        }
+      });
+    } else if (action === 'delete') {
+      setConfirmDialog({
+        isOpen: true,
+        product: {
+          id: 'bulk',
+          name: `${selectedIds.length} products`,
+          action: 'delete'
+        }
+      });
+    }
+  };
+
+  const confirmBulkAction = () => {
+    if (confirmDialog.product?.action === 'archive') {
+      bulkArchiveMutation.mutate(selectedIds);
+    } else if (confirmDialog.product?.action === 'delete') {
+      bulkDeleteMutation.mutate(selectedIds);
     }
   };
 
@@ -163,6 +272,70 @@ export default function Products() {
           color: var(--text);
           font-size: 14px;
           box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+        }
+
+        .bulk-actions-panel {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 16px 20px;
+          margin-bottom: 20px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .bulk-select-info {
+          font-size: 14px;
+          color: var(--text);
+          font-weight: 600;
+        }
+
+        .bulk-action-buttons {
+          display: flex;
+          gap: 8px;
+          margin-left: auto;
+        }
+
+        .btn-bulk-action {
+          padding: 10px 20px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        }
+
+        .btn-bulk-action:hover {
+          transform: translateY(-2px);
+        }
+
+        .btn-bulk-action.archive {
+          background: #f59e0b20;
+          color: #f59e0b;
+        }
+
+        .btn-bulk-action.delete {
+          background: #ef444420;
+          color: #ef4444;
+        }
+
+        .checkbox-cell {
+          width: 40px;
+        }
+
+        .checkbox {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
         }
 
         .search-input:focus {
@@ -770,11 +943,45 @@ export default function Products() {
         </div>
       </div>
 
+      {selectedIds.length > 0 && (
+        <div className="bulk-actions-panel">
+          <div className="bulk-select-info">
+            {selectedIds.length} of {filteredProducts.length} products selected
+          </div>
+          <div className="bulk-action-buttons">
+            <button
+              className="btn-bulk-action archive"
+              onClick={() => handleBulkAction('archive')}
+              disabled={bulkArchiveMutation.isPending}
+            >
+              <Archive className="w-4 h-4" />
+              Archive Selected
+            </button>
+            <button
+              className="btn-bulk-action delete"
+              onClick={() => handleBulkAction('delete')}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Selected
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="products-table">
         <div className="table-container">
           <table>
             <thead>
               <tr>
+                <th className="checkbox-cell">
+                  <input
+                    type="checkbox"
+                    className="checkbox"
+                    checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th>Product</th>
                 <th>Status</th>
                 <th>Price</th>
@@ -803,6 +1010,14 @@ export default function Products() {
                   
                   return (
                     <tr key={product.id}>
+                      <td className="checkbox-cell">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={selectedIds.includes(product.id)}
+                          onChange={() => toggleSelect(product.id)}
+                        />
+                      </td>
                       <td>
                         <div className="product-name">{product.name}</div>
                         {product.sku && <div className="product-sku">SKU: {product.sku}</div>}
@@ -875,10 +1090,14 @@ export default function Products() {
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog({ isOpen: false, product: null })}
-        onConfirm={confirmDelete}
-        title="Delete Product"
-        description={`Permanently delete "${confirmDialog.product?.name}"? This action cannot be undone and will remove the product from Supabase completely.`}
-        confirmText="Delete"
+        onConfirm={confirmDialog.product?.action ? confirmBulkAction : confirmDelete}
+        title={confirmDialog.product?.action === 'archive' ? 'Archive Products' : confirmDialog.product?.action === 'delete' ? 'Delete Products' : 'Delete Product'}
+        description={confirmDialog.product?.action === 'archive'
+          ? `Archive ${confirmDialog.product?.name}? This will move them to archived status but keep them in the database.`
+          : confirmDialog.product?.action === 'delete'
+          ? `Permanently delete ${confirmDialog.product?.name}? This action cannot be undone and will remove these products from Supabase completely.`
+          : `Permanently delete "${confirmDialog.product?.name}"? This action cannot be undone and will remove the product from Supabase completely.`}
+        confirmText={confirmDialog.product?.action === 'archive' ? 'Archive' : 'Delete'}
         cancelText="Cancel"
       />
     </>
