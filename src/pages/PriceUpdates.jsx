@@ -25,13 +25,22 @@ export default function PriceUpdates() {
   // Ensure products is always an array
   const products = Array.isArray(productsData) ? productsData : [];
 
+  // New state for cost price updates
+  const [showCostPriceSection, setShowCostPriceSection] = useState(false);
+  const [costPriceAdjustmentType, setCostPriceAdjustmentType] = useState("percent");
+  const [costPriceAdjustmentValue, setCostPriceAdjustmentValue] = useState("");
+
   const updateMutation = useMutation({
-    mutationFn: async ({ updates }) => {
+    mutationFn: async ({ updates, isCostPrice = false }) => {
       if (!api) throw new Error('API not available');
       await Promise.all(
-        updates.map(({ id, newPrice }) =>
-          api.partialUpdateProduct({ id, price_cents: newPrice })
-        )
+        updates.map(({ id, newPrice }) => {
+          if (isCostPrice) {
+            return api.partialUpdateProduct({ id, cost_price_cents: newPrice });
+          } else {
+            return api.partialUpdateProduct({ id, price_cents: newPrice });
+          }
+        })
       );
     },
     onSuccess: () => {
@@ -39,6 +48,7 @@ export default function PriceUpdates() {
       showToast('success', `Updated ${selectedIds.length} products`);
       setSelectedIds([]);
       setAdjustmentValue("");
+      setCostPriceAdjustmentValue("");
       setReason("");
       setShowConfirm(false);
     },
@@ -47,28 +57,44 @@ export default function PriceUpdates() {
     },
   });
 
-  const filteredProducts = products.filter(p => 
+  const filteredProducts = products.filter(p =>
     p.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const togglePriceType = () => {
+    setShowCostPriceSection(!showCostPriceSection);
+    setSelectedIds([]);
+    if (showCostPriceSection) {
+      setCostPriceAdjustmentValue("");
+    } else {
+      setAdjustmentValue("");
+    }
+  };
+
   const toggleSelect = (id) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
-  const calculateNewPrice = (oldPrice) => {
-    const val = parseFloat(adjustmentValue) || 0;
-    if (adjustmentType === "percent") {
+  const getPriceTypeLabel = () => {
+    return showCostPriceSection ? "Cost Price" : "Selling Price";
+  };
+
+  const calculateNewPrice = (oldPrice, isCostPrice = false) => {
+    const val = parseFloat(isCostPrice ? costPriceAdjustmentValue : adjustmentValue) || 0;
+    const type = isCostPrice ? costPriceAdjustmentType : adjustmentType;
+    
+    if (type === "percent") {
       return Math.max(1, Math.round(oldPrice * (1 + val / 100)));
     }
-    if (adjustmentType === "increase") {
+    if (type === "increase") {
       return Math.max(1, oldPrice + Math.round(val * 100));
     }
-    if (adjustmentType === "decrease") {
+    if (type === "decrease") {
       return Math.max(1, oldPrice - Math.round(val * 100));
     }
-    if (adjustmentType === "set") {
+    if (type === "set") {
       return Math.max(1, Math.round(val * 100));
     }
     return oldPrice;
@@ -77,13 +103,16 @@ export default function PriceUpdates() {
   const selectedProducts = products.filter(p => selectedIds.includes(p.id));
   const updates = selectedProducts.map(p => {
     const price = p.price_cents || p.price || 0;
+    const costPrice = p.cost_price_cents || p.cost_price || 0;
     return {
       id: p.id,
       name: p.name,
       slug: p.slug,
       stock: p.stock_qty || p.stock || 0,
       oldPrice: price,
-      newPrice: calculateNewPrice(price)
+      newPrice: calculateNewPrice(price),
+      oldCostPrice: costPrice,
+      newCostPrice: calculateNewPrice(costPrice, true)
     };
   });
 
@@ -92,15 +121,19 @@ export default function PriceUpdates() {
       showToast('error', 'No products selected');
       return;
     }
-    if (!adjustmentValue) {
+    if (!adjustmentValue && !showCostPriceSection) {
       showToast('error', 'Enter adjustment value');
+      return;
+    }
+    if (showCostPriceSection && !costPriceAdjustmentValue) {
+      showToast('error', 'Enter cost price adjustment value');
       return;
     }
     setShowConfirm(true);
   };
 
   const confirmUpdate = () => {
-    updateMutation.mutate({ updates });
+    updateMutation.mutate({ updates, isCostPrice: showCostPriceSection });
   };
 
   return (
@@ -120,6 +153,33 @@ export default function PriceUpdates() {
         .header-subtitle {
           color: var(--text-muted);
           font-size: 14px;
+        }
+
+        .price-type-toggle {
+          display: inline-flex;
+          gap: 8px;
+          background: var(--bg);
+          border-radius: 12px;
+          padding: 4px;
+          margin-bottom: 24px;
+        }
+
+        .price-type-btn {
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          color: var(--text-muted);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .price-type-btn.active {
+          background: var(--card);
+          color: var(--text);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
         .controls-panel {
@@ -374,7 +434,22 @@ export default function PriceUpdates() {
 
       <div className="price-updates-header">
         <h1 className="header-title">Bulk Price Updates</h1>
-        <p className="header-subtitle">Select products and apply pricing adjustments</p>
+        <p className="header-subtitle">Select products and apply {getPriceTypeLabel().toLowerCase()} pricing adjustments</p>
+        
+        <div className="price-type-toggle">
+          <button
+            className={`price-type-btn ${!showCostPriceSection ? 'active' : ''}`}
+            onClick={togglePriceType}
+          >
+            Selling Price
+          </button>
+          <button
+            className={`price-type-btn ${showCostPriceSection ? 'active' : ''}`}
+            onClick={togglePriceType}
+          >
+            Cost Price
+          </button>
+        </div>
       </div>
 
       <div className="controls-panel">
@@ -383,8 +458,14 @@ export default function PriceUpdates() {
             <label className="control-label">Adjustment Type</label>
             <select
               className="control-select"
-              value={adjustmentType}
-              onChange={(e) => setAdjustmentType(e.target.value)}
+              value={showCostPriceSection ? costPriceAdjustmentType : adjustmentType}
+              onChange={(e) => {
+                if (showCostPriceSection) {
+                  setCostPriceAdjustmentType(e.target.value);
+                } else {
+                  setAdjustmentType(e.target.value);
+                }
+              }}
             >
               <option value="percent">Percentage</option>
               <option value="increase">Increase by R</option>
@@ -398,9 +479,15 @@ export default function PriceUpdates() {
             <input
               type="number"
               className="control-input"
-              value={adjustmentValue}
-              onChange={(e) => setAdjustmentValue(e.target.value)}
-              placeholder={adjustmentType === "percent" ? "10" : "5.00"}
+              value={showCostPriceSection ? costPriceAdjustmentValue : adjustmentValue}
+              onChange={(e) => {
+                if (showCostPriceSection) {
+                  setCostPriceAdjustmentValue(e.target.value);
+                } else {
+                  setAdjustmentValue(e.target.value);
+                }
+              }}
+              placeholder={showCostPriceSection ? (costPriceAdjustmentType === "percent" ? "10" : "5.00") : (adjustmentType === "percent" ? "10" : "5.00")}
               step="0.01"
             />
           </div>
@@ -453,9 +540,9 @@ export default function PriceUpdates() {
                 />
               </th>
               <th>Product</th>
-              <th>Current Price</th>
+              <th>{getPriceTypeLabel()} Price</th>
               <th>Compare At</th>
-              {adjustmentValue && <th>New Price</th>}
+              {(showCostPriceSection ? costPriceAdjustmentValue : adjustmentValue) && <th>New {getPriceTypeLabel()}</th>}
             </tr>
           </thead>
           <tbody>
@@ -473,9 +560,13 @@ export default function PriceUpdates() {
               </tr>
             ) : (
               filteredProducts.map(product => {
-                const productPrice = product.price_cents || product.price || 0;
+                const productPrice = showCostPriceSection
+                  ? (product.cost_price_cents || product.cost_price || 0)
+                  : (product.price_cents || product.price || 0);
                 const isSelected = selectedIds.includes(product.id);
-                const newPrice = isSelected && adjustmentValue ? calculateNewPrice(productPrice) : null;
+                const newPrice = isSelected && (showCostPriceSection ? costPriceAdjustmentValue : adjustmentValue)
+                  ? calculateNewPrice(productPrice, showCostPriceSection)
+                  : null;
                 const priceChange = newPrice ? newPrice - productPrice : 0;
 
                 return (
@@ -491,11 +582,15 @@ export default function PriceUpdates() {
                     <td>
                       <div className="product-name">{product.name}</div>
                     </td>
-                    <td className="price-cell">{moneyZAR(product.price_cents || product.price || 0)}</td>
+                    <td className="price-cell">
+                      {showCostPriceSection
+                        ? moneyZAR(product.cost_price_cents || product.cost_price || 0)
+                        : moneyZAR(product.price_cents || product.price || 0)}
+                    </td>
                     <td style={{ color: 'var(--text-muted)' }}>
                       {product.compare_at_price_cents || product.compare_at_price ? moneyZAR(product.compare_at_price_cents || product.compare_at_price || 0) : '—'}
                     </td>
-                    {adjustmentValue && (
+                    {(showCostPriceSection ? costPriceAdjustmentValue : adjustmentValue) && (
                       <td>
                         {isSelected && newPrice ? (
                           <div className="price-diff">
@@ -530,12 +625,16 @@ export default function PriceUpdates() {
                 <strong>{updates.length}</strong>
               </div>
               <div className="summary-item">
+                <span>Price type:</span>
+                <strong>{getPriceTypeLabel()}</strong>
+              </div>
+              <div className="summary-item">
                 <span>Adjustment type:</span>
-                <strong>{adjustmentType}</strong>
+                <strong>{showCostPriceSection ? costPriceAdjustmentType : adjustmentType}</strong>
               </div>
               <div className="summary-item">
                 <span>Value:</span>
-                <strong>{adjustmentValue}</strong>
+                <strong>{showCostPriceSection ? costPriceAdjustmentValue : adjustmentValue}</strong>
               </div>
               {reason && (
                 <div className="summary-item">
@@ -550,7 +649,9 @@ export default function PriceUpdates() {
                 <div key={update.id} className="summary-item">
                   <span>{update.name}</span>
                   <span>
-                    {moneyZAR(update.oldPrice)} → <strong>{moneyZAR(update.newPrice)}</strong>
+                    {showCostPriceSection
+                      ? `${moneyZAR(update.oldCostPrice)} → <strong>${moneyZAR(update.newCostPrice)}</strong>`
+                      : `${moneyZAR(update.oldPrice)} → <strong>${moneyZAR(update.newPrice)}</strong>`}
                   </span>
                 </div>
               ))}
