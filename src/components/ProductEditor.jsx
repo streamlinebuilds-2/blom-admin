@@ -97,10 +97,16 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Ensure ingredients are always saved as an array
-    const ingredientsArray = typeof formData.ingredients_inci === 'string'
-      ? formData.ingredients_inci.split(',').map(i => i.trim()).filter(i => i !== '')
-      : formData.ingredients_inci || [];
+    // logic to ensure ingredients is always an array (List)
+    let formattedIngredients = [];
+    if (typeof formData.ingredients === 'string') {
+        formattedIngredients = formData.ingredients
+            .split(',')
+            .map(item => item.trim())
+            .filter(item => item.length > 0);
+    } else if (Array.isArray(formData.ingredients)) {
+        formattedIngredients = formData.ingredients;
+    }
     
     // Ensure we pass consistent field names back to parent
     onSave({
@@ -108,7 +114,9 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
       // Map UI field names to expected DB column names if needed
       gallery_urls: formData.gallery_urls || [],
       hover_url: formData.hover_image, // Save to hover_url column if that's what DB expects, or hover_image
-      ingredients_inci: ingredientsArray
+      ingredients: {
+        inci: formattedIngredients // <--- FIX: Now it saves as a proper list
+      }
     });
   };
 
