@@ -89,7 +89,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const addVariant = () => {
     const current = formData.variants || [];
-    updateField('variants', [...current, { name: "", image_url: "" }]);
+    updateField('variants', [...current, { name: "", image: "" }]);
   };
 
   const updateVariant = (index, field, value) => {
@@ -129,6 +129,13 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
       // Map UI field names to expected DB column names if needed
       gallery_urls: formData.gallery_urls || [],
       hover_url: formData.hover_image, // Save to hover_url column if that's what DB expects, or hover_image
+      thumbnail_url: formData.thumbnail_url, // Ensure main image is saved
+      // Ensure variants are properly formatted with their images
+      variants: formData.variants?.map(variant => ({
+        name: variant.name,
+        image: variant.image || variant.image_url, // Handle both field names for backward compatibility
+        price_cents: variant.price_cents
+      })) || [],
       // Clean the data before sending to Supabase
       description: cleanRichText(formData.description),
       how_to_use: cleanRichText(formData.how_to_use),
@@ -138,7 +145,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
         inci: formattedIngredients // <--- FIX: Now it saves as a proper list
       }
     };
-    
+     
     // Ensure we pass consistent field names back to parent
     onSave(productData);
   };

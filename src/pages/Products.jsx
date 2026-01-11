@@ -146,6 +146,29 @@ export default function Products() {
     },
   });
 
+  const bulkActivateMutation = useMutation({
+    mutationFn: async (ids) => {
+      // Bulk activate products
+      if (!api) throw new Error('API not available');
+      
+      const results = await Promise.all(
+        ids.map(id =>
+          api.partialUpdateProduct({ id, status: 'active' })
+        )
+      );
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      showToast('success', `${selectedIds.length} products activated successfully`);
+      setSelectedIds([]);
+      setBulkAction(null);
+    },
+    onError: (error) => {
+      showToast('error', error.message || 'Failed to activate products');
+    },
+  });
+
   const handleDelete = (id, name) => {
     setConfirmDialog({
       isOpen: true,
