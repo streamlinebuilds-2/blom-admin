@@ -20,6 +20,21 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const { getDisplayPriceCents } = useActiveSpecials();
 
+  // Helper to clean "Ghost Data" from Rich Text Editors
+  const cleanRichText = (content) => {
+    if (!content) return null;
+    if (typeof content !== 'string') return content;
+
+    // 1. Remove all HTML tags (like <p>, <br>, <strong>)
+    const strippedText = content.replace(/<[^>]*>?/gm, '');
+    
+    // 2. Remove all whitespace (spaces, newlines)
+    const pureText = strippedText.trim();
+
+    // 3. If nothing is left, return NULL. Otherwise, return the original HTML content.
+    return pureText.length === 0 ? null : content;
+  };
+
   // Webhook logic
   const webhookData = formData.name ? {
     id: formData.id || formData.slug,
@@ -108,16 +123,24 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
         formattedIngredients = formData.ingredients;
     }
     
-    // Ensure we pass consistent field names back to parent
-    onSave({
+    // Clean rich text fields before sending to Supabase
+    const productData = {
       ...formData,
       // Map UI field names to expected DB column names if needed
       gallery_urls: formData.gallery_urls || [],
       hover_url: formData.hover_image, // Save to hover_url column if that's what DB expects, or hover_image
+      // Clean the data before sending to Supabase
+      description: cleanRichText(formData.description),
+      how_to_use: cleanRichText(formData.how_to_use),
+      shelf_life: cleanRichText(formData.shelf_life),
+      storage: cleanRichText(formData.storage),
       ingredients: {
         inci: formattedIngredients // <--- FIX: Now it saves as a proper list
       }
-    });
+    };
+    
+    // Ensure we pass consistent field names back to parent
+    onSave(productData);
   };
 
   const baseCents = formData.price || 0;
