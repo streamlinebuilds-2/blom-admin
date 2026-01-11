@@ -20,19 +20,13 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const { getDisplayPriceCents } = useActiveSpecials();
 
-  // Helper to clean "Ghost Data" from Rich Text Editors
-  const cleanRichText = (content) => {
-    if (!content) return null;
-    if (typeof content !== 'string') return content;
-
-    // 1. Remove all HTML tags (like <p>, <br>, <strong>)
-    const strippedText = content.replace(/<[^>]*>?/gm, '');
-    
-    // 2. Remove all whitespace (spaces, newlines)
-    const pureText = strippedText.trim();
-
-    // 3. If nothing is left, return NULL. Otherwise, return the original HTML content.
-    return pureText.length === 0 ? null : content;
+  // Add this helper function at the top of your file
+  const cleanData = (text) => {
+    if (!text) return null;
+    if (typeof text !== 'string') return text;
+    // Remove empty HTML tags and whitespace
+    const stripped = text.replace(/<[^>]*>?/gm, '').trim();
+    return stripped.length === 0 ? null : text;
   };
 
   // Webhook logic
@@ -112,40 +106,25 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // logic to ensure ingredients is always an array (List)
-    let formattedIngredients = [];
-    if (typeof formData.ingredients === 'string') {
-        formattedIngredients = formData.ingredients
-            .split(',')
-            .map(item => item.trim())
-            .filter(item => item.length > 0);
-    } else if (Array.isArray(formData.ingredients)) {
-        formattedIngredients = formData.ingredients;
-    }
-    
-    // Clean rich text fields before sending to Supabase
+    // Clean the data before sending to Supabase
     const productData = {
       ...formData,
-      // Map UI field names to expected DB column names if needed
-      gallery_urls: formData.gallery_urls || [],
-      hover_url: formData.hover_image, // Save to hover_url column if that's what DB expects, or hover_image
-      thumbnail_url: formData.thumbnail_url, // Ensure main image is saved
-      // Ensure variants are properly formatted with their images
-      variants: formData.variants?.map(variant => ({
-        name: variant.name,
-        image: variant.image || variant.image_url, // Handle both field names for backward compatibility
-        price_cents: variant.price_cents
-      })) || [],
-      // Clean the data before sending to Supabase
-      description: cleanRichText(formData.description),
-      how_to_use: cleanRichText(formData.how_to_use),
-      shelf_life: cleanRichText(formData.shelf_life),
-      storage: cleanRichText(formData.storage),
+      
+      // 1. Clean up "Ghost Data" so empty fields become real NULLs
+      description: cleanData(formData.description),
+      how_to_use: cleanData(formData.how_to_use),
+      shelf_life: cleanData(formData.shelf_life),
+      storage: cleanData(formData.storage),
+
+      // 2. Ensure Ingredients is ALWAYS saved as a proper List (Array)
       ingredients: {
-        inci: formattedIngredients // <--- FIX: Now it saves as a proper list
+        inci: typeof formData.ingredients === 'string'
+          ? formData.ingredients.split(',').map(i => i.trim()).filter(Boolean)
+          : formData.ingredients
       }
     };
-     
+
+    // await supabase.from('products').upsert(productData)...
     // Ensure we pass consistent field names back to parent
     onSave(productData);
   };
