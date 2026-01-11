@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api"; // Updated path for api
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Search, Infinity, Hammer, Archive } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Infinity, Hammer, Archive, Check } from "lucide-react";
 import { moneyZAR, dateShort } from "../components/formatUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import { useActiveSpecials } from "../components/hooks/useActiveSpecials";
@@ -33,7 +33,6 @@ export default function Products() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, product: null });
   const [selectedIds, setSelectedIds] = useState([]);
-  const [bulkAction, setBulkAction] = useState(null);
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -197,38 +196,49 @@ export default function Products() {
   };
 
   const handleBulkAction = (action) => {
-    if (selectedIds.length === 0) {
-      showToast('error', 'No products selected');
-      return;
-    }
-    
-    if (action === 'archive') {
-      setConfirmDialog({
-        isOpen: true,
-        product: {
-          id: 'bulk',
-          name: `${selectedIds.length} products`,
-          action: 'archive'
-        }
-      });
-    } else if (action === 'delete') {
-      setConfirmDialog({
-        isOpen: true,
-        product: {
-          id: 'bulk',
-          name: `${selectedIds.length} products`,
-          action: 'delete'
-        }
-      });
-    }
+  if (selectedIds.length === 0) {
+    showToast('error', 'No products selected');
+    return;
+  }
+   
+  if (action === 'archive') {
+    setConfirmDialog({
+      isOpen: true,
+      product: {
+        id: 'bulk',
+        name: `${selectedIds.length} products`,
+        action: 'archive'
+      }
+    });
+  } else if (action === 'delete') {
+    setConfirmDialog({
+      isOpen: true,
+      product: {
+        id: 'bulk',
+        name: `${selectedIds.length} products`,
+        action: 'delete'
+      }
+    });
+  } else if (action === 'activate') {
+    setConfirmDialog({
+      isOpen: true,
+      product: {
+        id: 'bulk',
+        name: `${selectedIds.length} products`,
+        action: 'activate'
+      }
+    });
+  }
   };
 
   const confirmBulkAction = () => {
-    if (confirmDialog.product?.action === 'archive') {
-      bulkArchiveMutation.mutate(selectedIds);
-    } else if (confirmDialog.product?.action === 'delete') {
-      bulkDeleteMutation.mutate(selectedIds);
-    }
+  if (confirmDialog.product?.action === 'archive') {
+    bulkArchiveMutation.mutate(selectedIds);
+  } else if (confirmDialog.product?.action === 'delete') {
+    bulkDeleteMutation.mutate(selectedIds);
+  } else if (confirmDialog.product?.action === 'activate') {
+    bulkActivateMutation.mutate(selectedIds);
+  }
   };
 
   const filteredProducts = products.filter(p => {
@@ -349,6 +359,11 @@ export default function Products() {
         .btn-bulk-action.delete {
           background: #ef444420;
           color: #ef4444;
+        }
+        
+        .btn-bulk-action.activate {
+          background: #10b98120;
+          color: #10b981;
         }
 
         .checkbox-cell {
@@ -973,6 +988,14 @@ export default function Products() {
           </div>
           <div className="bulk-action-buttons">
             <button
+              className="btn-bulk-action activate"
+              onClick={() => handleBulkAction('activate')}
+              disabled={bulkActivateMutation.isPending}
+            >
+              <Check className="w-4 h-4" />
+              Activate Selected
+            </button>
+            <button
               className="btn-bulk-action archive"
               onClick={() => handleBulkAction('archive')}
               disabled={bulkArchiveMutation.isPending}
@@ -1114,13 +1137,15 @@ export default function Products() {
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog({ isOpen: false, product: null })}
         onConfirm={confirmDialog.product?.action ? confirmBulkAction : confirmDelete}
-        title={confirmDialog.product?.action === 'archive' ? 'Archive Products' : confirmDialog.product?.action === 'delete' ? 'Delete Products' : 'Delete Product'}
+        title={confirmDialog.product?.action === 'archive' ? 'Archive Products' : confirmDialog.product?.action === 'delete' ? 'Delete Products' : confirmDialog.product?.action === 'activate' ? 'Activate Products' : 'Delete Product'}
         description={confirmDialog.product?.action === 'archive'
           ? `Archive ${confirmDialog.product?.name}? This will move them to archived status but keep them in the database.`
           : confirmDialog.product?.action === 'delete'
-          ? `Permanently delete ${confirmDialog.product?.name}? This action cannot be undone and will remove these products from Supabase completely.`
-          : `Permanently delete "${confirmDialog.product?.name}"? This action cannot be undone and will remove the product from Supabase completely.`}
-        confirmText={confirmDialog.product?.action === 'archive' ? 'Archive' : 'Delete'}
+            ? `Permanently delete ${confirmDialog.product?.name}? This action cannot be undone and will remove these products from Supabase completely.`
+            : confirmDialog.product?.action === 'activate'
+              ? `Activate ${confirmDialog.product?.name}? This will set their status to active and make them available for sale.`
+              : `Permanently delete "${confirmDialog.product?.name}"? This action cannot be undone and will remove the product from Supabase completely.`}
+        confirmText={confirmDialog.product?.action === 'archive' ? 'Archive' : confirmDialog.product?.action === 'delete' ? 'Delete' : confirmDialog.product?.action === 'activate' ? 'Activate' : 'Delete'}
         cancelText="Cancel"
       />
     </>
