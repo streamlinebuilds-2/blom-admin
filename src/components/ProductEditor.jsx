@@ -20,13 +20,23 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const { getDisplayPriceCents } = useActiveSpecials();
 
-  // Add this helper function at the top of your file
-  const cleanData = (text) => {
-    if (!text) return null;
-    if (typeof text !== 'string') return text;
-    // Remove empty HTML tags and whitespace
-    const stripped = text.replace(/<[^>]*>?/gm, '').trim();
-    return stripped.length === 0 ? null : text;
+  // Helper function to clean rich text content
+  const cleanRichText = (content) => {
+    if (!content) return null;
+    
+    // If it's an array, check if it has any real content
+    if (Array.isArray(content)) {
+      return content.length > 0 ? content : null;
+    }
+    
+    // If it's a string, strip HTML tags and check for real content
+    if (typeof content === 'string') {
+      const stripped = content.replace(/<[^>]*>?/gm, '').trim();
+      return stripped.length > 0 ? content : null;
+    }
+    
+    // For other types, return as-is
+    return content;
   };
 
   // Webhook logic
@@ -105,25 +115,30 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+     
     // Clean the data before sending to Supabase
     const productData = {
       ...formData,
       
       // 1. Clean up "Ghost Data" so empty fields become real NULLs
-      description: cleanData(formData.description),
-      how_to_use: cleanData(formData.how_to_use),
-      shelf_life: cleanData(formData.shelf_life),
-      storage: cleanData(formData.storage),
-
+      description: cleanRichText(formData.description),
+      how_to_use: cleanRichText(formData.how_to_use),
+      shelf_life: cleanRichText(formData.shelf_life),
+      storage: cleanRichText(formData.storage),
+      
       // 2. Ensure Ingredients is ALWAYS saved as a proper List (Array)
       ingredients: {
         inci: typeof formData.ingredients === 'string'
           ? formData.ingredients.split(',').map(i => i.trim()).filter(Boolean)
-          : formData.ingredients
+          : (formData.ingredients?.inci || [])
       }
     };
-
+ 
+    // Ensure ingredients.inci is always an array
+    if (!Array.isArray(productData.ingredients.inci)) {
+      productData.ingredients.inci = [];
+    }
+ 
     // await supabase.from('products').upsert(productData)...
     // Ensure we pass consistent field names back to parent
     onSave(productData);

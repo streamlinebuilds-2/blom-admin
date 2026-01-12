@@ -31,19 +31,43 @@ export default function Stock() {
   const [searchTerm, setSearchTerm] = useState('');
   const { showToast } = useToast();
 
-  // Fetch only ACTIVE products for stock management using the same API as Products page
-  const { data: productsResponse, isLoading } = useQuery({
-    queryKey: ['products'],
-    queryFn: () => api.listProducts(),
+  // Fetch product variants with parent product information
+  const { data: variantsResponse, isLoading } = useQuery({
+    queryKey: ['product_variants_with_products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select(`
+          id,
+          name as variant_name,
+          stock_quantity,
+          cost_price_cents,
+          status,
+          product_id,
+          products (id, name, status, category)
+        `)
+        .eq('products.status', 'active');
+      
+      if (error) {
+        console.error('Error fetching product variants:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
   });
 
   // Transform the response to match Stock page expectations
-  const products = productsResponse?.map(product => ({
-    ...product,
-    // Ensure we have the fields Stock page expects
-    cost_price_cents: product.cost_price_cents || 0,
-    stock_type: getStockType(product),
-    status: product.status || 'active'
+  const variants = variantsResponse?.map(variant => ({
+    id: variant.id,
+    name: variant.variant_name || 'Default',
+    parent_product_name: variant.products?.name || 'Unknown',
+    parent_product_id: variant.product_id,
+    stock_quantity: variant.stock_quantity || 0,
+    cost_price_cents: variant.cost_price_cents || 0,
+    status: variant.status || 'active',
+    category: variant.products?.category || '',
+    stock_type: getStockType(variant.products || {})
   })) || [];
 
   // Helper function to get variant stock level
@@ -62,20 +86,20 @@ export default function Stock() {
     return product.stock || 0;
   };
 
-  // Filter logic: Hide furniture/courses/unlimited items, only show active products, apply search
-  const filteredProducts = useMemo(() => {
-    if (!products) return [];
-    return products.filter(product => {
-      // Only show active products
-      if (product.status !== 'active') return false;
+  // Filter logic: Hide furniture/courses/unlimited items, only show active variants, apply search
+  const filteredVariants = useMemo(() => {
+    if (!variants) return [];
+    return variants.filter(variant => {
+      // Only show active variants
+      if (variant.status !== 'active') return false;
 
-      const cat = (product.category || '').toLowerCase();
-      const stockType = getStockType(product);
+      const cat = (variant.category || '').toLowerCase();
+      const stockType = getStockType(variant);
       
       // Exclude items that don't need stock tracking
-      if (cat.includes('furniture') || 
-          cat.includes('course') || 
-          cat.includes('workshop') || 
+      if (cat.includes('furniture') ||
+          cat.includes('course') ||
+          cat.includes('workshop') ||
           cat.includes('training') ||
           stockType === 'unlimited' ||
           stockType === 'made_on_demand') {
@@ -85,11 +109,12 @@ export default function Stock() {
       // Search
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
-        return product.name?.toLowerCase().includes(term);
+        return variant.parent_product_name?.toLowerCase().includes(term) ||
+               variant.name?.toLowerCase().includes(term);
       }
       return true;
     });
-  }, [products, searchTerm]);
+  }, [variants, searchTerm]);
 
   const handleOpenAdjust = (product) => {
     setSelectedProduct(product);
@@ -309,97 +334,54 @@ export default function Stock() {
               <tbody>
                 {isLoading ? (
                   <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
-                ) : filteredProducts.length === 0 ? (
-                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No tracked products found.</td></tr>
+                ) : filteredVariants.length === 0 ? (
+                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No tracked variants found.</td></tr>
                 ) : (
-                  filteredProducts.flatMap(product => {
-                    // If product has variants, create a row for each variant with individual stock
-                    if (product.variants && product.variants.length > 0) {
-                      return product.variants.map((variant, index) => {
-                        const variantName = typeof variant === 'string' ? variant : variant.name;
-                        // Use the new getVariantStock function
-                        const variantStock = getVariantStock(product, index);
-                        
-                        return (
-                          <tr key={`${product.id}-variant-${index}`} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
-                            <td className="p-4">
-                              <div className="font-medium text-[var(--text)]">{product.name}</div>
-                              <div className="text-sm text-[var(--text-muted)]">{variantName}</div>
-                            </td>
-                            <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
-                            <td className="p-4">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                variantStock > 10
-                                  ? 'bg-green-500/10 text-green-500'
-                                  : variantStock > 0
-                                    ? 'bg-yellow-500/10 text-yellow-500'
-                                    : 'bg-red-500/10 text-red-500'
-                              }`}>
-                                {variantStock} Units
-                              </span>
-                            </td>
-                            <td className="p-4">
-                              {index === 0 && (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  product.status === 'active' ? 'bg-green-500/10 text-green-500' :
-                                  product.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
-                                  'bg-red-500/10 text-red-500'
-                                }`}>
-                                  {product.status}
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-4 text-right">
-                              <button 
-                                onClick={() => handleOpenAdjust({
-                                  ...product, 
-                                  variantName: variantName, 
-                                  variantIndex: index,
-                                  stock: variantStock
-                                })} 
-                                className="btn-secondary text-xs py-1 px-3 h-auto"
-                              >
-                                Adjust
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      });
-                    }
-                    
-                    // No variants - standard row
-                    return (
-                      <tr key={product.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
-                        <td className="p-4 font-medium text-[var(--text)]">{product.name}</td>
-                        <td className="p-4 text-[var(--text)]">{formatRands(product.cost_price_cents)}</td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            (product.stock || 0) > 10
-                              ? 'bg-green-500/10 text-green-500'
-                              : (product.stock || 0) > 0
-                                ? 'bg-yellow-500/10 text-yellow-500'
-                                : 'bg-red-500/10 text-red-500'
-                          }`}>
-                            {product.stock || 0} Units
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            product.status === 'active' ? 'bg-green-500/10 text-green-500' :
-                            product.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
-                            'bg-red-500/10 text-red-500'
-                          }`}>
-                            {product.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <button onClick={() => handleOpenAdjust(product)} className="btn-secondary text-xs py-1 px-3 h-auto">
-                            Adjust
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  filteredVariants.map(variant => (
+                    <tr key={variant.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
+                      <td className="p-4">
+                        <div className="font-medium text-[var(--text)]">{variant.parent_product_name}</div>
+                        <div className="text-sm text-[var(--text-muted)]">{variant.name}</div>
+                      </td>
+                      <td className="p-4 text-[var(--text)]">{formatRands(variant.cost_price_cents)}</td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          (variant.stock_quantity || 0) > 10
+                            ? 'bg-green-500/10 text-green-500'
+                            : (variant.stock_quantity || 0) > 0
+                              ? 'bg-yellow-500/10 text-yellow-500'
+                              : 'bg-red-500/10 text-red-500'
+                        }`}>
+                          {variant.stock_quantity || 0} Units
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          variant.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                          variant.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
+                          'bg-red-500/10 text-red-500'
+                        }`}>
+                          {variant.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleOpenAdjust({
+                            id: variant.id,
+                            name: `${variant.parent_product_name} - ${variant.name}`,
+                            variant_id: variant.id,
+                            product_id: variant.parent_product_id,
+                            stock: variant.stock_quantity,
+                            cost_price_cents: variant.cost_price_cents,
+                            status: variant.status
+                          })}
+                          className="btn-secondary text-xs py-1 px-3 h-auto"
+                        >
+                          Adjust
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -422,8 +404,8 @@ function AdjustStockModal({ product, onClose, showToast }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Handle variant information
-  const productName = product.variantName ? `${product.name} - ${product.variantName}` : product.name;
-  const currentStock = product.variantIndex !== undefined ? product.stock : (product.stock || 0);
+  const productName = product.name || 'Unknown Product';
+  const currentStock = product.stock || 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -432,16 +414,16 @@ function AdjustStockModal({ product, onClose, showToast }) {
     try {
       const qtyChange = parseInt(quantity) || 0;
       
-      // Use the new Netlify function to adjust stock
+      // Use the new Netlify function to adjust stock for variants
       const response = await fetch('/.netlify/functions/adjust-stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: product.id,
+          variantId: product.variant_id,
+          productId: product.product_id,
           delta: qtyChange,
           reason: reason,
-          costPrice: costPrice ? parseFloat(costPrice) : undefined,
-          variantIndex: product.variantIndex !== undefined ? product.variantIndex : undefined
+          costPrice: costPrice ? parseFloat(costPrice) : undefined
         })
       });
 
@@ -453,8 +435,9 @@ function AdjustStockModal({ product, onClose, showToast }) {
       const result = await response.json();
       showToast('success', result.message || 'Stock updated successfully');
 
-      // CRITICAL: Invalidate the unified products query
+      // CRITICAL: Invalidate the queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['product_variants_with_products'] });
       queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
 
       onClose();

@@ -56,15 +56,19 @@ export const handler = async (event) => {
       totalItems: 0
     };
 
-    // Get best selling products from our analytics tables
+    // Get best selling variants from our analytics tables
     const bestSellersQuery = `
-      SELECT 
-        product_name,
-        total_quantity_sold,
-        total_revenue_cents,
-        order_count
-      FROM product_sales_stats
-      ${startDate && endDate ? `WHERE last_sold_at::date BETWEEN '${startDate}' AND '${endDate}'` : ''}
+      SELECT
+        pv.name as variant_name,
+        p.name as product_name,
+        COALESCE(SUM(oi.quantity), 0) as total_quantity_sold,
+        COALESCE(SUM(oi.price_cents * oi.quantity), 0) as total_revenue_cents,
+        COUNT(DISTINCT oi.order_id) as order_count
+      FROM order_items oi
+      LEFT JOIN product_variants pv ON oi.variant_id = pv.id
+      LEFT JOIN products p ON pv.product_id = p.id
+      ${startDate && endDate ? `WHERE oi.created_at::date BETWEEN '${startDate}' AND '${endDate}'` : ''}
+      GROUP BY pv.id, p.name, pv.name
       ORDER BY total_quantity_sold DESC
       LIMIT 10
     `;
@@ -95,13 +99,13 @@ export const handler = async (event) => {
 
     let orderIds = paidOrders?.map(o => o.id) || [];
     
-    const { data: orderItems, error: itemsError } = orderIds.length > 0 
+    const { data: orderItems, error: itemsError } = orderIds.length > 0
       ? await supabase
           .from('order_items')
           .select(`
             quantity,
-            product_id,
-            products (
+            variant_id,
+            product_variants (
               cost_price_cents
             )
           `)
@@ -116,7 +120,7 @@ export const handler = async (event) => {
     let estimatedCogs = 0;
     if (orderItems && Array.isArray(orderItems)) {
       for (const item of orderItems) {
-        const costPrice = item.products?.cost_price_cents || 0;
+        const costPrice = item.product_variants?.cost_price_cents || 0;
         estimatedCogs += (costPrice * item.quantity);
       }
     }

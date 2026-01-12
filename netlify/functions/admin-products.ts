@@ -32,9 +32,18 @@ export const handler: Handler = async (event) => {
       .range((page - 1) * pageSize, page * pageSize - 1);
 
     if (q) query = query.ilike("name", `%${q}%`);
+    
+    // Default to showing only active products unless explicitly requested otherwise
     // Support both filtering methods for compatibility
-    if (active === "true") query = query.eq("is_active", true);
-    if (active === "false") query = query.eq("is_active", false);
+    if (active === "false") {
+      query = query.eq("is_active", false);
+    } else if (active === "archived") {
+      // Show archived products (status = 'archived' OR is_active = false)
+      query = query.or('status.eq.archived,is_active.eq.false');
+    } else {
+      // Default: show only active products (is_active = true AND status != 'archived')
+      query = query.eq("is_active", true).neq("status", "archived");
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -47,8 +56,8 @@ export const handler: Handler = async (event) => {
       compare_at_price_cents: null, // Not available in current schema
       stock_qty: product.stock || 0,
       stock_type: getStockType(product),
-      status: product.is_active ? 'active' : 'archived',
-      active: product.is_active
+      status: product.status === 'archived' ? 'archived' : (product.is_active ? 'active' : 'inactive'),
+      active: product.is_active && product.status !== 'archived'
     }));
 
     return { statusCode: 200, body: JSON.stringify({ data: transformedData }) };

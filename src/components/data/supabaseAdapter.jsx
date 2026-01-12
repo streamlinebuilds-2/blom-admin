@@ -16,6 +16,24 @@ function ensureArray(data, error) {
   return Array.isArray(data) ? data : [];
 }
 
+// Helper to ensure how_to_use is always an array
+function ensureHowToUseArray(howToUse) {
+  if (!howToUse) return [];
+  if (Array.isArray(howToUse)) return howToUse;
+  if (typeof howToUse === 'string') {
+    // Try to parse as JSON first (might be JSON string)
+    try {
+      const parsed = JSON.parse(howToUse);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      // Not JSON, so split by newlines and filter empty strings
+      return howToUse.split('\n').map(item => item.trim()).filter(Boolean);
+    }
+  }
+  // Fallback for other types
+  return [];
+}
+
 // Generate slug from name
 function generateSlug(name) {
   return name
@@ -35,7 +53,14 @@ export function createSupabaseAdapter() {
           .from('products')
           .select('*')
           .order('updated_at', { ascending: false });
-        return ensureArray(data, error);
+        
+        const products = ensureArray(data, error);
+        
+        // Transform how_to_use to always be an array for all products
+        return products.map(product => ({
+          ...product,
+          how_to_use: ensureHowToUseArray(product.how_to_use)
+        }));
       } catch (err) {
         console.error('Error listing products:', err);
         return [];
@@ -48,7 +73,18 @@ export function createSupabaseAdapter() {
         .select('*')
         .eq('id', id)
         .single();
-      return ensure(data, error);
+      
+      const product = ensure(data, error);
+      
+      // Transform how_to_use to always be an array for frontend compatibility
+      if (product) {
+        return {
+          ...product,
+          how_to_use: ensureHowToUseArray(product.how_to_use)
+        };
+      }
+      
+      return product;
     },
 
     async upsertProduct(p) {
