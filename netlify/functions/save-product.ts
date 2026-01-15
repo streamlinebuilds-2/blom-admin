@@ -191,6 +191,7 @@ export const handler: Handler = async (event) => {
       if (body.key_ingredients !== undefined) updateData.key_ingredients = Array.isArray(body.key_ingredients) ? body.key_ingredients : [];
       if (body.claims !== undefined) updateData.claims = Array.isArray(body.claims) ? body.claims : [];
       if (body.variants !== undefined) updateData.variants = Array.isArray(body.variants) ? body.variants : [];
+      if (body.badges !== undefined) updateData.badges = Array.isArray(body.badges) ? body.badges : [];
 
       // Details
       if (body.size !== undefined) updateData.size = body.size;
@@ -205,6 +206,7 @@ export const handler: Handler = async (event) => {
       if (body.meta_description !== undefined) updateData.meta_description = body.meta_description;
       if (body.is_active !== undefined) updateData.is_active = body.is_active;
       if (body.is_featured !== undefined) updateData.is_featured = body.is_featured;
+      if (body.related !== undefined) updateData.related = Array.isArray(body.related) ? body.related : [];
 
       const { data, error } = await admin
         .from('products')
@@ -294,6 +296,7 @@ export const handler: Handler = async (event) => {
       key_ingredients: Array.isArray(body.key_ingredients) ? body.key_ingredients : [],
       claims: Array.isArray(body.claims) ? body.claims : [],
       variants: Array.isArray(body.variants) ? body.variants : [],
+      badges: Array.isArray(body.badges) ? body.badges : [],
 
       // Details
       size: body.size ?? null,
@@ -308,6 +311,7 @@ export const handler: Handler = async (event) => {
       meta_description: body.meta_description ?? null,
       is_active: status === 'active' || status === 'published',
       is_featured: body.is_featured ?? false,
+      related: Array.isArray(body.related) ? body.related : [],
 
       // Timestamps
       updated_at: new Date().toISOString(),
