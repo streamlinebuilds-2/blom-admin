@@ -7,6 +7,13 @@ const SITE = process.env.SITE_BASE_URL || process.env.SITE_URL || "https://blom-
 const BUCKET = "invoices" 
 const LOGO_URL = "https://yvmnedjybrpvlupygusf.supabase.co/storage/v1/object/public/assets/blom_logo.png"
 
+// Page dimensions (A4)
+const PAGE_WIDTH = 595.28
+const PAGE_HEIGHT = 841.89
+const ITEMS_PER_PAGE = 25 // Adjust based on your needs
+const ITEM_ROW_HEIGHT = 16
+const FOOTER_HEIGHT = 60 // Space needed for totals and footer
+
 function money(n: any) {
   return "R " + Number(n || 0).toFixed(2)
 }
@@ -48,7 +55,7 @@ export const handler = async (event: any) => {
       return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'ID required' }) };
     }
 
-    // 1) Load Order Data - ADDED 'coupon_code' to selection
+    // 1) Load Order Data
     const orderResponse: any = await fetchJson(
       `${SUPABASE_URL}/rest/v1/orders?m_payment_id=eq.${encodeURIComponent(m_payment_id)}&select=id,buyer_name,buyer_email,buyer_phone,fulfillment_method,delivery_address,collection_location,total,subtotal_cents,shipping_cents,discount_cents,coupon_code,status,created_at`
     )
@@ -65,27 +72,46 @@ export const handler = async (event: any) => {
 
     // 2) PDF Generation
     const pdf = await PDFDocument.create()
-    const page = pdf.addPage([595.28, 841.89]) // A4
-    const { width } = page.getSize()
+    let currentPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+    let pageNum = 1
+    const left = 40
+    const right = PAGE_WIDTH - 40
+
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold)
 
-    let y = 800
-    const left = 40
-    const right = width - 40
-
-    const drawText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15)) => {
-      page.drawText(String(text), { x, y: yPos, size, font: bold ? fontBold : font, color })
+    // Helper functions
+    const drawText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
+      page.drawText(String(text), { x, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
-    const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
-      page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 1, color: rgb(0.9, 0.92, 0.95) })
+    const drawLine = (x1: number, y1: number, x2: number, y2: number, page = currentPage) => {
+      page.drawLine({ start: { x: x1, y: PAGE_HEIGHT - y1 }, end: { x: x2, y: PAGE_HEIGHT - y2 }, thickness: 1, color: rgb(0.9, 0.92, 0.95) })
     }
-    const drawRightText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15)) => {
+    const drawRightText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
       const textWidth = (bold ? fontBold : font).widthOfTextAtSize(String(text), size)
-      page.drawText(String(text), { x: x - textWidth, y: yPos, size, font: bold ? fontBold : font, color })
+      page.drawText(String(text), { x: x - textWidth, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
 
-    // Add Logo
+    // Function to add a new page
+    const addNewPage = () => {
+      currentPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+      pageNum++
+      // Add page number
+      drawText(`Page ${pageNum}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 20, 8, false, rgb(0.5, 0.5, 0.5), currentPage)
+      return 20 // Return starting Y position for new page
+    }
+
+    // Function to check if we need a new page
+    const checkPageBreak = (currentY: number, neededSpace: number) => {
+      if (currentY + neededSpace > PAGE_HEIGHT - FOOTER_HEIGHT) {
+        return addNewPage()
+      }
+      return currentY
+    }
+
+    let y = 20
+
+    // Add Logo (only on first page)
     let logoHeight = 0
     try {
       const logoRes = await fetch(LOGO_URL)
@@ -95,32 +121,33 @@ export const handler = async (event: any) => {
         if (logoImg) {
           const logoW = 140
           logoHeight = (logoImg.height / logoImg.width) * logoW
-          page.drawImage(logoImg, { x: right - logoW, y: y - logoHeight, width: logoW, height: logoHeight })
+          currentPage.drawImage(logoImg, { x: right - logoW, y: PAGE_HEIGHT - y - logoHeight, width: logoW, height: logoHeight })
         }
       }
     } catch (e) {}
 
-    // Header Details
+    // Header Details (first page only)
+    y = Math.max(20, logoHeight > 0 ? logoHeight + 10 : 20)
     drawText("RECEIPT", left, y, 24, true)
-    y -= 10
-    drawText(`Receipt #: ${m_payment_id}`, left, (y -= 16), 10, false, rgb(0.35, 0.38, 0.45))
-    drawText(`Date: ${new Date(order.created_at).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`, left, (y -= 14), 10, false, rgb(0.35, 0.38, 0.45))
+    y += 26
+    drawText(`Receipt #: ${m_payment_id}`, left, y, 10, false, rgb(0.35, 0.38, 0.45))
+    y += 16
+    drawText(`Date: ${new Date(order.created_at).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}`, left, y, 10, false, rgb(0.35, 0.38, 0.45))
+    y += 20
     
-    y = logoHeight > 0 ? Math.min(y, 800 - logoHeight - 15) : y - 8
-    y -= 18
     drawLine(left, y, right, y)
-    y -= 18
+    y += 22
 
-    // Customer Info
+    // Customer Info (first page only)
     drawText("Customer", left, y, 12, true)
     drawText("Fulfillment", right - 200, y, 12, true)
-    y -= 16
+    y += 18
     drawText(order.buyer_name || "-", left, y, 11)
     drawText(String(order.fulfillment_method || '-').toUpperCase(), right - 200, y, 11)
-    y -= 14
+    y += 16
     drawText(order.buyer_email || "-", left, y, 10, false, rgb(0.4, 0.45, 0.52))
     if (order.collection_location) drawText(String(order.collection_location), right - 200, y, 10, false, rgb(0.4, 0.45, 0.52))
-    y -= 14
+    y += 16
     drawText(order.buyer_phone || "", left, y, 10, false, rgb(0.4, 0.45, 0.52))
     
     if (order.delivery_address && order.fulfillment_method === 'delivery') {
@@ -132,100 +159,155 @@ export const handler = async (event: any) => {
       ].filter(Boolean)
       let addrY = y
       addrLines.forEach((line: string) => {
-        drawText(line, right - 200, addrY, 9, false, rgb(0.4, 0.45, 0.52)); addrY -= 11
+        drawText(line, right - 200, addrY, 9, false, rgb(0.4, 0.45, 0.52)); addrY += 13
       })
-      y = Math.min(y, addrY - 4)
+      y = Math.max(y, addrY + 4)
     }
     
-    y -= 12; drawLine(left, y, right, y); y -= 20
+    y += 16
+    drawLine(left, y, right, y)
+    y += 22
 
-    // Items Table
+    // Items Table Header
     drawText("Item", left, y, 11, true)
     drawRightText("Qty", right - 150, y, 11, true)
     drawRightText("Unit", right - 90, y, 11, true)
     drawRightText("Total", right - 20, y, 11, true)
-    y -= 8; drawLine(left, y, right, y); y -= 14
+    y += 12
+    drawLine(left, y, right, y)
+    y += 16
 
-    items.forEach((it: any) => {
+    // Items Table with Pagination
+    items.forEach((it: any, index: number) => {
+      // Check if we need a new page before drawing the item
+      y = checkPageBreak(y, ITEM_ROW_HEIGHT + 5)
+
+      // If we're on a new page, redraw the table header
+      if (pageNum > 1 && y === 20) {
+        drawText("Item", left, y, 11, true)
+        drawRightText("Qty", right - 150, y, 11, true)
+        drawRightText("Unit", right - 90, y, 11, true)
+        drawRightText("Total", right - 20, y, 11, true)
+        y += 12
+        drawLine(left, y, right, y)
+        y += 16
+      }
+
       const name = it.product_name || it.sku || "-"
       const variant = it.variant_title ? ` • ${it.variant_title}` : ""
       const qty = Number(it.quantity || 0)
       const unit = Number(it.unit_price || 0)
       const lineTotal = it.line_total ? Number(it.line_total) : (qty * unit)
 
-      drawText(name + variant, left, y, 10)
+      // Truncate long product names to fit on one line
+      const maxNameWidth = right - 180
+      let displayName = name + variant
+      const nameWidth = font.widthOfTextAtSize(displayName, 10)
+      if (nameWidth > maxNameWidth) {
+        // Truncate and add ellipsis
+        let truncated = displayName
+        while (font.widthOfTextAtSize(truncated + "...", 10) > maxNameWidth && truncated.length > 0) {
+          truncated = truncated.slice(0, -1)
+        }
+        displayName = truncated + "..."
+      }
+
+      drawText(displayName, left, y, 10)
       drawRightText(String(qty), right - 150, y, 10)
       drawRightText(money(unit), right - 90, y, 10)
       drawRightText(money(lineTotal), right - 20, y, 10)
-      y -= 16
+      y += ITEM_ROW_HEIGHT
     })
 
-    // --- LOGIC: Smart Discount Calculation ---
+    // Ensure we have enough space for totals section
+    y = checkPageBreak(y, FOOTER_HEIGHT)
+
+    // If we moved to a new page, add a separator line
+    if (pageNum > 1 && y === 20) {
+      y = 40
+    }
+
+    // Calculate totals
     const shippingAmount = order.shipping_cents ? order.shipping_cents / 100 : 0
     const subtotalAmount = order.subtotal_cents ? order.subtotal_cents / 100 : itemsSum
     
-    // 1. Get explicit discount from DB
     let discountAmount = order.discount_cents ? order.discount_cents / 100 : 0
 
-    // 2. If missing, try to infer from the math (Self-Healing for old orders)
+    // Self-healing discount calculation
     if (discountAmount === 0) {
       const expectedTotal = subtotalAmount + shippingAmount
       const paidTotal = Number(order.total)
-      // If customer paid less than expected, the diff is a discount
       if (paidTotal > 0 && paidTotal < expectedTotal - 0.05) {
         discountAmount = expectedTotal - paidTotal
       }
     }
 
-    // Free shipping check
+    // Shipping line
     const isFreeShipping = subtotalAmount >= 2000 && shippingAmount === 0
     if (isFreeShipping) {
+      y = checkPageBreak(y, ITEM_ROW_HEIGHT)
       drawText("FREE SHIPPING - Order over R2000", left, y, 10)
       drawRightText("R 0.00", right - 20, y, 10)
-      y -= 16
+      y += ITEM_ROW_HEIGHT
     } else if (shippingAmount > 0) {
+      y = checkPageBreak(y, ITEM_ROW_HEIGHT)
       drawText("Shipping & Handling", left, y, 10)
       drawRightText("1", right - 150, y, 10)
       drawRightText(money(shippingAmount), right - 90, y, 10)
       drawRightText(money(shippingAmount), right - 20, y, 10)
-      y -= 16
+      y += ITEM_ROW_HEIGHT
     }
 
-    // --- UPDATED: Display Discount WITH CODE ---
+    // Discount line
     if (discountAmount > 0) {
-      // Check if code exists, otherwise just show "Coupon Discount"
+      y = checkPageBreak(y, ITEM_ROW_HEIGHT)
       const label = order.coupon_code ? `Coupon Discount (${order.coupon_code})` : "Coupon Discount"
-      
-      drawText(label, left, y, 10, false, rgb(0, 0.5, 0.2)) // Green text
+      drawText(label, left, y, 10, false, rgb(0, 0.5, 0.2))
       drawRightText("-" + money(discountAmount), right - 20, y, 10, false, rgb(0, 0.5, 0.2))
-      y -= 16
+      y += ITEM_ROW_HEIGHT
     }
 
-    y -= 8; drawLine(left, y, right, y); y -= 18
+    y += 10
+    drawLine(left, y, right, y)
+    y += 20
 
-    // --- TOTALS CALCULATION ---
-    // Ensure Total = Subtotal + Shipping - Discount
-    // This overrides any bad data stored in 'total' column
     const finalTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount);
 
     // Subtotal
     if (order.subtotal_cents || discountAmount > 0) {
       drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
       drawRightText(money(subtotalAmount), right - 20, y, 10)
-      y -= 16
+      y += 18
     }
 
     // Total row
-    drawLine(right - 250, y + 6, right, y + 6)
+    drawLine(right - 250, y - 2, right, y - 2)
     drawText("Total", right - 140, y, 13, true)
-    drawRightText(money(finalTotal), right - 20, y, 13, true) // Use calculated finalTotal
+    drawRightText(money(finalTotal), right - 20, y, 13, true)
 
-    // Footer
-    y -= 32; drawLine(left, y, right, y); y -= 16
+    // Footer (only on last page)
+    y += 35
+    y = checkPageBreak(y, 40)
+    drawLine(left, y, right, y)
+    y += 18
     drawText("Thank you for your purchase!", left, y, 10, false, rgb(0.35, 0.38, 0.45))
-    y -= 12
+    y += 14
     drawText("Questions? Contact us: shopblomcosmetics@gmail.com | +27 79 548 3317", left, y, 9, false, rgb(0.4, 0.45, 0.52))
     drawRightText(SITE.replace(/^https?:\/\//, ""), right, y, 9, false, rgb(0.4, 0.45, 0.52))
+
+    // Add page numbers to all pages
+    const pages = pdf.getPages()
+    pages.forEach((page, index) => {
+      const pageY = PAGE_HEIGHT - 20
+      const pageX = PAGE_WIDTH / 2
+      page.drawText(`Page ${index + 1}`, { 
+        x: pageX - (font.widthOfTextAtSize(`Page ${index + 1}`, 8) / 2), 
+        y: pageY, 
+        size: 8, 
+        font, 
+        color: rgb(0.5, 0.5, 0.5) 
+      })
+    })
 
     const pdfBytes = await pdf.save()
     const version = q.v || Date.now().toString()
