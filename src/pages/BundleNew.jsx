@@ -24,6 +24,7 @@ const ensureList = (value) => {
 // ... initialFormState ...
 const initialFormState = {
   name: '',
+  product_type: 'collection', // 'collection' → Collections; 'bundle' → Bundle Deals (e.g. Prep & Primer)
   price: '',
   compare_at_price: '',
   short_description: '',
@@ -256,7 +257,7 @@ export default function BundleNew() {
     () => ({
       name: form.name || "New Bundle",
       slug: "new-bundle",
-      category: "Bundle Deals",
+      category: form.product_type === 'bundle' ? 'Bundle Deals' : 'Collections',
       shortDescription: form.short_description || "",
       overview: form.overview || "",
       price: priceString,
@@ -284,6 +285,7 @@ export default function BundleNew() {
       features,
       form.name,
       form.overview,
+      form.product_type,
       form.short_description,
       howToUse,
       previewImages,
@@ -321,6 +323,7 @@ export default function BundleNew() {
 
     const payload = {
       name: form.name.trim(),
+      product_type: form.product_type === 'bundle' ? 'bundle' : 'collection',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
       short_description: form.short_description,
@@ -615,9 +618,23 @@ export default function BundleNew() {
                     className="product-form-input"
                     value={form.name}
                     onChange={(event) => update("name", event.target.value)}
-                    placeholder="Ultimate Nail Care Bundle"
+                    placeholder="e.g. Petal Collection or Prep & Primer Bundle"
                   />
                   {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="product_type">
+                    Type
+                  </label>
+                  <select
+                    id="product_type"
+                    className="product-form-select"
+                    value={form.product_type}
+                    onChange={(e) => update("product_type", e.target.value)}
+                  >
+                    <option value="collection">Collection (e.g. Petal, Red, Snowberry)</option>
+                    <option value="bundle">Bundle (Bundle Deals, e.g. Prep & Primer)</option>
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">

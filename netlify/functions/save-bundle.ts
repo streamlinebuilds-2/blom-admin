@@ -65,15 +65,17 @@ export const handler: Handler = async (event) => {
     const compareAtPriceCents = payload.compare_at_price_cents ??
       (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
+    // product_type: 'collection' (default, category=Collections) or 'bundle' (category=Bundle Deals, e.g. Prep & Primer)
+    const productType = (payload.product_type === 'bundle') ? 'bundle' : 'collection';
+    const category = productType === 'bundle' ? 'Bundle Deals' : 'Collections';
+
     // Build bundle data for the bundles table
     const bundleData: any = {
       name: payload.name,
       slug: payload.slug || slugify(payload.name),
-      sku: payload.sku || `BND-${Date.now()}`,
-      
-      // CRITICAL: Force these for visibility
-      product_type: 'bundle', 
-      category: 'Bundle Deals', 
+      sku: payload.sku || (productType === 'bundle' ? `BND-${Date.now()}` : `COL-${Date.now()}`),
+      product_type: productType,
+      category,
       status: 'active',
       is_active: true, 
       

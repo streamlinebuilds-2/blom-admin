@@ -20,19 +20,29 @@ export const handler: Handler = async (event) => {
   try {
     const supabase = getSupabaseAdmin();
 
-    // Fetch anything that is a 'bundle' OR in the 'Bundle Deals' category
-    const { data, error } = await supabase
-      .from('products')
+    // Fetch from bundles: both product_type 'collection' and 'bundle' (Bundle Deals)
+    const { data: rows, error } = await supabase
+      .from('bundles')
       .select('*')
-      .or('product_type.eq.bundle,category.eq.Bundle Deals')
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
 
     if (error) throw error;
+
+    // Add items count from bundle_products or bundle_items; ensure product_type/category for list
+    const list = (rows || []).map((b: any) => {
+      const items = Array.isArray(b.bundle_products)
+        ? b.bundle_products.filter((x: any) => x && x.product_id).length
+        : 0;
+      return {
+        ...b,
+        items: items > 0 ? items : (b.bundle_products?.length || 0),
+      };
+    });
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(data || []),
+      body: JSON.stringify(list),
     };
 
   } catch (e: any) {

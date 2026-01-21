@@ -58,6 +58,7 @@ export default function Bundles() {
   };
 
   const getBundleItemsCount = (bundle) => {
+    if (typeof bundle.items === 'number') return bundle.items;
     return bundle.items?.length || 0;
   };
 
@@ -334,7 +335,8 @@ export default function Bundles() {
           <table>
             <thead>
               <tr>
-                <th>Bundle</th>
+                <th>Name</th>
+                <th>Type</th>
                 <th>Status</th>
                 <th>Price</th>
                 <th>Items</th>
@@ -345,11 +347,11 @@ export default function Bundles() {
             <tbody>
               {loading || deleteMutation.isPending ? (
                 <tr>
-                  <td colSpan="6" className="empty-state">Loading bundles...</td>
+                  <td colSpan="7" className="empty-state">Loading bundles...</td>
                 </tr>
               ) : filteredBundles.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="empty-state">
+                  <td colSpan="7" className="empty-state">
                     <div className="empty-state-title">No bundles found</div>
                     <div>{searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first bundle to get started'}</div>
                   </td>
@@ -359,6 +361,11 @@ export default function Bundles() {
                   <tr key={bundle.id}>
                     <td>
                       <div className="bundle-name">{bundle.name}</div>
+                    </td>
+                    <td>
+                      <span className="status-badge" style={bundle.product_type === 'bundle' ? { background: '#fef3c720', color: '#d97706' } : { background: '#10b98120', color: '#10b981' }}>
+                        {bundle.product_type === 'bundle' ? 'Bundle' : 'Collection'}
+                      </span>
                     </td>
                     <td>
                       <span className={`status-badge status-${bundle.status}`}>

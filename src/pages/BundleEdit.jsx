@@ -26,6 +26,7 @@ const initialFormState = {
   slug: "",
   sku: generateSKU(),
   category: "Bundle Deals",
+  product_type: "collection",
   price: "",
   compare_at_price: "",
   weight: "",
@@ -163,6 +164,7 @@ export default function BundleEdit() {
             slug: bundle.slug || '',
             sku: bundle.sku || generateSKU(),
             category: bundle.category || 'Bundle Deals',
+            product_type: bundle.product_type === 'bundle' ? 'bundle' : 'collection',
             status: bundle.status || 'active',
             price: bundle.price_cents ? (bundle.price_cents / 100).toString() : '',
             compare_at_price: bundle.compare_at_price_cents ? (bundle.compare_at_price_cents / 100).toString() : '',
@@ -419,7 +421,7 @@ export default function BundleEdit() {
     () => ({
       name: form.name || "Bundle",
       slug: form.slug || "bundle",
-      category: "Bundle Deals",
+      category: form.product_type === 'bundle' ? 'Bundle Deals' : 'Collections',
       shortDescription: form.short_description || "",
       overview: form.overview || "",
       price: priceString,
@@ -503,8 +505,8 @@ export default function BundleEdit() {
       name: form.name.trim(),
       slug: form.slug.trim(),
       sku: form.sku.trim(),
-      category: 'Bundle Deals', // Force category
-      product_type: 'bundle', // Mark as bundle
+      category: form.product_type === 'bundle' ? 'Bundle Deals' : 'Collections',
+      product_type: form.product_type === 'bundle' ? 'bundle' : 'collection',
       status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
@@ -1149,18 +1151,19 @@ export default function BundleEdit() {
                 {errors.sku ? <p className="text-xs text-red-500">{errors.sku}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="category">
-                  Category
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="product_type">
+                  Type
                 </label>
-                <input
-                  id="category"
-                  type="text"
-                  className="product-form-input"
-                  value="Bundle Deals"
-                  disabled
-                  style={{ opacity: 0.7, cursor: 'not-allowed' }}
-                />
-                <small className="text-xs text-[var(--text-muted)]">Category is automatically set to Bundle Deals</small>
+                <select
+                  id="product_type"
+                  className="product-form-select"
+                  value={form.product_type}
+                  onChange={(e) => update("product_type", e.target.value)}
+                >
+                  <option value="collection">Collection (Collections)</option>
+                  <option value="bundle">Bundle (Bundle Deals, e.g. Prep &amp; Primer)</option>
+                </select>
+                <small className="text-xs text-[var(--text-muted)]">{form.product_type === 'bundle' ? 'Shows under Bundle Deals' : 'Shows under Collections'}</small>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
