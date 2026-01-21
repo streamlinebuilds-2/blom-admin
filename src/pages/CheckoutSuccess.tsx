@@ -24,14 +24,22 @@ export default function CheckoutSuccess() {
         setStatus('paid');
         setOrderDetails(data);
         cartStore.clearCart();
-        
-        // SAFETY NET: Force webhook to run in case ITN missed it
-        fetch('/.netlify/functions/order-status', {
+
+        // 1) order-status: webhook (n8n) + invoice; uses m_payment_id
+        if (data.m_payment_id) {
+          fetch('/.netlify/functions/order-status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ m_payment_id: data.m_payment_id, status: 'paid' })
+          }).catch(console.warn);
+        }
+        // 2) invoice-pdf by order_id as backup (if order-status failed or m_payment_id missing)
+        fetch('/.netlify/functions/invoice-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: data.id })
         }).catch(console.warn);
-        
+
         return;
       }
       await new Promise((r) => setTimeout(r, 1500));

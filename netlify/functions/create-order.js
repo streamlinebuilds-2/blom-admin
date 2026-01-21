@@ -106,12 +106,15 @@ export const handler = async (event) => {
     const shipping_cents = orderData.shipping_cents || 0;
     const tax_cents = orderData.tax_cents || 0;
     const total_cents = subtotal_cents + shipping_cents - discount_cents + tax_cents;
+    // total in rands for invoice/display (must equal subtotal + shipping - discount + tax)
+    const total_rands = Math.round(total_cents) / 100;
 
     // Create order in database
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
         order_number,
+        m_payment_id: m_payment_id,
         merchant_payment_id: m_payment_id,
         customer_name: orderData.customer_name,
         customer_email: orderData.customer_email,
@@ -125,6 +128,7 @@ export const handler = async (event) => {
         discount_cents,
         tax_cents,
         total_cents,
+        total: total_rands,
         currency: orderData.currency || "ZAR",
         status: "unpaid",
         payment_status: "unpaid",

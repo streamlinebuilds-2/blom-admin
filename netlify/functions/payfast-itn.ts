@@ -92,28 +92,46 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, body: 'OK (non-complete status)' };
     }
 
-    // 5. Convert Rands to cents
-    const grossCents = Math.round(parseFloat(itnPayload.amount_gross) * 100);
-    const feeCents = Math.round(parseFloat(itnPayload.amount_fee) * 100);
-    const netCents = Math.round(parseFloat(itnPayload.amount_net) * 100);
+    // 5. Convert Rands to cents; total in rands from amount_gross (actual paid)
+    const grossCents = Math.round(parseFloat(itnPayload.amount_gross || '0') * 100);
+    const feeCents = Math.round(parseFloat(itnPayload.amount_fee || '0') * 100);
+    const netCents = Math.round(parseFloat(itnPayload.amount_net || '0') * 100);
+    const totalRands = parseFloat(itnPayload.amount_gross || '0');
 
-    // 6. Update the Order status
+    // 5b. Resolve order: match by m_payment_id first (what PayFast echoes), then by id for legacy
+    let orderUuid: string | null = null;
+    const { data: byMpid } = await supabase.from('orders').select('id').eq('m_payment_id', orderId).maybeSingle();
+    if (byMpid) orderUuid = byMpid.id;
+    else {
+      const { data: byId } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
+      if (byId) orderUuid = byId.id;
+    }
+    if (!orderUuid) {
+      console.error(`Order not found for m_payment_id/id=${orderId}`);
+      return { statusCode: 200, body: 'OK' };
+    }
+
+    // 6. Update the Order: status, paid_at, and total (ensure total = subtotal+shipping-discount from actual paid amount)
     const { error: orderError } = await supabase
       .from('orders')
       .update({
         status: 'paid',
         payment_status: 'paid',
-        paid_at: new Date().toISOString()
+        paid_at: new Date().toISOString(),
+        total: totalRands,
       })
-      .eq('id', orderId); // Use your internal order ID
+      .eq('id', orderUuid);
 
-    if (orderError) console.error(`Error updating order ${orderId}:`, orderError.message);
+    if (orderError) {
+      console.error(`Error updating order ${orderUuid}:`, orderError.message);
+      return { statusCode: 200, body: 'OK' };
+    }
 
     // 7. Create the new Payment record (this will fail safely if it's a duplicate)
     const { error: paymentError } = await supabase
       .from('payments')
       .insert({
-        order_id: orderId,
+        order_id: orderUuid,
         payfast_payment_id: pfPaymentId,
         payment_status: paymentStatus,
         amount_gross_cents: grossCents,
@@ -123,17 +141,17 @@ export const handler: Handler = async (event) => {
       });
 
     if (paymentError && paymentError.code !== '23505') {
-      console.error(`Error creating payment record for ${orderId}:`, paymentError.message);
+      console.error(`Error creating payment record for ${orderUuid}:`, paymentError.message);
     }
 
     // 8. Call the enhanced stock deduction function
     const { data: deductionResult, error: rpcError } = await supabase.rpc('process_order_stock_deduction', {
-      p_order_id: orderId
+      p_order_id: orderUuid
     });
     if (rpcError) {
-      console.error(`Error triggering stock deduction for ${orderId}:`, rpcError.message);
+      console.error(`Error triggering stock deduction for ${orderUuid}:`, rpcError.message);
     } else {
-      console.log(`Stock deduction completed for order ${orderId}:`, deductionResult);
+      console.log(`Stock deduction completed for order ${orderUuid}:`, deductionResult);
     }
 
     // 9. Call 'mark_coupon_used' RPC if a coupon was used
@@ -144,7 +162,15 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 10. Send a 200 OK to PayFast
+    // 10. Generate invoice on payment (so it exists even if user never hits success page). Fire-and-forget.
+    const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
+    fetch(`${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ m_payment_id: orderId })
+    }).catch(e => console.error('Invoice generation (ITN):', e));
+
+    // 11. Send a 200 OK to PayFast
     return { statusCode: 200, body: 'OK' };
 
   } catch (e: any) {
