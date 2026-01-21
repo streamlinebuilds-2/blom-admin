@@ -227,20 +227,13 @@ export const handler = async (event: any) => {
       y = 40
     }
 
-    // Calculate totals
-    const shippingAmount = order.shipping_cents ? order.shipping_cents / 100 : 0
-    const subtotalAmount = order.subtotal_cents ? order.subtotal_cents / 100 : itemsSum
-    
-    let discountAmount = order.discount_cents ? order.discount_cents / 100 : 0
+    // Calculate totals — only use explicit DB values, never infer discount
+    const shippingAmount = Number(order.shipping_cents ?? 0) / 100
+    const subtotalAmount = order.subtotal_cents != null ? order.subtotal_cents / 100 : itemsSum
+    const discountAmount = Number(order.discount_cents ?? 0) / 100
 
-    // Self-healing discount calculation
-    if (discountAmount === 0) {
-      const expectedTotal = subtotalAmount + shippingAmount
-      const paidTotal = Number(order.total)
-      if (paidTotal > 0 && paidTotal < expectedTotal - 0.05) {
-        discountAmount = expectedTotal - paidTotal
-      }
-    }
+    // Only show discount line when there is a real explicit discount
+    const showDiscount = discountAmount > 0.0001
 
     // Shipping line
     const isFreeShipping = subtotalAmount >= 2000 && shippingAmount === 0
@@ -258,8 +251,8 @@ export const handler = async (event: any) => {
       y += ITEM_ROW_HEIGHT
     }
 
-    // Discount line
-    if (discountAmount > 0) {
+    // Discount line — only when there is an explicit discount
+    if (showDiscount) {
       y = checkPageBreak(y, ITEM_ROW_HEIGHT)
       const label = order.coupon_code ? `Coupon Discount (${order.coupon_code})` : "Coupon Discount"
       drawText(label, left, y, 10, false, rgb(0, 0.5, 0.2))
@@ -271,14 +264,14 @@ export const handler = async (event: any) => {
     drawLine(left, y, right, y)
     y += 20
 
-    const finalTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount);
+    // Prefer stored order.total (what was paid); otherwise use calculated total
+    const calculatedTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount)
+    const finalTotal = Number(order.total) > 0 ? Number(order.total) : calculatedTotal
 
     // Subtotal
-    if (order.subtotal_cents || discountAmount > 0) {
-      drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
-      drawRightText(money(subtotalAmount), right - 20, y, 10)
-      y += 18
-    }
+    drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
+    drawRightText(money(subtotalAmount), right - 20, y, 10)
+    y += 18
 
     // Total row
     drawLine(right - 250, y - 2, right, y - 2)
