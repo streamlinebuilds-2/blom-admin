@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
     define: { 'process.env': {} }, // Prevent process.env crashes in browser
     server: {
       host: '0.0.0.0', // Bind to all interfaces for container access
-      port: 5173,
+      port: 5180,
       strictPort: true,
       // Allow all hosts - essential for Modal tunnel URLs
       allowedHosts: true,

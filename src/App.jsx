@@ -73,6 +73,8 @@ import OrderDetail from '@/pages/OrderDetail'
 import PriceUpdates from '@/pages/PriceUpdates'
 import Specials from '@/pages/Specials'
 import Featured from '@/pages/Featured'
+import CoursesPage from '@/pages/Courses'
+import CourseEdit from '@/pages/CourseEdit'
 
 // Initialize Supabase adapter for real database access, with fallback to mock
 function initializeAdapter() {
@@ -185,6 +187,10 @@ const AuthenticatedApp = () => {
         {/* Featured - Canonical Routes */}
         <Route path="/featured" element={<Featured />} />
 
+        {/* Courses - Canonical Routes */}
+        <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/courses/:id" element={<CourseEdit />} />
+
         {/* Orders - Canonical Routes */}
         <Route path="/orders" element={<Orders/>} />
         <Route path="/orders/:id" element={<OrderDetail/>} />
@@ -212,7 +218,7 @@ const AuthenticatedApp = () => {
         {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
         {Object.entries(Pages).map(([path, Page]) => {
           // Skip conflicts
-          const skip = ['orders', 'products', 'bundles', 'specials', 'reviews', 'messages', 'finance', 'settings', 'dashboard', 'featured'];
+          const skip = ['orders', 'products', 'bundles', 'specials', 'reviews', 'messages', 'finance', 'settings', 'dashboard', 'featured', 'courses'];
           if (skip.includes(path.toLowerCase())) return null;
           return <Route key={path} path={`/${path}`} element={<Page />} />;
         })}

@@ -23,6 +23,11 @@ function loadDB() {
           if (p.updated_at && typeof p.updated_at === 'string') p.updated_at = new Date(p.updated_at).toISOString();
         });
       }
+      if (window.__BLM_DB.courses) {
+        window.__BLM_DB.courses.forEach(c => {
+          if (c.created_at && typeof c.created_at === 'string') c.created_at = new Date(c.created_at).toISOString();
+        });
+      }
       if (window.__BLM_DB.stockMovements) {
         window.__BLM_DB.stockMovements.forEach(m => {
           if (m.created_at && typeof m.created_at === 'string') m.created_at = new Date(m.created_at).toISOString();
@@ -106,6 +111,41 @@ function loadDB() {
       short_desc: 'pH-balanced daily cleanser',
       category_id: null,
       updated_at: new Date().toISOString()
+    }
+  ];
+
+  const seedCourses = [
+    {
+      id: 'c1',
+      title: 'Online Acrylic Workshop',
+      slug: 'online-acrylic-workshop',
+      description: 'Live online workshop covering acrylic fundamentals.',
+      price: 999.00,
+      image_url: '',
+      duration: 'Online • 8 hours',
+      level: 'Beginner',
+      template_key: null,
+      course_type: 'online',
+      instructor_name: 'Avané Crous',
+      instructor_bio: 'Professional nail artist and educator with over 8 years of experience.',
+      is_active: true,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'c2',
+      title: 'In-Person Masterclass',
+      slug: 'masterclass-in-person',
+      description: 'Hands-on in-person training with practical assessment.',
+      price: 2499.00,
+      image_url: '',
+      duration: '2 days',
+      level: 'Advanced',
+      template_key: null,
+      course_type: 'in-person',
+      instructor_name: 'Avané Crous',
+      instructor_bio: 'Professional nail artist and educator with over 8 years of experience.',
+      is_active: true,
+      created_at: new Date(Date.now() - 86400000).toISOString()
     }
   ];
 
@@ -244,6 +284,7 @@ function loadDB() {
 
   window.__BLM_DB = {
     products: seedProducts,
+    courses: seedCourses,
     stockMovements: [],
     specials: [],
     bundles: seedBundles,
@@ -302,6 +343,59 @@ export function createMockAdapter() {
       );
       console.log('📦 MockAdapter: Returning', products.length, 'products:', products.map(p => p.name));
       return products;
+    },
+
+    async listCourses() {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      const courses = [...(db.courses || [])].sort((a, b) =>
+        (b.created_at || '').localeCompare(a.created_at || '')
+      );
+      return courses;
+    },
+
+    async getCourse(id) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      return (db.courses || []).find(c => c.id === id) || null;
+    },
+
+    async upsertCourse(c) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      if (!db.courses) db.courses = [];
+      const now = new Date().toISOString();
+
+      if (c.id) {
+        const index = db.courses.findIndex(existing => existing.id === c.id);
+        if (index >= 0) {
+          const updated = { ...db.courses[index], ...c };
+          if (!updated.created_at) updated.created_at = now;
+          db.courses[index] = updated;
+          saveDB();
+          return updated;
+        }
+      }
+
+      const created = {
+        id: c.id || generateId(),
+        title: c.title || 'New Course',
+        slug: c.slug || 'new-course',
+        description: c.description || '',
+        price: c.price != null ? Number(c.price) : null,
+        image_url: c.image_url || '',
+        duration: c.duration || '',
+        level: c.level || '',
+        template_key: c.template_key || null,
+        course_type: c.course_type || 'in-person',
+        instructor_name: c.instructor_name || '',
+        instructor_bio: c.instructor_bio || '',
+        is_active: c.is_active !== false,
+        created_at: now
+      };
+      db.courses.push(created);
+      saveDB();
+      return created;
     },
 
     async getProduct(id) {

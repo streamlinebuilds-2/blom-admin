@@ -27,4 +27,5 @@ dist-ssr
 *.sln
 *.sw?
 
+.trae/
 .envshop-admin-pro-9e871867-main

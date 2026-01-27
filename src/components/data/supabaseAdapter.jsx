@@ -45,6 +45,9 @@ function generateSlug(name) {
 }
 
 export function createSupabaseAdapter() {
+  if (!supabase || typeof supabase.from !== 'function') {
+    throw new Error('Supabase client not configured');
+  }
   return {
     // ===== PRODUCTS =====
     async listProducts() {
@@ -204,6 +207,66 @@ export function createSupabaseAdapter() {
 
       const saved = await res.json();
       return saved.product || saved;
+    },
+
+    // ===== COURSES =====
+    async listCourses() {
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select('*')
+          .order('created_at', { ascending: false });
+        return ensureArray(data, error);
+      } catch (err) {
+        console.error('Error listing courses:', err);
+        return [];
+      }
+    },
+
+    async getCourse(id) {
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select('*')
+          .eq('id', id)
+          .single();
+        return ensure(data, error);
+      } catch (err) {
+        console.error('Error loading course:', err);
+        return null;
+      }
+    },
+
+    async upsertCourse(c) {
+      const payload = {
+        id: c.id,
+        title: String(c.title || '').trim(),
+        slug: String(c.slug || '').trim(),
+        description: c.description ?? null,
+        price: c.price === '' || c.price == null ? null : Number(c.price),
+        image_url: c.image_url ?? null,
+        duration: c.duration ?? null,
+        level: c.level ?? null,
+        template_key: c.template_key ?? null,
+        course_type: c.course_type || 'in-person',
+        instructor_name: String(c.instructor_name || '').trim(),
+        instructor_bio: c.instructor_bio ?? null,
+        is_active: c.is_active !== false,
+      };
+
+      const res = await fetch('/.netlify/functions/save-course', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`save-course failed: ${res.status} ${text}`);
+      }
+
+      const saved = await res.json();
+      return saved.course || saved;
     },
 
     // ===== INVENTORY =====

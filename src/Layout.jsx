@@ -6,6 +6,7 @@ import { ToastProvider } from "./components/ui/ToastProvider";
 import {
   LayoutDashboard, // Replaced Home
   Package,
+  BookOpen,
   Layers,
   Sparkles, // Added
   ShoppingCart,
@@ -40,6 +41,7 @@ const navigationGroups = [
     title: "Merchandising",
     items: [
       { name: "Products", url: "Products", icon: Package },
+      { name: "Courses", url: "Courses", icon: BookOpen },
       { name: "Bundles", url: "Bundles", icon: Layers },
       { name: "Featured", url: "featured", icon: Sparkles },
       { name: "Specials", url: "Specials", icon: Tag },
