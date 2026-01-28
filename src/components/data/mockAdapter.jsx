@@ -293,6 +293,21 @@ function suggestBundlePrice(base, mode, value) {
 
 export function createMockAdapter() {
   return {
+    async listCourses() {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return [];
+    },
+
+    async getCourse(id) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return null;
+    },
+
+    async upsertCourse(course) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return { ...course, id: course?.id || generateId() };
+    },
+
     async listProducts() {
       await new Promise(resolve => setTimeout(resolve, 0));
       console.log('📦 MockAdapter: listProducts() called');

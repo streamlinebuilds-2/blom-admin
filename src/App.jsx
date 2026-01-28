@@ -61,6 +61,8 @@ import ProductNew from '@/pages/ProductNew'
 import BundlesPage from '@/pages/Bundles'
 import BundleEdit from '@/pages/BundleEdit'
 import BundleNew from '@/pages/BundleNew'
+import CoursesPage from '@/pages/Courses'
+import CourseEdit from '@/pages/CourseEdit'
 import Reviews from '@/pages/Reviews'
 import ContactsPage from '@/pages/Contacts'
 import ContactDetail from '@/pages/ContactDetail'
@@ -178,6 +180,10 @@ const AuthenticatedApp = () => {
         <Route path="/bundles/new" element={<BundleNew />} />
         <Route path="/bundles/:id" element={<BundleEdit />} />
 
+        {/* Courses - Canonical Routes */}
+        <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/courses/:id" element={<CourseEdit />} />
+
         {/* Specials - Canonical Routes */}
         <Route path="/specials" element={<Specials />} />
         <Route path="/specials/new" element={<Specials />} />
@@ -214,7 +220,7 @@ const AuthenticatedApp = () => {
         {/* Dynamic pages from pagesConfig - AFTER explicit routes */}
         {Object.entries(Pages).map(([path, Page]) => {
           // Skip conflicts
-          const skip = ['orders', 'products', 'bundles', 'specials', 'reviews', 'messages', 'finance', 'settings', 'dashboard', 'featured'];
+          const skip = ['orders', 'products', 'bundles', 'courses', 'specials', 'reviews', 'messages', 'finance', 'settings', 'dashboard', 'featured'];
           if (skip.includes(path.toLowerCase())) return null;
           return <Route key={path} path={`/${path}`} element={<Page />} />;
         })}
