@@ -55,7 +55,7 @@ function QuickLink({ title, description, url, icon: Icon }) {
 
 export default function Dashboard() {
   // 1. Fetch Today's Financials (Same logic as Payments Page)
-  const { data: todayStats, isLoading: isLoadingToday } = useQuery({
+  const { data: todayStats, isLoading: isLoadingToday, isError: isTodayError } = useQuery({
     queryKey: ['admin-finance-stats', 'today'],
     queryFn: async () => {
       const res = await fetch('/.netlify/functions/admin-finance-stats?period=today');
@@ -66,7 +66,7 @@ export default function Dashboard() {
   });
 
   // 2. Fetch General Analytics (For Total Orders & Top Product)
-  const { data: analyticsData, isLoading: isLoadingAnalytics } = useQuery({
+  const { data: analyticsData, isLoading: isLoadingAnalytics, isError: isAnalyticsError } = useQuery({
     queryKey: ['admin-analytics-advanced', '30'],
     queryFn: async () => {
       // Fetching last 30 days to get recent top products
@@ -78,7 +78,7 @@ export default function Dashboard() {
   });
 
   // 3. Fetch Recent Products directly from Admin API
-  const { data: productsData, isLoading: isLoadingProducts } = useQuery({
+  const { data: productsData = [], isLoading: isLoadingProducts, isError: isProductsError } = useQuery({
     queryKey: ['admin-products-recent'],
     queryFn: async () => {
       const res = await fetch('/.netlify/functions/admin-products?page=1&pageSize=5');
@@ -87,11 +87,17 @@ export default function Dashboard() {
     }
   });
 
+  const formatMoneyFromCents = (cents) => {
+    const n = Number(cents);
+    if (!Number.isFinite(n)) return "R0.00";
+    return `R${(n / 100).toFixed(2)}`;
+  };
+
   // Safe Data Access
-  const todaySales = todayStats?.revenue || 0;
-  const todayProfit = todayStats?.profit || 0;
-  const totalOrders = analyticsData?.summary?.totalOrders || 0; // Orders in last 30 days (active metric)
-  const topProduct = analyticsData?.topProducts?.[0];
+  const todaySales = Number(todayStats?.revenue ?? 0);
+  const todayProfit = Number(todayStats?.profit ?? 0);
+  const totalOrders = Number(analyticsData?.summary?.totalOrders ?? 0);
+  const topProduct = analyticsData?.topProducts?.[0] ?? null;
   
   return (
     <>
@@ -415,7 +421,7 @@ export default function Dashboard() {
         <div className="stat-card revenue">
           <StatCard
             title="Today's Sales"
-            value={`R${(todaySales / 100).toFixed(2)}`}
+            value={formatMoneyFromCents(todaySales)}
             subtitle="Net Revenue"
             icon={DollarSign}
             trend={todaySales > 0 ? "Active" : "No Sales"}
@@ -427,7 +433,7 @@ export default function Dashboard() {
         <div className="stat-card profit">
           <StatCard
             title="Today's Profit"
-            value={`R${(todayProfit / 100).toFixed(2)}`}
+            value={formatMoneyFromCents(todayProfit)}
             subtitle="After Est. Costs"
             icon={TrendingUp}
             trend={todayProfit > 0 ? "Positive" : "-"}
@@ -439,7 +445,7 @@ export default function Dashboard() {
         <div className="stat-card orders">
           <StatCard
             title="Orders (30 Days)"
-            value={totalOrders}
+            value={Number.isFinite(totalOrders) ? totalOrders : 0}
             subtitle="Monthly Volume"
             icon={ShoppingCart}
             loading={isLoadingAnalytics}
@@ -449,8 +455,8 @@ export default function Dashboard() {
         <div className="stat-card product">
           <StatCard
             title="Top Product"
-            value={topProduct ? topProduct.name : 'N/A'}
-            subtitle={topProduct ? `${topProduct.totalUnitsSold} sold` : 'No data'}
+            value={topProduct?.name || 'N/A'}
+            subtitle={topProduct ? `${Number(topProduct.totalUnitsSold ?? 0)} sold` : 'No data'}
             icon={Package}
             loading={isLoadingAnalytics}
           />
@@ -507,16 +513,18 @@ export default function Dashboard() {
             <tbody>
               {isLoadingProducts ? (
                 <tr><td colSpan="4" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading products...</td></tr>
+              ) : isProductsError ? (
+                <tr><td colSpan="4" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Unable to load products</td></tr>
               ) : productsData.map(product => (
-                <tr key={product.id}>
-                  <td className="font-medium">{product.name}</td>
+                <tr key={product?.id ?? product?.sku ?? product?.name ?? Math.random()}>
+                  <td className="font-medium">{product?.name || "-"}</td>
                   <td>
-                    <span className={`status-badge status-${product.status}`}>
-                      {product.status}
+                    <span className={`status-badge status-${product?.status || 'active'}`}>
+                      {product?.status || "active"}
                     </span>
                   </td>
-                  <td>R{((product.price_cents || 0) / 100).toFixed(2)}</td>
-                  <td>{product.stock_qty || 0}</td>
+                  <td>{formatMoneyFromCents(product?.price_cents || 0)}</td>
+                  <td>{product?.stock_qty || 0}</td>
                 </tr>
               ))}
               {!isLoadingProducts && productsData.length === 0 && (
