@@ -6,7 +6,6 @@ import { ToastProvider } from "./components/ui/ToastProvider";
 import {
   LayoutDashboard, // Replaced Home
   Package,
-  BookOpen,
   Layers,
   Sparkles, // Added
   ShoppingCart,
@@ -31,7 +30,8 @@ import {
   Bell, // Added
   Search, // Added
   User, // Added
-  Menu // Added for mobile hamburger menu
+  Menu, // Added for mobile hamburger menu
+  BookOpen // Added for Course Bookings
 } from "lucide-react";
 
 
@@ -41,7 +41,6 @@ const navigationGroups = [
     title: "Merchandising",
     items: [
       { name: "Products", url: "Products", icon: Package },
-      { name: "Courses", url: "Courses", icon: BookOpen },
       { name: "Bundles", url: "Bundles", icon: Layers },
       { name: "Featured", url: "featured", icon: Sparkles },
       { name: "Specials", url: "Specials", icon: Tag },
@@ -52,6 +51,7 @@ const navigationGroups = [
     title: "Sales & Inventory",
     items: [
       { name: "Orders", url: "Orders", icon: ShoppingCart },
+      { name: "Course Bookings", url: "course-bookings", icon: BookOpen },
       { name: "Sales", url: "Payments", icon: CreditCard },
       { name: "Stock", url: "Stock", icon: Archive } // Changed from Warehouse to Archive
     ]

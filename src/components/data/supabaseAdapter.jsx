@@ -45,9 +45,6 @@ function generateSlug(name) {
 }
 
 export function createSupabaseAdapter() {
-  if (!supabase || typeof supabase.from !== 'function') {
-    throw new Error('Supabase client not configured');
-  }
   return {
     // ===== PRODUCTS =====
     async listProducts() {
@@ -210,65 +207,23 @@ export function createSupabaseAdapter() {
     },
 
     // ===== COURSES =====
-    async listCourses() {
-      try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select('*')
-          .order('created_at', { ascending: false });
-        return ensureArray(data, error);
-      } catch (err) {
-        console.error('Error listing courses:', err);
-        return [];
-      }
-    },
-
-    async getCourse(id) {
-      try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select('*')
-          .eq('id', id)
-          .single();
-        return ensure(data, error);
-      } catch (err) {
-        console.error('Error loading course:', err);
-        return null;
-      }
-    },
-
-    async upsertCourse(c) {
-      const payload = {
-        id: c.id,
-        title: String(c.title || '').trim(),
-        slug: String(c.slug || '').trim(),
-        description: c.description ?? null,
-        price: c.price === '' || c.price == null ? null : Number(c.price),
-        image_url: c.image_url ?? null,
-        duration: c.duration ?? null,
-        level: c.level ?? null,
-        template_key: c.template_key ?? null,
-        course_type: c.course_type || 'in-person',
-        is_active: c.is_active !== false,
-        deposit_amount: c.deposit_amount === '' || c.deposit_amount == null ? null : Number(c.deposit_amount),
-        available_dates: Array.isArray(c.available_dates) ? c.available_dates : null,
-        packages: Array.isArray(c.packages) ? c.packages : null,
-        key_details: Array.isArray(c.key_details) ? c.key_details : null,
-      };
-
-      const res = await fetch('/.netlify/functions/save-course', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
+    async listCoursePurchases(filters = {}) {
+      const params = new URLSearchParams();
+      if (filters.page) params.append('page', filters.page);
+      if (filters.pageSize) params.append('pageSize', filters.pageSize);
+      if (filters.course_slug) params.append('course_slug', filters.course_slug);
+      if (filters.buyer_email) params.append('buyer_email', filters.buyer_email);
+      if (filters.invitation_status) params.append('invitation_status', filters.invitation_status);
+      
+      const res = await fetch(`/.netlify/functions/admin-course-purchases?${params.toString()}`);
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`save-course failed: ${res.status} ${text}`);
+        throw new Error(`Failed to fetch course purchases: ${res.statusText}`);
       }
+      return await res.json();
+    },
 
-      const saved = await res.json();
-      return saved.course || saved;
+    async listCoursePurchasesByCourse(course_slug) {
+      return this.listCoursePurchases({ course_slug, pageSize: 1000 });
     },
 
     // ===== INVENTORY =====
