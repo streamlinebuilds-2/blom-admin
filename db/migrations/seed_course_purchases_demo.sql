@@ -22,12 +22,12 @@ WHERE order_number LIKE 'DEMO-COURSE-%'
 -- 3) Seed demo orders + course_purchases
 INSERT INTO orders (id, order_number, status, payment_status, total_cents, buyer_name, buyer_email, fulfillment_method, invoice_url, created_at, placed_at, paid_at)
 VALUES
-  ('demo-course-order-0001', 'DEMO-COURSE-0001', 'paid', 'paid', 200000, 'Alicia Demo', 'alicia.demo@example.com', 'digital', 'https://example.com/receipt-demo-0001.pdf', now(), now(), now()),
-  ('demo-course-order-0002', 'DEMO-COURSE-0002', 'paid', 'paid', 720000, 'Alicia Demo', 'alicia.demo@example.com', 'digital', 'https://example.com/receipt-demo-0002.pdf', now(), now(), now()),
-  ('demo-course-order-0003', 'DEMO-COURSE-0003', 'paid', 'paid', 499900, 'Ben Tester', 'ben.tester@example.com', 'digital', 'https://example.com/receipt-demo-0003.pdf', now(), now(), now()),
-  ('demo-course-order-0004', 'DEMO-COURSE-0004', 'paid', 'paid', 999900, 'Cara Example', 'cara.example@example.com', 'digital', 'https://example.com/receipt-demo-0004.pdf', now(), now(), now()),
-  ('demo-course-order-0005', 'DEMO-COURSE-0005', 'paid', 'paid', 250000, 'Dylan Sample', 'dylan.sample@example.com', 'digital', 'https://example.com/receipt-demo-0005.pdf', now(), now(), now()),
-  ('demo-course-order-0006', 'DEMO-COURSE-0006', 'paid', 'paid', 799900, 'Emma Demo', 'emma.demo@example.com', 'digital', 'https://example.com/receipt-demo-0006.pdf', now(), now(), now());
+  ('demo-course-order-0001', 'DEMO-COURSE-0001', 'paid', 'paid', 200000, 'Alicia Demo', 'alicia.demo@example.com', 'delivery', 'https://example.com/receipt-demo-0001.pdf', now(), now(), now()),
+  ('demo-course-order-0002', 'DEMO-COURSE-0002', 'paid', 'paid', 720000, 'Alicia Demo', 'alicia.demo@example.com', 'delivery', 'https://example.com/receipt-demo-0002.pdf', now(), now(), now()),
+  ('demo-course-order-0003', 'DEMO-COURSE-0003', 'paid', 'paid', 499900, 'Ben Tester', 'ben.tester@example.com', 'delivery', 'https://example.com/receipt-demo-0003.pdf', now(), now(), now()),
+  ('demo-course-order-0004', 'DEMO-COURSE-0004', 'paid', 'paid', 999900, 'Cara Example', 'cara.example@example.com', 'delivery', 'https://example.com/receipt-demo-0004.pdf', now(), now(), now()),
+  ('demo-course-order-0005', 'DEMO-COURSE-0005', 'paid', 'paid', 250000, 'Dylan Sample', 'dylan.sample@example.com', 'delivery', 'https://example.com/receipt-demo-0005.pdf', now(), now(), now()),
+  ('demo-course-order-0006', 'DEMO-COURSE-0006', 'paid', 'paid', 799900, 'Emma Demo', 'emma.demo@example.com', 'delivery', 'https://example.com/receipt-demo-0006.pdf', now(), now(), now());
 
 INSERT INTO course_purchases (
   order_id,
