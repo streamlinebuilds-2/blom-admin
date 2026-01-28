@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Eye, RefreshCw, Filter, X, Copy, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { RefreshCw, Filter, X, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { api } from '@/components/data/api';
-import { useToast } from '@/components/ui/use-toast';
 
 export default function CourseBookings() {
-  const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState({
@@ -36,14 +34,6 @@ export default function CourseBookings() {
 
   const bookings = data?.items || [];
   const total = data?.total || 0;
-
-  const handleCopyEmail = (email) => {
-    navigator.clipboard.writeText(email);
-    toast({
-      title: "Email copied",
-      description: email,
-    });
-  };
 
   const clearFilters = () => {
     setFilters({
@@ -84,6 +74,8 @@ export default function CourseBookings() {
         
         .btn-action { padding: 6px; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; text-decoration: none; }
         .btn-action:hover { background: rgba(0,0,0,0.05); color: var(--text); }
+        .btn-action-text { padding: 8px 12px; border-radius: 10px; border: none; background: var(--card); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light); transition: all 0.2s ease; display: inline-flex; align-items: center; text-decoration: none; }
+        .btn-action-text:hover { transform: translateY(-1px); }
         
         .filters-section { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 24px; box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light); display: none; }
         .filters-section.show { display: block; }
@@ -211,31 +203,22 @@ export default function CourseBookings() {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <Link
-                          to={`/course-bookings/${booking.id}`}
-                          className="btn-action"
-                          title="View Details"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                        <button 
-                          onClick={() => handleCopyEmail(booking.buyer_email)} 
-                          className="btn-action" 
-                          title="Copy Email"
-                        >
-                          <Copy size={16} />
-                        </button>
                         {booking.invoice_url && (
                           <a 
                             href={booking.invoice_url} 
                             target="_blank" 
                             rel="noopener noreferrer" 
-                            className="btn-action" 
-                            title="View Receipt"
+                            className="btn-action-text"
                           >
-                            <FileText size={16} />
+                            View Invoice
                           </a>
                         )}
+                        <Link
+                          to={`/course-bookings/${booking.id}`}
+                          className="btn-action-text"
+                        >
+                          View Booking Details
+                        </Link>
                       </div>
                     </td>
                   </tr>

@@ -1,14 +1,12 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Copy, Eye, FileText } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { api } from '@/components/data/api';
-import { useToast } from '@/components/ui/use-toast';
 
 export default function CourseBookingDetail() {
   const { id } = useParams();
-  const { toast } = useToast();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['course-purchase', id],
@@ -21,12 +19,6 @@ export default function CourseBookingDetail() {
 
   const booking = data || null;
   const depositOrder = booking?.deposit_order || booking?.order || null;
-  const balanceOrder = booking?.balance_order || null;
-
-  const copy = async (value) => {
-    await navigator.clipboard.writeText(String(value || ''));
-    toast({ title: 'Copied', description: String(value || '') });
-  };
 
   const money = (cents) => {
     if (cents == null) return '-';
@@ -60,188 +52,118 @@ export default function CourseBookingDetail() {
   return (
     <>
       <style>{`
-        .page-header { margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+        .page-header { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
         .btn-back { display: inline-flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; font-weight: 600; }
         .title { font-size: 28px; font-weight: 700; color: var(--text); margin: 0; }
         .subtitle { color: var(--text-muted); font-size: 14px; margin-top: 6px; }
-        .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-        .field { padding: 14px; border-radius: 12px; background: var(--bg); box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light); }
-        .label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-        .value { font-size: 14px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-        .actions { display: flex; gap: 8px; }
-        .btn-action { padding: 6px; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-        .btn-action:hover { background: rgba(0,0,0,0.06); color: var(--text); }
+        .header-actions { display: flex; gap: 10px; padding-top: 2px; }
+        .btn-action-text { padding: 10px 14px; border-radius: 12px; border: none; background: var(--card); color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light); transition: all 0.2s ease; display: inline-flex; align-items: center; text-decoration: none; }
+        .btn-action-text:hover { transform: translateY(-1px); }
+        .layout { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; align-items: start; }
+        @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+        .section-card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light); }
+        .section-title { font-size: 14px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px 0; }
+        .rows { display: grid; gap: 12px; }
+        .row { display: flex; justify-content: space-between; gap: 14px; padding: 12px 14px; border-radius: 12px; background: var(--bg); box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light); }
+        .row-label { font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .row-value { font-size: 14px; font-weight: 700; color: var(--text); text-align: right; word-break: break-word; }
       `}</style>
 
       <div className="page-header">
-        <Link to="/course-bookings" className="btn-back">
-          <ArrowLeft size={18} /> Back
-        </Link>
-        <div style={{ minWidth: 0 }}>
-          <h1 className="title">Booking Details</h1>
-          <div className="subtitle">
-            {booking?.course_title || booking?.course_slug || '-'}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
+          <Link to="/course-bookings" className="btn-back">
+            <ArrowLeft size={18} /> Back
+          </Link>
+          <div style={{ minWidth: 0 }}>
+            <h1 className="title">Booking Details</h1>
+            <div className="subtitle">
+              {booking?.course_title || booking?.course_slug || '-'}
+            </div>
           </div>
+        </div>
+        <div className="header-actions">
+          {booking?.invoice_url ? (
+            <a className="btn-action-text" href={booking.invoice_url} target="_blank" rel="noopener noreferrer">
+              View Invoice
+            </a>
+          ) : null}
+          {depositOrder?.id ? (
+            <Link className="btn-action-text" to={`/orders/${depositOrder.id}`}>
+              View Order
+            </Link>
+          ) : null}
         </div>
       </div>
 
-      <div className="card">
-        {isLoading ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading booking...</div>
-        ) : error ? (
-          <div style={{ color: '#ef4444' }}>{error.message}</div>
-        ) : !booking ? (
-          <div style={{ color: 'var(--text-muted)' }}>No booking found.</div>
-        ) : (
-          <div className="grid">
-            <div className="field">
-              <div className="label">Buyer</div>
-              <div className="value">
-                <span>{booking.buyer_name || '-'}</span>
+      {isLoading ? (
+        <div className="section-card" style={{ color: 'var(--text-muted)' }}>Loading booking...</div>
+      ) : error ? (
+        <div className="section-card" style={{ color: '#ef4444' }}>{error.message}</div>
+      ) : !booking ? (
+        <div className="section-card" style={{ color: 'var(--text-muted)' }}>No booking found.</div>
+      ) : (
+        <div className="layout">
+          <div className="section-card">
+            <h3 className="section-title">Booking</h3>
+            <div className="rows">
+              <div className="row">
+                <div className="row-label">Buyer</div>
+                <div className="row-value">{booking.buyer_name || '-'}</div>
               </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Email</div>
-              <div className="value">
-                <span>{booking.buyer_email || '-'}</span>
-                <div className="actions">
-                  <button className="btn-action" onClick={() => copy(booking.buyer_email)} title="Copy email">
-                    <Copy size={16} />
-                  </button>
-                </div>
+              <div className="row">
+                <div className="row-label">Email</div>
+                <div className="row-value">{booking.buyer_email || '-'}</div>
               </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Course</div>
-              <div className="value">
-                <span>{booking.course_title || booking.course_slug || '-'}</span>
+              <div className="row">
+                <div className="row-label">Phone</div>
+                <div className="row-value">{booking.buyer_phone || '-'}</div>
               </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Course Type</div>
-              <div className="value">
-                <span>{booking.course_type || '-'}</span>
+              <div className="row">
+                <div className="row-label">Course</div>
+                <div className="row-value">{booking.course_title || booking.course_slug || '-'}</div>
               </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Package</div>
-              <div className="value">
-                <span>{booking.selected_package || '-'}</span>
+              <div className="row">
+                <div className="row-label">Package</div>
+                <div className="row-value">{booking.selected_package || '-'}</div>
               </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Selected Date</div>
-              <div className="value">
-                <span>{booking.selected_date || '-'}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Amount Paid</div>
-              <div className="value">
-                <span>{money(booking.amount_paid_cents)}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Amount Still Owed</div>
-              <div className="value">
-                <span>{owedCents == null ? '-' : money(owedCents)}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Payment Kind</div>
-              <div className="value">
-                <span>{booking.payment_kind || '-'}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Deposit Paid At</div>
-              <div className="value">
-                <span>{depositPaidAt ? dateTime(depositPaidAt) : '-'}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Booking Created</div>
-              <div className="value">
-                <span>{dateTime(booking.created_at)}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Invitation Status</div>
-              <div className="value">
-                <span>{booking.invitation_status || '-'}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Invited At</div>
-              <div className="value">
-                <span>{dateTime(booking.invited_at)}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Order</div>
-              <div className="value">
-                <span>{depositOrder?.order_number || depositOrder?.id || booking.order_id || '-'}</span>
-                <div className="actions">
-                  {depositOrder?.id ? (
-                    <Link className="btn-action" to={`/orders/${depositOrder.id}`} title="View Order">
-                      <Eye size={16} />
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Order Paid At</div>
-              <div className="value">
-                <span>{dateTime(depositOrder?.paid_at)}</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Balance Order</div>
-              <div className="value">
-                <span>{balanceOrder?.order_number || balanceOrder?.id || '-'}</span>
-                <div className="actions">
-                  {balanceOrder?.id ? (
-                    <Link className="btn-action" to={`/orders/${balanceOrder.id}`} title="View Balance Order">
-                      <Eye size={16} />
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="field">
-              <div className="label">Receipt</div>
-              <div className="value">
-                <span>{booking.invoice_url ? 'Available' : '-'}</span>
-                <div className="actions">
-                  {booking.invoice_url ? (
-                    <a className="btn-action" href={booking.invoice_url} target="_blank" rel="noopener noreferrer" title="Open receipt">
-                      <FileText size={16} />
-                    </a>
-                  ) : null}
-                </div>
+              <div className="row">
+                <div className="row-label">Selected Date</div>
+                <div className="row-value">{booking.selected_date || '-'}</div>
               </div>
             </div>
           </div>
-        )}
-      </div>
+
+          <div className="section-card">
+            <h3 className="section-title">Payment</h3>
+            <div className="rows">
+              <div className="row">
+                <div className="row-label">Amount Paid</div>
+                <div className="row-value">{money(booking.amount_paid_cents)}</div>
+              </div>
+              <div className="row">
+                <div className="row-label">Amount Still Owed</div>
+                <div className="row-value">{owedCents == null ? '-' : money(owedCents)}</div>
+              </div>
+              <div className="row">
+                <div className="row-label">Payment Kind</div>
+                <div className="row-value">{booking.payment_kind || '-'}</div>
+              </div>
+              <div className="row">
+                <div className="row-label">Deposit Paid At</div>
+                <div className="row-value">{depositPaidAt ? dateTime(depositPaidAt) : '-'}</div>
+              </div>
+              <div className="row">
+                <div className="row-label">Order Number</div>
+                <div className="row-value">{depositOrder?.order_number || '-'}</div>
+              </div>
+              <div className="row">
+                <div className="row-label">Booking Created</div>
+                <div className="row-value">{dateTime(booking.created_at)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
