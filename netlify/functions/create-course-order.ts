@@ -91,8 +91,9 @@ export const handler: Handler = async (event) => {
       status: "unpaid",
       payment_status: "unpaid",
       fulfillment_status: "pending",
-      fulfillment_method: "delivery",
-      delivery_method: "delivery",
+      fulfillment_method: null,
+      delivery_method: null,
+      fulfillment_type: null,
       placed_at: new Date().toISOString(),
     };
 
