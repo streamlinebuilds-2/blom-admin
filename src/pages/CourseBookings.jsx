@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, RefreshCw, Filter, X, Copy, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { getAPI } from '@/components/data/api';
+import { api } from '@/components/data/api';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function CourseBookings() {
@@ -21,7 +21,6 @@ export default function CourseBookings() {
     queryKey: ['course-purchases', page, pageSize, filters],
     queryFn: async () => {
       console.log('🔄 Fetching course purchases...');
-      const api = getAPI();
       if (!api.listCoursePurchases) {
         throw new Error('API does not support listCoursePurchases');
       }
