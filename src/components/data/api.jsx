@@ -148,6 +148,19 @@ export let api = {
       console.warn('Failed to fetch top selling products, returning empty data:', error);
       return { topProducts: [], summary: {} };
     }
+  },
+
+  async deleteCoursePurchase(id) {
+    const response = await fetch('/.netlify/functions/admin-course-purchase-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || 'Failed to delete course booking');
+    }
+    return result;
   }
 };
 

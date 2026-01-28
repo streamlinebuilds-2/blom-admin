@@ -301,6 +301,19 @@ export function createSupabaseAdapter() {
       return json.item;
     },
 
+    async deleteCoursePurchase(id) {
+      const res = await fetch('/.netlify/functions/admin-course-purchase-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || 'Failed to delete course booking');
+      }
+      return json;
+    },
+
     // ===== INVENTORY =====
     async listStockMovements(limit = 50) {
       const { data, error } = await supabase
