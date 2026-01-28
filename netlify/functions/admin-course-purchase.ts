@@ -24,26 +24,59 @@ export const handler: Handler = async (e) => {
       };
     }
 
-    const { data, error } = await s
-      .from("course_purchases")
-      .select(
-        `
-        *,
-        orders:order_id (
-          id,
-          order_number,
-          status,
-          payment_status,
-          total_cents,
-          created_at,
-          placed_at,
-          paid_at,
-          invoice_url
-        )
-      `
+    const selectWithBalance = `
+      *,
+      deposit_order:order_id (
+        id,
+        order_number,
+        status,
+        payment_status,
+        total_cents,
+        created_at,
+        placed_at,
+        paid_at,
+        invoice_url
+      ),
+      balance_order:balance_order_id (
+        id,
+        order_number,
+        status,
+        payment_status,
+        total_cents,
+        created_at,
+        placed_at,
+        paid_at,
+        invoice_url
       )
-      .eq("id", id)
-      .single();
+    `;
+
+    const selectWithoutBalance = `
+      *,
+      deposit_order:order_id (
+        id,
+        order_number,
+        status,
+        payment_status,
+        total_cents,
+        created_at,
+        placed_at,
+        paid_at,
+        invoice_url
+      )
+    `;
+
+    let data: any = null;
+    let error: any = null;
+
+    const first = await s.from("course_purchases").select(selectWithBalance).eq("id", id).single();
+    data = first.data;
+    error = first.error;
+
+    if (error && /balance_order_id/i.test(error.message || "")) {
+      const second = await s.from("course_purchases").select(selectWithoutBalance).eq("id", id).single();
+      data = second.data;
+      error = second.error;
+    }
 
     if (error) throw error;
 
@@ -54,9 +87,10 @@ export const handler: Handler = async (e) => {
         ok: true,
         item: {
           ...data,
-          invoice_url: (data as any)?.orders?.invoice_url || null,
-          order: (data as any)?.orders || null,
-          orders: undefined,
+          invoice_url: (data as any)?.deposit_order?.invoice_url || null,
+          order: (data as any)?.deposit_order || null,
+          deposit_order: (data as any)?.deposit_order || null,
+          balance_order: (data as any)?.balance_order || null,
         },
       }),
     };
@@ -69,4 +103,3 @@ export const handler: Handler = async (e) => {
     };
   }
 };
-

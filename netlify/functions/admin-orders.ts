@@ -99,6 +99,14 @@ export const handler: Handler = async (e) => {
       }
     }
 
+    // Detect order_kind column (for separating course vs product orders)
+    let hasOrderKind = true;
+    try {
+      await s.from("orders").select("order_kind").limit(1);
+    } catch {
+      hasOrderKind = false;
+    }
+
     url = new URL(e.rawUrl);
     const page = Number(url.searchParams.get("page") || 1);
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
@@ -108,8 +116,11 @@ export const handler: Handler = async (e) => {
     const from = (page - 1) * size;
     const to = from + size - 1;
 
+    const baseSelect = "id,order_number,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived,invoice_url";
+    const selectCols = hasOrderKind ? `${baseSelect},order_kind` : baseSelect;
+
     let query = s.from("orders")
-      .select("id,order_number,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived,invoice_url", { count: "exact" })
+      .select(selectCols, { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -121,6 +132,11 @@ export const handler: Handler = async (e) => {
 
     // Never show demo seed orders
     query = query.not('order_number', 'like', 'DEMO-COURSE-%');
+
+    // Prefer to show product orders only when order_kind exists
+    if (hasOrderKind) {
+      query = query.eq('order_kind', 'product');
+    }
 
     // NOTE: Removed strict fulfillment_type requirement to show all orders
     // Previously: query = query.not('fulfillment_type', 'is', null);

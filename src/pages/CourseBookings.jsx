@@ -195,6 +195,11 @@ export default function CourseBookings() {
                     <td style={{ fontWeight: 600 }}>
                       {booking.amount_paid_cents ? `R${(booking.amount_paid_cents / 100).toFixed(2)}` : '-'}
                       {booking.payment_kind && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>({booking.payment_kind})</span>}
+                      {booking.amount_owed_cents != null && (
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          Owed: R{(Number(booking.amount_owed_cents) / 100).toFixed(2)}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className={`status-badge status-${booking.invitation_status}`}>

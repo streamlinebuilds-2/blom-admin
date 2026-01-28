@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Copy, FileText } from 'lucide-react';
+import { ArrowLeft, Copy, Eye, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { api } from '@/components/data/api';
 import { useToast } from '@/components/ui/use-toast';
@@ -20,7 +20,8 @@ export default function CourseBookingDetail() {
   });
 
   const booking = data || null;
-  const order = booking?.order || null;
+  const depositOrder = booking?.deposit_order || booking?.order || null;
+  const balanceOrder = booking?.balance_order || null;
 
   const copy = async (value) => {
     await navigator.clipboard.writeText(String(value || ''));
@@ -45,8 +46,16 @@ export default function CourseBookingDetail() {
 
   const depositPaidAt =
     booking?.payment_kind === 'deposit'
-      ? (order?.paid_at || null)
+      ? (depositOrder?.paid_at || null)
       : null;
+
+  const details = booking?.details || {};
+  const owedCents =
+    booking?.amount_owed_cents != null
+      ? Number(booking.amount_owed_cents)
+      : Number.isFinite(Number(details?.full_price_cents))
+        ? Math.max(0, Number(details.full_price_cents) - Number(booking?.amount_paid_cents || 0))
+        : null;
 
   return (
     <>
@@ -141,6 +150,13 @@ export default function CourseBookingDetail() {
             </div>
 
             <div className="field">
+              <div className="label">Amount Still Owed</div>
+              <div className="value">
+                <span>{owedCents == null ? '-' : money(owedCents)}</span>
+              </div>
+            </div>
+
+            <div className="field">
               <div className="label">Payment Kind</div>
               <div className="value">
                 <span>{booking.payment_kind || '-'}</span>
@@ -178,14 +194,35 @@ export default function CourseBookingDetail() {
             <div className="field">
               <div className="label">Order</div>
               <div className="value">
-                <span>{order?.order_number || order?.id || booking.order_id || '-'}</span>
+                <span>{depositOrder?.order_number || depositOrder?.id || booking.order_id || '-'}</span>
+                <div className="actions">
+                  {depositOrder?.id ? (
+                    <Link className="btn-action" to={`/orders/${depositOrder.id}`} title="View Order">
+                      <Eye size={16} />
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
 
             <div className="field">
               <div className="label">Order Paid At</div>
               <div className="value">
-                <span>{dateTime(order?.paid_at)}</span>
+                <span>{dateTime(depositOrder?.paid_at)}</span>
+              </div>
+            </div>
+
+            <div className="field">
+              <div className="label">Balance Order</div>
+              <div className="value">
+                <span>{balanceOrder?.order_number || balanceOrder?.id || '-'}</span>
+                <div className="actions">
+                  {balanceOrder?.id ? (
+                    <Link className="btn-action" to={`/orders/${balanceOrder.id}`} title="View Balance Order">
+                      <Eye size={16} />
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -208,4 +245,3 @@ export default function CourseBookingDetail() {
     </>
   );
 }
-

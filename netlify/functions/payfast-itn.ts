@@ -81,10 +81,10 @@ export const handler: Handler = async (event) => {
     console.log('PayFast ITN Signature Validated.');
 
     // 3. Get key data
-    const orderId = itnPayload.m_payment_id; // Your internal order ID
+    const orderId = itnPayload.m_payment_id; // Your internal order ID (m_payment_id)
     const pfPaymentId = itnPayload.pf_payment_id;
     const paymentStatus = itnPayload.payment_status;
-    const couponCode = itnPayload.custom_str1; // Assumes coupon code is passed here
+    const customStr1 = itnPayload.custom_str1;
 
     // 4. Check if this is a 'COMPLETE' payment
     if (paymentStatus !== 'COMPLETE') {
@@ -111,7 +111,7 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, body: 'OK' };
     }
 
-    // 6. Update the Order: status, paid_at, and total (ensure total = subtotal+shipping-discount from actual paid amount)
+    // 6. Update the Order: status, paid_at, and totals from actual paid amount
     const { error: orderError } = await supabase
       .from('orders')
       .update({
@@ -119,6 +119,7 @@ export const handler: Handler = async (event) => {
         payment_status: 'paid',
         paid_at: new Date().toISOString(),
         total: totalRands,
+        total_cents: grossCents,
       })
       .eq('id', orderUuid);
 
@@ -144,21 +145,68 @@ export const handler: Handler = async (event) => {
       console.error(`Error creating payment record for ${orderUuid}:`, paymentError.message);
     }
 
-    // 8. Call the enhanced stock deduction function
-    const { data: deductionResult, error: rpcError } = await supabase.rpc('process_order_stock_deduction', {
-      p_order_id: orderUuid
-    });
-    if (rpcError) {
-      console.error(`Error triggering stock deduction for ${orderUuid}:`, rpcError.message);
-    } else {
-      console.log(`Stock deduction completed for order ${orderUuid}:`, deductionResult);
+    // 8. If this is a course order, update the linked course_purchases record (paid/owed)
+    let isCourseOrder = false;
+    try {
+      const { data: kindRow, error: kindErr } = await supabase
+        .from('orders')
+        .select('order_kind')
+        .eq('id', orderUuid)
+        .maybeSingle();
+      if (!kindErr && kindRow?.order_kind === 'course') isCourseOrder = true;
+    } catch {
+      isCourseOrder = false;
     }
 
-    // 9. Call 'mark_coupon_used' RPC if a coupon was used
-    if (couponCode) {
-      const { error: couponError } = await supabase.rpc('mark_coupon_used', { p_code: couponCode });
-      if (couponError) {
-         console.error(`Error marking coupon ${couponCode} as used:`, couponError.message);
+    if (isCourseOrder) {
+      try {
+        const { data: purchase, error: pErr } = await supabase
+          .from('course_purchases')
+          .select('id, amount_paid_cents, amount_owed_cents, details')
+          .or(`order_id.eq.${orderUuid},balance_order_id.eq.${orderUuid}`)
+          .maybeSingle();
+
+        if (pErr) throw pErr;
+
+        if (purchase) {
+          const currentPaid = Number(purchase.amount_paid_cents || 0);
+          const currentOwed = purchase.amount_owed_cents == null ? null : Number(purchase.amount_owed_cents);
+          const details: any = purchase.details || {};
+          const fullPriceCents =
+            Number.isFinite(Number(details.full_price_cents))
+              ? Number(details.full_price_cents)
+              : currentOwed != null
+                ? currentPaid + currentOwed
+                : null;
+
+          const newPaid = currentPaid + grossCents;
+          const newOwed = fullPriceCents == null ? null : Math.max(0, fullPriceCents - newPaid);
+
+          const updatePayload: any = {
+            amount_paid_cents: newPaid,
+          };
+          if (newOwed != null) updatePayload.amount_owed_cents = newOwed;
+
+          const { error: upErr } = await supabase
+            .from('course_purchases')
+            .update(updatePayload)
+            .eq('id', purchase.id);
+          if (upErr) throw upErr;
+        }
+      } catch (e: any) {
+        console.error('Course purchase update (ITN):', e?.message || e);
+      }
+    }
+
+    // 9. Call the enhanced stock deduction function for product orders only
+    if (!isCourseOrder) {
+      const { data: deductionResult, error: rpcError } = await supabase.rpc('process_order_stock_deduction', {
+        p_order_id: orderUuid
+      });
+      if (rpcError) {
+        console.error(`Error triggering stock deduction for ${orderUuid}:`, rpcError.message);
+      } else {
+        console.log(`Stock deduction completed for order ${orderUuid}:`, deductionResult);
       }
     }
 
