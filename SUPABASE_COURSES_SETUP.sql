@@ -24,8 +24,13 @@ alter table public.courses add column if not exists level text;
 alter table public.courses add column if not exists template_key text;
 alter table public.courses add column if not exists course_type text not null default 'in-person';
 
-alter table public.courses drop column if exists instructor_name;
-alter table public.courses drop column if exists instructor_bio;
+alter table public.courses add column if not exists instructor_name text;
+alter table public.courses add column if not exists instructor_bio text;
+
+alter table public.courses add column if not exists deposit_amount numeric(10,2);
+alter table public.courses add column if not exists available_dates jsonb;
+alter table public.courses add column if not exists packages jsonb;
+alter table public.courses add column if not exists key_details jsonb;
 
 alter table public.courses drop constraint if exists courses_course_type_check;
 alter table public.courses add constraint courses_course_type_check check (course_type in ('online', 'in-person'));

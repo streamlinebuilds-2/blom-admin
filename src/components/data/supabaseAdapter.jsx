@@ -251,6 +251,10 @@ export function createSupabaseAdapter() {
         template_key: c.template_key ?? null,
         course_type: c.course_type || 'in-person',
         is_active: c.is_active !== false,
+        deposit_amount: c.deposit_amount === '' || c.deposit_amount == null ? null : Number(c.deposit_amount),
+        available_dates: Array.isArray(c.available_dates) ? c.available_dates : null,
+        packages: Array.isArray(c.packages) ? c.packages : null,
+        key_details: Array.isArray(c.key_details) ? c.key_details : null,
       };
 
       const res = await fetch('/.netlify/functions/save-course', {

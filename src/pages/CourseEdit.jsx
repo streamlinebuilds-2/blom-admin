@@ -26,6 +26,36 @@ const COURSE_TEMPLATES = [
     duration: "5 Days",
     level: "Beginner to Intermediate",
     course_type: "in-person",
+    deposit_amount: "2000.00",
+    available_dates: ["March 15-19, 2026", "April 12-16, 2026", "May 10-14, 2026"],
+    packages: [
+      {
+        name: "Standard",
+        price: 7200,
+        kit_value: 3200,
+        features: [
+          "5-day comprehensive training",
+          "Basic starter kit included",
+          "Certificate after you've completed your exam",
+          "Course materials and handouts",
+        ],
+        popular: false,
+      },
+      {
+        name: "Deluxe",
+        price: 9900,
+        kit_value: 5100,
+        features: [
+          "5-day comprehensive training",
+          "Premium professional kit included",
+          "Certificate after you've completed your exam",
+          "Course materials and handouts",
+          "Bigger kit — electric e-file & LED lamp included",
+        ],
+        popular: true,
+      },
+    ],
+    key_details: [],
     is_active: true,
   },
   {
@@ -71,6 +101,10 @@ const initialFormState = {
   course_type: "in-person",
   is_active: true,
   image_url: "",
+  deposit_amount: "",
+  available_dates: [],
+  packages: [],
+  key_details: [],
 };
 
 export default function CourseEdit() {
@@ -119,6 +153,18 @@ export default function CourseEdit() {
           course_type: course.course_type || "in-person",
           is_active: course.is_active !== false,
           image_url: course.image_url || "",
+          deposit_amount: course.deposit_amount != null ? String(course.deposit_amount) : "",
+          available_dates: Array.isArray(course.available_dates) ? course.available_dates : [],
+          packages: Array.isArray(course.packages)
+            ? course.packages.map((p) => ({
+                name: p?.name ?? "",
+                price: p?.price != null ? String(p.price) : "",
+                kit_value: p?.kit_value != null ? String(p.kit_value) : "",
+                popular: Boolean(p?.popular),
+                features: Array.isArray(p?.features) ? p.features : [],
+              }))
+            : [],
+          key_details: Array.isArray(course.key_details) ? course.key_details : [],
         });
       } catch (error) {
         if (!isMounted) return;
@@ -204,6 +250,58 @@ export default function CourseEdit() {
       return;
     }
 
+    const availableDates = (Array.isArray(form.available_dates) ? form.available_dates : [])
+      .map((d) => String(d ?? "").trim())
+      .filter(Boolean);
+
+    const keyDetails = (Array.isArray(form.key_details) ? form.key_details : [])
+      .map((d) => String(d ?? "").trim())
+      .filter(Boolean);
+
+    const packages = (Array.isArray(form.packages) ? form.packages : [])
+      .map((p) => ({
+        name: String(p?.name ?? "").trim(),
+        price: p?.price === "" || p?.price == null ? null : Number(p.price),
+        kit_value: p?.kit_value === "" || p?.kit_value == null ? null : Number(p.kit_value),
+        popular: Boolean(p?.popular),
+        features: (Array.isArray(p?.features) ? p.features : [])
+          .map((f) => String(f ?? "").trim())
+          .filter(Boolean),
+      }))
+      .filter((p) => p.name || p.price != null || p.features.length || p.kit_value != null || p.popular);
+
+    const depositAmount =
+      form.deposit_amount === "" || form.deposit_amount == null ? null : Number(form.deposit_amount);
+
+    if (courseType === "in-person") {
+      if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
+        setServerError("Deposit amount is required for in-person courses");
+        return;
+      }
+      if (availableDates.length === 0) {
+        setServerError("Available dates are required for in-person courses");
+        return;
+      }
+      if (packages.length === 0) {
+        setServerError("At least one package is required for in-person courses");
+        return;
+      }
+      for (const pkg of packages) {
+        if (!pkg.name) {
+          setServerError("Package name is required");
+          return;
+        }
+        if (!Number.isFinite(pkg.price)) {
+          setServerError("Package price is required");
+          return;
+        }
+        if (!pkg.features.length) {
+          setServerError("Package features are required");
+          return;
+        }
+      }
+    }
+
     try {
       setIsSubmitting(true);
       const payload = {
@@ -219,6 +317,10 @@ export default function CourseEdit() {
         image_url: form.image_url,
         course_type: courseType,
         template_key: form.template_key || null,
+        deposit_amount: courseType === "in-person" ? String(form.deposit_amount || "") : null,
+        available_dates: courseType === "in-person" ? availableDates : null,
+        packages: courseType === "in-person" ? packages : null,
+        key_details: courseType === "in-person" ? keyDetails : null,
       };
 
       if (!api?.upsertCourse) {
@@ -422,6 +524,18 @@ export default function CourseEdit() {
                         level: template.level,
                         is_active: template.is_active,
                         course_type: template.course_type,
+                      deposit_amount: template.deposit_amount != null ? String(template.deposit_amount) : "",
+                      available_dates: Array.isArray(template.available_dates) ? template.available_dates : [],
+                      packages: Array.isArray(template.packages)
+                        ? template.packages.map((p) => ({
+                            name: p?.name ?? "",
+                            price: p?.price != null ? String(p.price) : "",
+                            kit_value: p?.kit_value != null ? String(p.kit_value) : "",
+                            popular: Boolean(p?.popular),
+                            features: Array.isArray(p?.features) ? p.features : [],
+                          }))
+                        : [],
+                      key_details: Array.isArray(template.key_details) ? template.key_details : [],
                       }));
                     }}
                   >
@@ -545,7 +659,21 @@ export default function CourseEdit() {
                   id="course_type"
                   className="product-form-input"
                   value={form.course_type}
-                  onChange={(e) => update("course_type", e.target.value)}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    if (nextType === "online") {
+                      setForm((prev) => ({
+                        ...prev,
+                        course_type: nextType,
+                        deposit_amount: "",
+                        available_dates: [],
+                        packages: [],
+                        key_details: [],
+                      }));
+                      return;
+                    }
+                    update("course_type", nextType);
+                  }}
                 >
                   <option value="online">Online</option>
                   <option value="in-person">In-Person</option>
@@ -566,6 +694,315 @@ export default function CourseEdit() {
               </label>
             </div>
           </section>
+
+          {form.course_type === "in-person" ? (
+            <section className="product-form-section">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="product-form-label" htmlFor="deposit_amount">
+                    Deposit Amount <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="deposit_amount"
+                    type="number"
+                    step="0.01"
+                    className="product-form-input"
+                    value={form.deposit_amount}
+                    onChange={(e) => update("deposit_amount", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <label className="product-form-label">
+                  Available Dates <span className="text-red-500">*</span>
+                </label>
+                <div className="flex flex-col gap-3">
+                  {(form.available_dates || []).map((d, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <input
+                        className="product-form-input"
+                        value={d}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setForm((prev) => {
+                            const next = [...(prev.available_dates || [])];
+                            next[idx] = value;
+                            return { ...prev, available_dates: next };
+                          });
+                        }}
+                        placeholder="March 15-19, 2026"
+                      />
+                      <button
+                        type="button"
+                        className="product-btn-secondary"
+                        onClick={() => {
+                          setForm((prev) => {
+                            const next = [...(prev.available_dates || [])];
+                            next.splice(idx, 1);
+                            return { ...prev, available_dates: next };
+                          });
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <div>
+                    <button
+                      type="button"
+                      className="product-btn-secondary"
+                      onClick={() => {
+                        setForm((prev) => ({ ...prev, available_dates: [...(prev.available_dates || []), ""] }));
+                      }}
+                    >
+                      Add date
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10">
+                <label className="product-form-label">
+                  Packages <span className="text-red-500">*</span>
+                </label>
+                <div className="flex flex-col gap-6">
+                  {(form.packages || []).map((pkg, pkgIndex) => (
+                    <div
+                      key={pkgIndex}
+                      style={{
+                        borderRadius: 16,
+                        border: "1px solid var(--border)",
+                        padding: 18,
+                        background: "var(--bg)",
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="text-sm font-semibold text-[var(--text)]">Package {pkgIndex + 1}</div>
+                        <button
+                          type="button"
+                          className="product-btn-secondary"
+                          onClick={() => {
+                            setForm((prev) => {
+                              const next = [...(prev.packages || [])];
+                              next.splice(pkgIndex, 1);
+                              return { ...prev, packages: next };
+                            });
+                          }}
+                        >
+                          Remove package
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="product-form-label">Name</label>
+                          <input
+                            className="product-form-input"
+                            value={pkg?.name ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setForm((prev) => {
+                                const next = [...(prev.packages || [])];
+                                const current = next[pkgIndex] || {};
+                                next[pkgIndex] = { ...current, name: value };
+                                return { ...prev, packages: next };
+                              });
+                            }}
+                            placeholder="Standard"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="product-form-label">Price</label>
+                          <input
+                            type="number"
+                            className="product-form-input"
+                            value={pkg?.price ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setForm((prev) => {
+                                const next = [...(prev.packages || [])];
+                                const current = next[pkgIndex] || {};
+                                next[pkgIndex] = { ...current, price: value };
+                                return { ...prev, packages: next };
+                              });
+                            }}
+                            placeholder="7200"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="product-form-label">Kit Value</label>
+                          <input
+                            type="number"
+                            className="product-form-input"
+                            value={pkg?.kit_value ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setForm((prev) => {
+                                const next = [...(prev.packages || [])];
+                                const current = next[pkgIndex] || {};
+                                next[pkgIndex] = { ...current, kit_value: value };
+                                return { ...prev, packages: next };
+                              });
+                            }}
+                            placeholder="3200"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <label className="flex items-center gap-3 text-sm font-medium text-[var(--text)]">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(pkg?.popular)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setForm((prev) => {
+                                const next = [...(prev.packages || [])];
+                                const current = next[pkgIndex] || {};
+                                next[pkgIndex] = { ...current, popular: checked };
+                                return { ...prev, packages: next };
+                              });
+                            }}
+                            className="h-4 w-4 rounded border-[var(--card)]"
+                          />
+                          Popular
+                        </label>
+                      </div>
+
+                      <div className="mt-6">
+                        <label className="product-form-label">Features</label>
+                        <div className="flex flex-col gap-3">
+                          {(pkg?.features || []).map((feature, featureIndex) => (
+                            <div key={featureIndex} className="flex items-center gap-3">
+                              <input
+                                className="product-form-input"
+                                value={feature}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setForm((prev) => {
+                                    const next = [...(prev.packages || [])];
+                                    const current = next[pkgIndex] || {};
+                                    const nextFeatures = [...(current.features || [])];
+                                    nextFeatures[featureIndex] = value;
+                                    next[pkgIndex] = { ...current, features: nextFeatures };
+                                    return { ...prev, packages: next };
+                                  });
+                                }}
+                                placeholder="Feature"
+                              />
+                              <button
+                                type="button"
+                                className="product-btn-secondary"
+                                onClick={() => {
+                                  setForm((prev) => {
+                                    const next = [...(prev.packages || [])];
+                                    const current = next[pkgIndex] || {};
+                                    const nextFeatures = [...(current.features || [])];
+                                    nextFeatures.splice(featureIndex, 1);
+                                    next[pkgIndex] = { ...current, features: nextFeatures };
+                                    return { ...prev, packages: next };
+                                  });
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                          <div>
+                            <button
+                              type="button"
+                              className="product-btn-secondary"
+                              onClick={() => {
+                                setForm((prev) => {
+                                  const next = [...(prev.packages || [])];
+                                  const current = next[pkgIndex] || {};
+                                  const nextFeatures = [...(current.features || [])];
+                                  nextFeatures.push("");
+                                  next[pkgIndex] = { ...current, features: nextFeatures };
+                                  return { ...prev, packages: next };
+                                });
+                              }}
+                            >
+                              Add feature
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div>
+                    <button
+                      type="button"
+                      className="product-btn-secondary"
+                      onClick={() => {
+                        setForm((prev) => ({
+                          ...prev,
+                          packages: [
+                            ...(prev.packages || []),
+                            { name: "", price: "", kit_value: "", popular: false, features: [""] },
+                          ],
+                        }));
+                      }}
+                    >
+                      Add package
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10">
+                <label className="product-form-label">Key Details</label>
+                <div className="flex flex-col gap-3">
+                  {(form.key_details || []).map((d, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <input
+                        className="product-form-input"
+                        value={d}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setForm((prev) => {
+                            const next = [...(prev.key_details || [])];
+                            next[idx] = value;
+                            return { ...prev, key_details: next };
+                          });
+                        }}
+                        placeholder="Bullet point"
+                      />
+                      <button
+                        type="button"
+                        className="product-btn-secondary"
+                        onClick={() => {
+                          setForm((prev) => {
+                            const next = [...(prev.key_details || [])];
+                            next.splice(idx, 1);
+                            return { ...prev, key_details: next };
+                          });
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <div>
+                    <button
+                      type="button"
+                      className="product-btn-secondary"
+                      onClick={() => {
+                        setForm((prev) => ({ ...prev, key_details: [...(prev.key_details || []), ""] }));
+                      }}
+                    >
+                      Add detail
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="product-form-section">
             <div className="flex flex-col gap-3">
