@@ -52,16 +52,26 @@ export const handler: Handler = async (e) => {
     if (error) throw error;
 
     // Flatten the invoice_url from the joined order
-    const items = (data || []).map((item: any) => ({
+    const items = (data || []).map((item: any) => {
+      const orderPaid =
+        item?.orders?.payment_status === "paid" ||
+        item?.orders?.status === "paid" ||
+        !!item?.orders?.paid_at;
+
+      const bookingStatus =
+        item?.course_type === "in-person" && orderPaid
+          ? "deposit_paid"
+          : orderPaid
+            ? "paid"
+            : (item?.invitation_status || "pending");
+
+      return ({
       ...item,
       invoice_url: item.orders?.invoice_url || null,
-      booking_status:
-        item?.course_type === "in-person" &&
-        (item?.orders?.payment_status === "paid" || item?.orders?.status === "paid" || !!item?.orders?.paid_at)
-          ? "deposit_paid"
-          : (item?.invitation_status || "pending"),
+      booking_status: bookingStatus,
       orders: undefined 
-    }));
+    });
+    });
 
     return {
       statusCode: 200,
