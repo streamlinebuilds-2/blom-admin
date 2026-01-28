@@ -119,6 +119,9 @@ export const handler: Handler = async (e) => {
     // Filter out archived orders from the main list
     query = query.or('archived.is.null,archived.eq.false');
 
+    // Never show demo seed orders
+    query = query.not('order_number', 'like', 'DEMO-COURSE-%');
+
     // NOTE: Removed strict fulfillment_type requirement to show all orders
     // Previously: query = query.not('fulfillment_type', 'is', null);
 
