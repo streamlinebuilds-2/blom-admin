@@ -9,20 +9,11 @@ import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../lib/supabase";
 
 // Helper: Format currency safely (handles cents vs rands)
-const formatMoney = (amount) => {
-  // Handle null, undefined, or invalid values
-  if (amount === undefined || amount === null || isNaN(amount) || amount === '') {
-    return 'R0.00';
-  }
-  
-  // Convert to number if it's a string
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  
-  // If the amount is very large (> 10000), assume it's already in cents
-  // If it's smaller, it might be in rands, convert to cents
-  const centsAmount = numAmount > 10000 ? numAmount : numAmount * 100;
-  
-  return `R${(centsAmount / 100).toFixed(2)}`;
+const formatMoney = (cents) => {
+  if (cents === undefined || cents === null || cents === "" || isNaN(cents)) return "R0.00";
+  const n = typeof cents === "string" ? parseFloat(cents) : Number(cents);
+  if (!Number.isFinite(n)) return "R0.00";
+  return `R${(n / 100).toFixed(2)}`;
 };
 
 // Helper: Format address safely (handle objects and strings)
@@ -72,6 +63,50 @@ export default function OrderDetail() {
 
   const order = data?.order;
   const items = data?.items || [];
+  const asCentsColumn = (value) => {
+    if (value === undefined || value === null || value === "" || isNaN(value)) return null;
+    const n = typeof value === "string" ? parseFloat(value) : Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.round(n);
+  };
+
+  const asRandsToCents = (value) => {
+    if (value === undefined || value === null || value === "" || isNaN(value)) return null;
+    const n = typeof value === "string" ? parseFloat(value) : Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.round(n * 100);
+  };
+
+  const itemsSubtotalCents = (items || []).reduce((sum, item) => {
+    const unitPriceCents =
+      asCentsColumn(item.unit_price_cents) ??
+      asCentsColumn(item.price) ??
+      (item.unit_price ? asRandsToCents(item.unit_price) : 0) ??
+      0;
+    const quantity = item.quantity || 0;
+    const lineTotalCents =
+      asCentsColumn(item.line_total_cents) ??
+      asCentsColumn(item.line_total) ??
+      (unitPriceCents * quantity);
+    return sum + (lineTotalCents || 0);
+  }, 0);
+
+  const subtotalCents =
+    asCentsColumn(order?.subtotal_cents) ??
+    asRandsToCents(order?.subtotal) ??
+    itemsSubtotalCents;
+  const shippingCents =
+    asCentsColumn(order?.shipping_cents) ??
+    asRandsToCents(order?.shipping) ??
+    0;
+  const discountCents =
+    asCentsColumn(order?.discount_cents) ??
+    asRandsToCents(order?.discount) ??
+    0;
+  const totalCents =
+    asCentsColumn(order?.total_cents) ??
+    asRandsToCents(order?.total) ??
+    (subtotalCents + shippingCents - discountCents);
   
   // Debug logging
   console.log('OrderDetail Debug:', {
@@ -243,14 +278,14 @@ export default function OrderDetail() {
     const formatMoney = (amount) => `R${(amount / 100).toFixed(2)}`;
     
     // Check if order has free shipping threshold
-    const subtotalForThreshold = order.subtotal_cents || order.subtotal || 0;
+    const subtotalForThreshold = subtotalCents || 0;
     const hasFreeShipping = subtotalForThreshold >= 200000; // R2000 in cents
     
     // Extract order values safely
-    const subtotalCents = order.subtotal_cents || order.subtotal || 0;
-    const shippingCents = order.shipping_cents || order.shipping || 0;
-    const discountCents = order.discount_cents || order.discount || 0;
-    const totalCents = order.total_cents || order.total || 0;
+    const receiptSubtotalCents = subtotalCents || 0;
+    const receiptShippingCents = shippingCents || 0;
+    const receiptDiscountCents = discountCents || 0;
+    const receiptTotalCents = totalCents || 0;
     
     receiptWindow.document.write(`
       <!DOCTYPE html>
@@ -419,27 +454,29 @@ export default function OrderDetail() {
         </table>
 
         <div class="summary">
-          ${shippingCents > 0 ? `
-            <div class="summary-row">
-              <span>Shipping:</span>
-              <span>${formatMoney(shippingCents)}</span>
-            </div>
-          ` : ''}
+          <div class="summary-row">
+            <span>Subtotal:</span>
+            <span>${formatMoney(receiptSubtotalCents)}</span>
+          </div>
+          <div class="summary-row">
+            <span>Shipping:</span>
+            <span>${formatMoney(receiptShippingCents)}</span>
+          </div>
           ${hasFreeShipping ? `
             <div class="summary-row free-shipping">
               <span>FREE SHIPPING - Order over R2000</span>
               <span></span>
             </div>
           ` : ''}
-          ${discountCents > 0 ? `
+          ${receiptDiscountCents > 0 ? `
             <div class="summary-row coupon-discount">
               <span>Coupon Discount:</span>
-              <span>-${formatMoney(discountCents)}</span>
+              <span>-${formatMoney(receiptDiscountCents)}</span>
             </div>
           ` : ''}
           <div class="summary-row summary-total">
             <span>TOTAL:</span>
-            <span>${formatMoney(totalCents)}</span>
+            <span>${formatMoney(receiptTotalCents)}</span>
           </div>
         </div>
       </body>
@@ -1092,18 +1129,25 @@ export default function OrderDetail() {
                     <td colSpan={2} className="py-3 px-3"></td>
                     <td className="text-right py-2 px-3 text-sm text-gray-600">Subtotal</td>
                     <td className="text-right py-2 px-3 text-sm font-medium">
-                      R {(order.total + (order.discount_cents ? order.discount_cents / 100 : 0)).toFixed(2)}
+                      {formatMoney(subtotalCents)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} className="py-0 px-3"></td>
+                    <td className="text-right py-2 px-3 text-sm text-gray-600">Shipping</td>
+                    <td className="text-right py-2 px-3 text-sm font-medium">
+                      {formatMoney(shippingCents)}
                     </td>
                   </tr>
                   {/* Discount Row */}
-                  {(order.discount_cents && order.discount_cents > 0) && (
+                  {discountCents > 0 && (
                     <tr>
                       <td colSpan={2} className="py-0 px-3"></td>
                       <td className="text-right py-2 px-3 text-sm text-green-600">
                         Coupon {order.coupon_code ? `(${order.coupon_code})` : ''}
                       </td>
                       <td className="text-right py-2 px-3 text-sm font-medium text-green-600">
-                        -R {(order.discount_cents / 100).toFixed(2)}
+                        -{formatMoney(discountCents)}
                       </td>
                     </tr>
                   )}
@@ -1112,11 +1156,7 @@ export default function OrderDetail() {
                     <td colSpan={2} className="py-3 px-3"></td>
                     <td className="text-right py-3 px-3 text-base font-bold">Total</td>
                     <td className="text-right py-3 px-3 text-base font-bold">
-                      R {order.total.toFixed(2)} 
-                      {/* Note: order.total from DB usually reflects the paid amount. 
-                          If it's the pre-discount amount, use:
-                          R {(order.total - (order.discount_cents ? order.discount_cents/100 : 0)).toFixed(2)} 
-                       */}
+                      {formatMoney(totalCents)}
                     </td>
                   </tr>
                 </tfoot>
