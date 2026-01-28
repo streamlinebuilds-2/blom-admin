@@ -35,7 +35,6 @@ export const handler: Handler = async (event) => {
     const title = String(body.title || "").trim();
     const slug = String(body.slug || "").trim();
     const courseType = String(body.course_type || "in-person").trim();
-    const instructorName = String(body.instructor_name || "").trim();
 
     if (!title) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: "Title is required" }) };
@@ -46,22 +45,18 @@ export const handler: Handler = async (event) => {
     if (courseType !== "online" && courseType !== "in-person") {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: "Course Type is required" }) };
     }
-    if (!instructorName) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: "Instructor Name is required" }) };
-    }
 
     const payload: any = {
       title,
       slug,
       description: body.description ?? null,
       price: body.price === "" || body.price == null ? null : Number(body.price),
+      compare_at_price: body.compare_at_price === "" || body.compare_at_price == null ? null : Number(body.compare_at_price),
       image_url: body.image_url ?? null,
       duration: body.duration ?? null,
       level: body.level ?? null,
       template_key: body.template_key ?? null,
       course_type: courseType,
-      instructor_name: instructorName,
-      instructor_bio: body.instructor_bio ?? null,
       is_active: body.is_active !== false,
     };
 

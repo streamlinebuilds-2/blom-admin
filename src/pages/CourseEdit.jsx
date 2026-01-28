@@ -21,13 +21,11 @@ const COURSE_TEMPLATES = [
     description:
       "Master the art of acrylic nail application with hands-on training in Randfontein. Master prep, application, structure & finishing in 5 days.",
     price: "7200.00",
+    compare_at_price: "",
     image_url: "/professional-acrylic-training-hero.webp",
     duration: "5 Days",
     level: "Beginner to Intermediate",
     course_type: "in-person",
-    instructor_name: "Avané Crous",
-    instructor_bio:
-      "Professional nail artist and educator with over 8 years of experience in acrylic nail application.",
     is_active: true,
   },
   {
@@ -37,12 +35,11 @@ const COURSE_TEMPLATES = [
     slug: "online-watercolour-workshop",
     description: "Learn how to create soft, dreamy watercolour designs from the comfort of your home.",
     price: "480.00",
+    compare_at_price: "",
     image_url: "/online-watercolor-card.webp",
     duration: "Self-Paced",
     level: "All Levels",
     course_type: "online",
-    instructor_name: "Avané Crous",
-    instructor_bio: "Professional nail artist and educator with over 8 years of experience.",
     is_active: true,
   },
   {
@@ -53,12 +50,11 @@ const COURSE_TEMPLATES = [
     description:
       "Paint festive watercolor nail art for the holidays! Learn Christmas tree designs, snowflakes, and winter wonderland techniques.",
     price: "450.00",
+    compare_at_price: "",
     image_url: "/christmas-watercolor-card.webp",
     duration: "Self-Paced",
     level: "All Levels",
     course_type: "online",
-    instructor_name: "Avané Crous",
-    instructor_bio: "Professional nail artist and educator with over 8 years of experience.",
     is_active: true,
   },
 ];
@@ -69,11 +65,10 @@ const initialFormState = {
   slug: "",
   description: "",
   price: "",
+  compare_at_price: "",
   duration: "",
   level: "",
   course_type: "in-person",
-  instructor_name: "",
-  instructor_bio: "",
   is_active: true,
   image_url: "",
 };
@@ -118,11 +113,10 @@ export default function CourseEdit() {
           slug: course.slug || "",
           description: course.description || "",
           price: course.price != null ? String(course.price) : "",
+          compare_at_price: course.compare_at_price != null ? String(course.compare_at_price) : "",
           duration: course.duration || "",
           level: course.level || "",
           course_type: course.course_type || "in-person",
-          instructor_name: course.instructor_name || "",
-          instructor_bio: course.instructor_bio || "",
           is_active: course.is_active !== false,
           image_url: course.image_url || "",
         });
@@ -197,7 +191,6 @@ export default function CourseEdit() {
     const title = String(form.title || "").trim();
     const slug = String(form.slug || "").trim();
     const courseType = String(form.course_type || "").trim();
-    const instructorName = String(form.instructor_name || "").trim();
     if (!title) {
       setServerError("Title is required");
       return;
@@ -210,10 +203,6 @@ export default function CourseEdit() {
       setServerError("Course Type is required");
       return;
     }
-    if (!instructorName) {
-      setServerError("Instructor Name is required");
-      return;
-    }
 
     try {
       setIsSubmitting(true);
@@ -223,14 +212,13 @@ export default function CourseEdit() {
         slug,
         description: form.description,
         price: form.price,
+        compare_at_price: form.compare_at_price,
         duration: form.duration,
         level: form.level,
         is_active: form.is_active,
         image_url: form.image_url,
         course_type: courseType,
         template_key: form.template_key || null,
-        instructor_name: instructorName,
-        instructor_bio: form.instructor_bio || null,
       };
 
       if (!api?.upsertCourse) {
@@ -428,13 +416,12 @@ export default function CourseEdit() {
                         slug: template.slug,
                         description: template.description,
                         price: template.price,
+                        compare_at_price: template.compare_at_price,
                         image_url: template.image_url,
                         duration: template.duration,
                         level: template.level,
                         is_active: template.is_active,
                         course_type: template.course_type,
-                        instructor_name: template.instructor_name,
-                        instructor_bio: template.instructor_bio,
                       }));
                     }}
                   >
@@ -493,7 +480,7 @@ export default function CourseEdit() {
           </section>
 
           <section className="product-form-section">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               <div>
                 <label className="product-form-label" htmlFor="price">
                   Price
@@ -505,6 +492,21 @@ export default function CourseEdit() {
                   className="product-form-input"
                   value={form.price}
                   onChange={(e) => update("price", e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="product-form-label" htmlFor="compare_at_price">
+                  Compare at Price
+                </label>
+                <input
+                  id="compare_at_price"
+                  type="number"
+                  step="0.01"
+                  className="product-form-input"
+                  value={form.compare_at_price}
+                  onChange={(e) => update("compare_at_price", e.target.value)}
                   placeholder="0.00"
                 />
               </div>
@@ -562,36 +564,6 @@ export default function CourseEdit() {
                 />
                 Active
               </label>
-            </div>
-          </section>
-
-          <section className="product-form-section">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="product-form-label" htmlFor="instructor_name">
-                  Instructor Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="instructor_name"
-                  className="product-form-input"
-                  value={form.instructor_name}
-                  onChange={(e) => update("instructor_name", e.target.value)}
-                  placeholder="Avané Crous"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="product-form-label" htmlFor="instructor_bio">
-                  Instructor Bio
-                </label>
-                <textarea
-                  id="instructor_bio"
-                  className="product-form-textarea"
-                  value={form.instructor_bio}
-                  onChange={(e) => update("instructor_bio", e.target.value)}
-                  placeholder="Short instructor bio"
-                />
-              </div>
             </div>
           </section>
 
