@@ -138,7 +138,6 @@ export const handler: Handler = async (event) => {
       slug,
       description: body.description ?? null,
       price: body.price === "" || body.price == null ? null : Number(body.price),
-      compare_at_price: body.compare_at_price === "" || body.compare_at_price == null ? null : Number(body.compare_at_price),
       image_url: body.image_url ?? null,
       duration: body.duration ?? null,
       level: body.level ?? null,

@@ -6,7 +6,6 @@ create table if not exists public.courses (
   slug text unique not null,
   description text,
   price numeric(10,2),
-  compare_at_price numeric(10,2),
   image_url text,
   duration text,
   level text,
@@ -17,7 +16,6 @@ create table if not exists public.courses (
 );
 
 -- Ensure columns exist for existing tables (idempotent)
-alter table public.courses add column if not exists compare_at_price numeric(10,2);
 alter table public.courses add column if not exists image_url text;
 alter table public.courses add column if not exists duration text;
 alter table public.courses add column if not exists level text;

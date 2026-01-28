@@ -244,7 +244,6 @@ export function createSupabaseAdapter() {
         slug: String(c.slug || '').trim(),
         description: c.description ?? null,
         price: c.price === '' || c.price == null ? null : Number(c.price),
-        compare_at_price: c.compare_at_price === '' || c.compare_at_price == null ? null : Number(c.compare_at_price),
         image_url: c.image_url ?? null,
         duration: c.duration ?? null,
         level: c.level ?? null,

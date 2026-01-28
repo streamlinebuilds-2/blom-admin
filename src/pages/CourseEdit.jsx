@@ -21,7 +21,6 @@ const COURSE_TEMPLATES = [
     description:
       "Master the art of acrylic nail application with hands-on training in Randfontein. Master prep, application, structure & finishing in 5 days.",
     price: "7200.00",
-    compare_at_price: "",
     image_url: "/professional-acrylic-training-hero.webp",
     duration: "5 Days",
     level: "Beginner to Intermediate",
@@ -65,7 +64,6 @@ const COURSE_TEMPLATES = [
     slug: "online-watercolour-workshop",
     description: "Learn how to create soft, dreamy watercolour designs from the comfort of your home.",
     price: "480.00",
-    compare_at_price: "",
     image_url: "/online-watercolor-card.webp",
     duration: "Self-Paced",
     level: "All Levels",
@@ -80,7 +78,6 @@ const COURSE_TEMPLATES = [
     description:
       "Paint festive watercolor nail art for the holidays! Learn Christmas tree designs, snowflakes, and winter wonderland techniques.",
     price: "450.00",
-    compare_at_price: "",
     image_url: "/christmas-watercolor-card.webp",
     duration: "Self-Paced",
     level: "All Levels",
@@ -95,7 +92,6 @@ const initialFormState = {
   slug: "",
   description: "",
   price: "",
-  compare_at_price: "",
   duration: "",
   level: "",
   course_type: "in-person",
@@ -147,7 +143,6 @@ export default function CourseEdit() {
           slug: course.slug || "",
           description: course.description || "",
           price: course.price != null ? String(course.price) : "",
-          compare_at_price: course.compare_at_price != null ? String(course.compare_at_price) : "",
           duration: course.duration || "",
           level: course.level || "",
           course_type: course.course_type || "in-person",
@@ -195,23 +190,57 @@ export default function CourseEdit() {
     return Boolean(form.slug && form.slug.trim());
   }, [form.slug]);
 
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const commaIndex = result.indexOf(",");
+        resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+
   const uploadCourseImage = async (file) => {
-    if (!supabase) throw new Error("Supabase client not configured");
     if (!file) throw new Error("No file selected");
     if (!canUpload) throw new Error("Please set a slug before uploading");
 
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-    const path = `${form.slug}/${Date.now()}-${safeName}`;
+    const base64 = await fileToBase64(file);
 
-    const { error } = await supabase.storage.from("course-images").upload(path, file, {
-      upsert: true,
-      contentType: file.type || "application/octet-stream",
-    });
-    if (error) throw error;
+    try {
+      const res = await fetch("/.netlify/functions/upload-course-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: form.slug,
+          filename: safeName,
+          contentType: file.type || "application/octet-stream",
+          base64,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Upload failed: ${res.status}`);
+      }
+      const json = await res.json();
+      if (!json?.publicUrl) throw new Error("Failed to generate public URL");
+      return json.publicUrl;
+    } catch (err) {
+      if (!supabase) throw err;
 
-    const { data } = supabase.storage.from("course-images").getPublicUrl(path);
-    if (!data?.publicUrl) throw new Error("Failed to generate public URL");
-    return data.publicUrl;
+      const path = `${form.slug}/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage.from("course-images").upload(path, file, {
+        upsert: true,
+        contentType: file.type || "application/octet-stream",
+      });
+      if (error) throw error;
+
+      const { data } = supabase.storage.from("course-images").getPublicUrl(path);
+      if (!data?.publicUrl) throw new Error("Failed to generate public URL");
+      return data.publicUrl;
+    }
   };
 
   const handleImageFile = async (file) => {
@@ -222,7 +251,7 @@ export default function CourseEdit() {
       showToast("info", "Uploading image...");
       const url = await uploadCourseImage(file);
       update("image_url", url);
-      showToast("success", "Image uploaded");
+      showToast("success", "Image uploaded — click Update Course to save");
     } catch (err) {
       showToast("error", err?.message || "Image upload failed");
     } finally {
@@ -310,7 +339,6 @@ export default function CourseEdit() {
         slug,
         description: form.description,
         price: form.price,
-        compare_at_price: form.compare_at_price,
         duration: form.duration,
         level: form.level,
         is_active: form.is_active,
@@ -518,7 +546,6 @@ export default function CourseEdit() {
                         slug: template.slug,
                         description: template.description,
                         price: template.price,
-                        compare_at_price: template.compare_at_price,
                         image_url: template.image_url,
                         duration: template.duration,
                         level: template.level,
@@ -594,7 +621,7 @@ export default function CourseEdit() {
           </section>
 
           <section className="product-form-section">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <label className="product-form-label" htmlFor="price">
                   Price
@@ -606,21 +633,6 @@ export default function CourseEdit() {
                   className="product-form-input"
                   value={form.price}
                   onChange={(e) => update("price", e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div>
-                <label className="product-form-label" htmlFor="compare_at_price">
-                  Compare at Price
-                </label>
-                <input
-                  id="compare_at_price"
-                  type="number"
-                  step="0.01"
-                  className="product-form-input"
-                  value={form.compare_at_price}
-                  onChange={(e) => update("compare_at_price", e.target.value)}
                   placeholder="0.00"
                 />
               </div>
@@ -955,52 +967,6 @@ export default function CourseEdit() {
                 </div>
               </div>
 
-              <div className="mt-10">
-                <label className="product-form-label">Key Details</label>
-                <div className="flex flex-col gap-3">
-                  {(form.key_details || []).map((d, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <input
-                        className="product-form-input"
-                        value={d}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setForm((prev) => {
-                            const next = [...(prev.key_details || [])];
-                            next[idx] = value;
-                            return { ...prev, key_details: next };
-                          });
-                        }}
-                        placeholder="Bullet point"
-                      />
-                      <button
-                        type="button"
-                        className="product-btn-secondary"
-                        onClick={() => {
-                          setForm((prev) => {
-                            const next = [...(prev.key_details || [])];
-                            next.splice(idx, 1);
-                            return { ...prev, key_details: next };
-                          });
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <div>
-                    <button
-                      type="button"
-                      className="product-btn-secondary"
-                      onClick={() => {
-                        setForm((prev) => ({ ...prev, key_details: [...(prev.key_details || []), ""] }));
-                      }}
-                    >
-                      Add detail
-                    </button>
-                  </div>
-                </div>
-              </div>
             </section>
           ) : null}
 
@@ -1016,7 +982,11 @@ export default function CourseEdit() {
                       type="file"
                       accept="image/*"
                       disabled={uploading || !canUpload}
-                      onChange={(e) => handleImageFile(e.target.files?.[0])}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        handleImageFile(file);
+                      }}
                       style={{ display: "none" }}
                     />
                   </label>
