@@ -287,6 +287,20 @@ export function createSupabaseAdapter() {
       return this.listCoursePurchases({ course_slug, pageSize: 1000 });
     },
 
+    async getCoursePurchase(id) {
+      const params = new URLSearchParams();
+      params.append('id', id);
+      const res = await fetch(`/.netlify/functions/admin-course-purchase?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch course purchase: ${res.statusText}`);
+      }
+      const json = await res.json();
+      if (!json.ok) {
+        throw new Error(json.error || 'Failed to load course purchase');
+      }
+      return json.item;
+    },
+
     // ===== INVENTORY =====
     async listStockMovements(limit = 50) {
       const { data, error } = await supabase

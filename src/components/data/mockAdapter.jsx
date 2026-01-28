@@ -431,6 +431,11 @@ export function createMockAdapter() {
        return this.listCoursePurchases({ course_slug });
     },
 
+    async getCoursePurchase(id) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return null;
+    },
+
     async listStockMovements(limit) {
       await new Promise(resolve => setTimeout(resolve, 0));
       const db = loadDB();

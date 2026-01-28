@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, RefreshCw, Filter, X, Copy, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { api } from '@/components/data/api';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -81,7 +82,7 @@ export default function CourseBookings() {
         .status-sent { background: #3b82f620; color: #3b82f6; }
         .status-failed { background: #dc262620; color: #dc2626; }
         
-        .btn-action { padding: 6px; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .btn-action { padding: 6px; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; text-decoration: none; }
         .btn-action:hover { background: rgba(0,0,0,0.05); color: var(--text); }
         
         .filters-section { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 24px; box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light); display: none; }
@@ -205,6 +206,13 @@ export default function CourseBookings() {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                        <Link
+                          to={`/course-bookings/${booking.id}`}
+                          className="btn-action"
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </Link>
                         <button 
                           onClick={() => handleCopyEmail(booking.buyer_email)} 
                           className="btn-action" 

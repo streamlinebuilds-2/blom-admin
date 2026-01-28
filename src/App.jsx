@@ -73,6 +73,7 @@ import Finance from '@/pages/Finance'
 import Orders from '@/pages/Orders'
 import OrderDetail from '@/pages/OrderDetail'
 import CourseBookings from '@/pages/CourseBookings'
+import CourseBookingDetail from '@/pages/CourseBookingDetail'
 import PriceUpdates from '@/pages/PriceUpdates'
 import Specials from '@/pages/Specials'
 import Featured from '@/pages/Featured'
@@ -196,6 +197,7 @@ const AuthenticatedApp = () => {
         <Route path="/orders" element={<Orders/>} />
         <Route path="/orders/:id" element={<OrderDetail/>} />
         <Route path="/course-bookings" element={<CourseBookings/>} />
+        <Route path="/course-bookings/:id" element={<CourseBookingDetail/>} />
 
         {/* Reviews - Canonical Routes */}
         <Route path="/reviews" element={<Reviews/>} />
