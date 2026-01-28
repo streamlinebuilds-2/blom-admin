@@ -31,7 +31,10 @@ export const handler: Handler = async (e) => {
       .select(`
         *,
         orders:order_id (
-          invoice_url
+          invoice_url,
+          status,
+          payment_status,
+          paid_at
         )
       `, { count: "exact" })
       .order("created_at", { ascending: false })
@@ -52,6 +55,11 @@ export const handler: Handler = async (e) => {
     const items = (data || []).map((item: any) => ({
       ...item,
       invoice_url: item.orders?.invoice_url || null,
+      booking_status:
+        item?.course_type === "in-person" &&
+        (item?.orders?.payment_status === "paid" || item?.orders?.status === "paid" || !!item?.orders?.paid_at)
+          ? "deposit_paid"
+          : (item?.invitation_status || "pending"),
       orders: undefined 
     }));
 

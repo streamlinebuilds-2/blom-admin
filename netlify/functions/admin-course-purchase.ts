@@ -87,6 +87,13 @@ export const handler: Handler = async (e) => {
         ok: true,
         item: {
           ...data,
+          booking_status:
+            (data as any)?.course_type === "in-person" &&
+            (((data as any)?.deposit_order?.payment_status === "paid") ||
+              ((data as any)?.deposit_order?.status === "paid") ||
+              !!((data as any)?.deposit_order?.paid_at))
+              ? "deposit_paid"
+              : ((data as any)?.invitation_status || "pending"),
           invoice_url: (data as any)?.deposit_order?.invoice_url || null,
           order: (data as any)?.deposit_order || null,
           deposit_order: (data as any)?.deposit_order || null,

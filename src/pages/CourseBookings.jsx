@@ -71,6 +71,7 @@ export default function CourseBookings() {
         .status-pending { background: #eab30820; color: #ca8a04; }
         .status-sent { background: #3b82f620; color: #3b82f6; }
         .status-failed { background: #dc262620; color: #dc2626; }
+        .status-deposit_paid { background: #05966920; color: #059669; }
         
         .btn-action { padding: 6px; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; text-decoration: none; }
         .btn-action:hover { background: rgba(0,0,0,0.05); color: var(--text); }
@@ -194,11 +195,14 @@ export default function CourseBookings() {
                       )}
                     </td>
                     <td>
-                      <span className={`status-badge status-${booking.invitation_status}`}>
-                        {booking.invitation_status === 'pending' && <Clock size={12} />}
-                        {booking.invitation_status === 'sent' && <CheckCircle size={12} />}
-                        {booking.invitation_status === 'failed' && <AlertCircle size={12} />}
-                        <span style={{ marginLeft: '4px' }}>{booking.invitation_status?.toUpperCase()}</span>
+                      <span className={`status-badge status-${booking.booking_status || booking.invitation_status}`}>
+                        {booking.booking_status === 'deposit_paid' && <CheckCircle size={12} />}
+                        {(booking.booking_status || booking.invitation_status) === 'pending' && <Clock size={12} />}
+                        {(booking.booking_status || booking.invitation_status) === 'sent' && <CheckCircle size={12} />}
+                        {(booking.booking_status || booking.invitation_status) === 'failed' && <AlertCircle size={12} />}
+                        <span style={{ marginLeft: '4px' }}>
+                          {(booking.booking_status === 'deposit_paid' ? 'DEPOSIT PAID' : (booking.invitation_status || '-').toUpperCase())}
+                        </span>
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
