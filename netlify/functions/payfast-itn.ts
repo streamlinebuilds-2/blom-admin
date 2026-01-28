@@ -128,17 +128,20 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, body: 'OK' };
     }
 
-    // 7. Create the new Payment record (this will fail safely if it's a duplicate)
+    // 7. Create the new Payment record (match current payments table schema)
     const { error: paymentError } = await supabase
       .from('payments')
       .insert({
         order_id: orderUuid,
-        payfast_payment_id: pfPaymentId,
-        payment_status: paymentStatus,
-        amount_gross_cents: grossCents,
-        amount_fee_cents: feeCents,
-        amount_net_cents: netCents,
-        itn_payload: itnPayload,
+        provider: 'payfast',
+        amount_cents: grossCents,
+        status: 'succeeded',
+        raw: itnPayload,
+        provider_txn_id: pfPaymentId,
+        pf_payment_id: pfPaymentId,
+        method: itnPayload.payment_method || null,
+        amount: totalRands,
+        paid_at: new Date().toISOString(),
       });
 
     if (paymentError && paymentError.code !== '23505') {
