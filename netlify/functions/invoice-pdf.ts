@@ -25,6 +25,10 @@ function money(n: any) {
   return "R " + Number(n || 0).toFixed(2)
 }
 
+function sanitizeWinAnsi(text: string) {
+  return Array.from(text).filter((ch) => (ch.codePointAt(0) ?? 0) <= 0xff).join("")
+}
+
 async function fetchJson(url: string) {
   const res = await fetch(url, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } })
   if (!res.ok) throw new Error(await res.text())
@@ -97,14 +101,16 @@ export const handler = async (event: any) => {
 
     // Helper functions
     const drawText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
-      page.drawText(String(text), { x, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
+      const safeText = sanitizeWinAnsi(String(text))
+      page.drawText(safeText, { x, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
     const drawLine = (x1: number, y1: number, x2: number, y2: number, page = currentPage) => {
       page.drawLine({ start: { x: x1, y: PAGE_HEIGHT - y1 }, end: { x: x2, y: PAGE_HEIGHT - y2 }, thickness: 1, color: rgb(0.9, 0.92, 0.95) })
     }
     const drawRightText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
-      const textWidth = (bold ? fontBold : font).widthOfTextAtSize(String(text), size)
-      page.drawText(String(text), { x: x - textWidth, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
+      const safeText = sanitizeWinAnsi(String(text))
+      const textWidth = (bold ? fontBold : font).widthOfTextAtSize(safeText, size)
+      page.drawText(safeText, { x: x - textWidth, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
 
     // Function to add a new page
@@ -216,7 +222,7 @@ export const handler = async (event: any) => {
 
       // Truncate long product names to fit on one line
       const maxNameWidth = right - 180
-      let displayName = name + variant
+      let displayName = sanitizeWinAnsi(name + variant)
       const nameWidth = font.widthOfTextAtSize(displayName, 10)
       if (nameWidth > maxNameWidth) {
         // Truncate and add ellipsis
@@ -291,11 +297,6 @@ export const handler = async (event: any) => {
 
     const finalTotal = storedTotal > 0 && !looksLikeMissingShipping ? storedTotal : calculatedTotal
 
-    // Subtotal
-    drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
-    drawRightText(money(subtotalAmount), right - 20, y, 10)
-    y += 18
-
     // Total row
     drawLine(right - 250, y - 2, right, y - 2)
     drawText("Total", right - 140, y, 13, true)
@@ -309,6 +310,7 @@ export const handler = async (event: any) => {
     drawText("Thank you for your purchase!", left, y, 10, false, rgb(0.35, 0.38, 0.45))
     y += 14
     drawText("Questions? Contact us: shopblomcosmetics@gmail.com | +27 79 548 3317", left, y, 9, false, rgb(0.4, 0.45, 0.52))
+    y += 12
     const footerText = `Blom Cosmetics | ${SITE_URL}`
     const footerX = (PAGE_WIDTH - font.widthOfTextAtSize(footerText, 9)) / 2
     drawText(footerText, footerX, y, 9, false, rgb(0.4, 0.45, 0.52))
