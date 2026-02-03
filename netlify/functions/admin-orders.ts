@@ -112,6 +112,7 @@ export const handler: Handler = async (e) => {
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
     const status = url.searchParams.get("status") || "";
     const fulfillment = url.searchParams.get("fulfillment") || "";
+    const kind = url.searchParams.get("kind") || "";
     const search = (url.searchParams.get("search") || "").trim();
     const from = (page - 1) * size;
     const to = from + size - 1;
@@ -133,10 +134,7 @@ export const handler: Handler = async (e) => {
     // Never show demo seed orders
     query = query.not('order_number', 'like', 'DEMO-COURSE-%');
 
-    // Prefer to show product orders only when order_kind exists
-    if (hasOrderKind) {
-      query = query.eq('order_kind', 'product');
-    }
+    if (hasOrderKind && kind) query = query.eq('order_kind', kind);
 
     // NOTE: Removed strict fulfillment_type requirement to show all orders
     // Previously: query = query.not('fulfillment_type', 'is', null);
