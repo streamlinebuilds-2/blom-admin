@@ -3,9 +3,16 @@ import fetch from "node-fetch"
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const SITE = process.env.SITE_BASE_URL || process.env.SITE_URL || "https://blom-cosmetics.co.za"
+const SITE_URL = "https://blom-cosmetics.co.za/"
 const BUCKET = "invoices" 
 const LOGO_URL = "https://yvmnedjybrpvlupygusf.supabase.co/storage/v1/object/public/assets/blom_logo.png"
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, X-M-Payment-Id, X-Order-Id",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Expose-Headers": "X-Invoice-Url",
+} as const
 
 // Page dimensions (A4)
 const PAGE_WIDTH = 595.28
@@ -26,6 +33,10 @@ async function fetchJson(url: string) {
 
 export const handler = async (event: any) => {
   try {
+    if (event.httpMethod === "OPTIONS") {
+      return { statusCode: 204, headers: CORS_HEADERS, body: "" }
+    }
+
     const contentType = event.headers['content-type'] || '';
     let body: any = {};
 
@@ -52,7 +63,11 @@ export const handler = async (event: any) => {
     }
 
     if (!m_payment_id) {
-      return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'ID required' }) };
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "ID required" }),
+      }
     }
 
     // 1) Load Order Data
@@ -264,9 +279,17 @@ export const handler = async (event: any) => {
     drawLine(left, y, right, y)
     y += 20
 
-    // Prefer stored order.total (what was paid); otherwise use calculated total
+    // Prefer stored order.total when it matches the computed grand total; otherwise use calculated total
     const calculatedTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount)
-    const finalTotal = Number(order.total) > 0 ? Number(order.total) : calculatedTotal
+    const storedTotal = Number(order.total || 0)
+    const subtotalMinusDiscount = Math.max(0, subtotalAmount - discountAmount)
+    const looksLikeMissingShipping =
+      shippingAmount > 0 &&
+      storedTotal > 0 &&
+      (Math.abs(storedTotal - subtotalAmount) <= 0.01 || Math.abs(storedTotal - subtotalMinusDiscount) <= 0.01) &&
+      storedTotal < calculatedTotal - 0.01
+
+    const finalTotal = storedTotal > 0 && !looksLikeMissingShipping ? storedTotal : calculatedTotal
 
     // Subtotal
     drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
@@ -286,7 +309,9 @@ export const handler = async (event: any) => {
     drawText("Thank you for your purchase!", left, y, 10, false, rgb(0.35, 0.38, 0.45))
     y += 14
     drawText("Questions? Contact us: shopblomcosmetics@gmail.com | +27 79 548 3317", left, y, 9, false, rgb(0.4, 0.45, 0.52))
-    drawRightText(SITE.replace(/^https?:\/\//, ""), right, y, 9, false, rgb(0.4, 0.45, 0.52))
+    const footerText = `Blom Cosmetics | ${SITE_URL}`
+    const footerX = (PAGE_WIDTH - font.widthOfTextAtSize(footerText, 9)) / 2
+    drawText(footerText, footerX, y, 9, false, rgb(0.4, 0.45, 0.52))
 
     // Add page numbers to all pages
     const pages = pdf.getPages()
@@ -306,33 +331,60 @@ export const handler = async (event: any) => {
     const version = q.v || Date.now().toString()
     const filename = `${m_payment_id}-${version}.pdf`
     
-    await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(filename)}`, {
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(filename)}`, {
       method: "POST",
       headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/pdf", "x-upsert": "true" },
       body: Buffer.from(pdfBytes)
     })
+    if (!uploadRes.ok) {
+      const detail = await uploadRes.text().catch(() => "")
+      throw new Error(`INVOICE_UPLOAD_FAILED: ${uploadRes.status} ${detail}`)
+    }
 
     const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(filename)}`
     
     // Update Order Invoice URL
-    await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+    const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
       method: "PATCH",
       headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ invoice_url: publicUrl })
     })
+    if (!updateRes.ok) {
+      const detail = await updateRes.text().catch(() => "")
+      throw new Error(`ORDER_INVOICE_URL_UPDATE_FAILED: ${updateRes.status} ${detail}`)
+    }
+
+    const wantsJson =
+      q.return_url === "1" ||
+      q.json === "1" ||
+      String(event.headers?.accept || "").includes("application/json")
+
+    if (wantsJson) {
+      return {
+        statusCode: 200,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json", "X-Invoice-Url": publicUrl },
+        body: JSON.stringify({ ok: true, url: publicUrl }),
+      }
+    }
 
     const disposition = (q.download === '1' || body.download === true) ? 'attachment' : 'inline'
     return {
       statusCode: 200,
       headers: {
+        ...CORS_HEADERS,
         'Content-Type': 'application/pdf',
         'Content-Disposition': `${disposition}; filename="Invoice-${m_payment_id}.pdf"`,
-        'Cache-Control': 'public, max-age=3600'
+        'Cache-Control': 'public, max-age=3600',
+        'X-Invoice-Url': publicUrl
       },
       body: Buffer.from(pdfBytes).toString('base64'),
       isBase64Encoded: true
     }
   } catch (e: any) {
-    return { statusCode: 500, body: e?.message ?? "Error" }
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({ ok: false, error: e?.message ?? "Error" }),
+    }
   }
 }
