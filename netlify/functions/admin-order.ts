@@ -103,6 +103,48 @@ export const handler: Handler = async (e) => {
         throw new Error(`Failed to update order: ${updateError.message}`);
       }
 
+      let invoiceGenerated = false;
+      let invoiceUrl: string | null = null;
+      let invoiceError: string | null = null;
+
+      if (status === 'paid' && oldStatus !== 'paid') {
+        try {
+          const { data: invRow, error: invRowErr } = await s
+            .from("orders")
+            .select("invoice_url, m_payment_id")
+            .eq("id", id)
+            .maybeSingle();
+          if (invRowErr) throw invRowErr;
+
+          if (!invRow?.invoice_url) {
+            const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
+            const url = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf?return_url=1`;
+            const ac = new AbortController();
+            const t = setTimeout(() => ac.abort(), 15000);
+            try {
+              const invRes = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: id, m_payment_id: invRow?.m_payment_id }),
+                signal: ac.signal
+              });
+              if (!invRes.ok) {
+                const detail = await invRes.text().catch(() => '');
+                invoiceError = `invoice-pdf failed: ${invRes.status} ${detail}`;
+              } else {
+                const invJson: any = await invRes.json().catch(() => ({}));
+                invoiceGenerated = true;
+                invoiceUrl = invJson?.url || null;
+              }
+            } finally {
+              clearTimeout(t);
+            }
+          }
+        } catch (e: any) {
+          invoiceError = e?.message || String(e);
+        }
+      }
+
       console.log('✅ Order status updated successfully');
 
       return {
@@ -113,7 +155,10 @@ export const handler: Handler = async (e) => {
           order: updatedOrder,
           statusChanged: oldStatus !== status,
           webhookCalled: false,
-          webhookOk: false
+          webhookOk: false,
+          invoiceGenerated,
+          invoiceUrl,
+          invoiceError
         })
       };
     }
