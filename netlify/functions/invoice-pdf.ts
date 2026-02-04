@@ -312,8 +312,7 @@ export const handler = async (event: any) => {
     drawText("Questions? Contact us: shopblomcosmetics@gmail.com | +27 79 548 3317", left, y, 9, false, rgb(0.4, 0.45, 0.52))
     y += 12
     const footerText = `Blom Cosmetics | ${SITE_URL}`
-    const footerX = (PAGE_WIDTH - font.widthOfTextAtSize(footerText, 9)) / 2
-    drawText(footerText, footerX, y, 9, false, rgb(0.4, 0.45, 0.52))
+    drawText(footerText, left, y, 9, false, rgb(0.4, 0.45, 0.52))
 
     // Add page numbers to all pages
     const pages = pdf.getPages()
