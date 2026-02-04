@@ -153,10 +153,86 @@ export const handler: Handler = async (e) => {
 
     if (iErr) throw iErr;
 
+    const asNumber = (v: any) => {
+      const n = typeof v === "string" ? Number(v) : v;
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const guessMoneyToCents = (value: any) => {
+      const n = asNumber(value);
+      if (n === null) return null;
+      if (!Number.isInteger(n)) return Math.round(n * 100);
+      if (n >= 10000) return Math.round(n);
+      return Math.round(n * 100);
+    };
+
+    const orderSubtotalCents =
+      asNumber(order?.subtotal_cents) ??
+      guessMoneyToCents(order?.subtotal) ??
+      null;
+
+    const needsBackfill = (items || []).some((it: any) => {
+      const q = asNumber(it.quantity) ?? 0;
+      if (q <= 0) return false;
+      const unitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? guessMoneyToCents(it.price) ?? 0;
+      const lineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (unitCents * q);
+      return (unitCents === 0 || lineCents === 0) && !!it.product_id;
+    });
+
+    let enrichedItems: any[] = items || [];
+    if (needsBackfill) {
+      const productIds = Array.from(new Set((items || []).map((it: any) => it.product_id).filter(Boolean)));
+      const { data: products, error: pErr } = await s
+        .from("products")
+        .select("id, price")
+        .in("id", productIds);
+      if (pErr) throw pErr;
+
+      const priceById = new Map<string, number>();
+      for (const p of products || []) {
+        const cents = guessMoneyToCents(p.price) ?? 0;
+        if (cents > 0) priceById.set(p.id, cents);
+      }
+
+      const baseSum = (items || []).reduce((sum: number, it: any) => {
+        const q = asNumber(it.quantity) ?? 0;
+        const baseUnit = it.product_id ? (priceById.get(it.product_id) ?? 0) : 0;
+        return sum + Math.max(0, baseUnit * q);
+      }, 0);
+
+      const scale = orderSubtotalCents != null && baseSum > 0 ? orderSubtotalCents / baseSum : 1;
+
+      let allocated = 0;
+      const inferredLines: number[] = (items || []).map((it: any, idx: number) => {
+        const q = asNumber(it.quantity) ?? 0;
+        const baseUnit = it.product_id ? (priceById.get(it.product_id) ?? 0) : 0;
+        const baseLine = Math.max(0, baseUnit * q);
+        if (idx === (items || []).length - 1 && orderSubtotalCents != null) {
+          return Math.max(0, orderSubtotalCents - allocated);
+        }
+        const inferred = Math.max(0, Math.round(baseLine * scale));
+        allocated += inferred;
+        return inferred;
+      });
+
+      enrichedItems = (items || []).map((it: any, idx: number) => {
+        const q = asNumber(it.quantity) ?? 0;
+        const existingUnitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? guessMoneyToCents(it.price) ?? null;
+        const existingLineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (existingUnitCents != null ? existingUnitCents * q : null);
+
+        if (q > 0 && (existingUnitCents === 0 || existingLineCents === 0) && it.product_id) {
+          const inferredLine = inferredLines[idx] ?? 0;
+          const inferredUnit = Math.round(inferredLine / q);
+          return { ...it, unit_price_cents: inferredUnit, line_total_cents: inferredLine };
+        }
+        return it;
+      });
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, order, items })
+      body: JSON.stringify({ ok: true, order, items: enrichedItems })
     };
   } catch (err:any) {
     console.error('❌ Order handler error:', err);

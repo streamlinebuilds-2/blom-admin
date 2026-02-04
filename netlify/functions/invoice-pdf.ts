@@ -29,6 +29,19 @@ function sanitizeWinAnsi(text: string) {
   return Array.from(text).filter((ch) => (ch.codePointAt(0) ?? 0) <= 0xff).join("")
 }
 
+function asNumber(v: any) {
+  const n = typeof v === "string" ? Number(v) : v
+  return Number.isFinite(n) ? n : null
+}
+
+function guessMoneyToCents(value: any) {
+  const n = asNumber(value)
+  if (n === null) return null
+  if (!Number.isInteger(n)) return Math.round(n * 100)
+  if (n >= 10000) return Math.round(n)
+  return Math.round(n * 100)
+}
+
 async function fetchJson(url: string) {
   const res = await fetch(url, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } })
   if (!res.ok) throw new Error(await res.text())
@@ -82,11 +95,68 @@ export const handler = async (event: any) => {
     if (!order) return { statusCode: 404, body: "ORDER_NOT_FOUND" }
 
     const items = await fetchJson(
-      `${SUPABASE_URL}/rest/v1/order_items?order_id=eq.${order.id}&select=product_name,sku,quantity,unit_price,line_total,variant_title`
+      `${SUPABASE_URL}/rest/v1/order_items?order_id=eq.${order.id}&select=product_id,product_name,sku,quantity,unit_price_cents,line_total_cents,unit_price,line_total,variant_title`
     ) as any[]
 
-    // Calculate totals
-    const itemsSum = items.reduce((s: number, it: any) => s + (Number(it.quantity || 0) * Number(it.unit_price || 0)), 0)
+    const orderSubtotalCents = asNumber(order.subtotal_cents) ?? guessMoneyToCents(order.subtotal) ?? null
+    const needsBackfill = (items || []).some((it: any) => {
+      const q = asNumber(it.quantity) ?? 0
+      if (q <= 0) return false
+      const unitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? 0
+      const lineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (unitCents * q)
+      return (unitCents === 0 || lineCents === 0) && !!it.product_id
+    })
+
+    let enrichedItems: any[] = items || []
+    if (needsBackfill) {
+      const ids = Array.from(new Set((items || []).map((it: any) => it.product_id).filter(Boolean)))
+      const products = await fetchJson(
+        `${SUPABASE_URL}/rest/v1/products?id=in.(${ids.map((x: string) => `"${x}"`).join(",")})&select=id,price`
+      ) as any[]
+      const priceById = new Map<string, number>()
+      for (const p of products || []) {
+        const cents = guessMoneyToCents(p.price) ?? 0
+        if (cents > 0) priceById.set(p.id, cents)
+      }
+
+      const baseSum = (items || []).reduce((sum: number, it: any) => {
+        const q = asNumber(it.quantity) ?? 0
+        const baseUnit = it.product_id ? (priceById.get(it.product_id) ?? 0) : 0
+        return sum + Math.max(0, baseUnit * q)
+      }, 0)
+
+      const scale = orderSubtotalCents != null && baseSum > 0 ? orderSubtotalCents / baseSum : 1
+
+      let allocated = 0
+      const inferredLines: number[] = (items || []).map((it: any, idx: number) => {
+        const q = asNumber(it.quantity) ?? 0
+        const baseUnit = it.product_id ? (priceById.get(it.product_id) ?? 0) : 0
+        const baseLine = Math.max(0, baseUnit * q)
+        if (idx === (items || []).length - 1 && orderSubtotalCents != null) {
+          return Math.max(0, orderSubtotalCents - allocated)
+        }
+        const inferred = Math.max(0, Math.round(baseLine * scale))
+        allocated += inferred
+        return inferred
+      })
+
+      enrichedItems = (items || []).map((it: any, idx: number) => {
+        const q = asNumber(it.quantity) ?? 0
+        const existingUnitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? null
+        const existingLineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (existingUnitCents != null ? existingUnitCents * q : null)
+        if (q > 0 && (existingUnitCents === 0 || existingLineCents === 0) && it.product_id) {
+          const inferredLine = inferredLines[idx] ?? 0
+          const inferredUnit = Math.round(inferredLine / q)
+          return { ...it, unit_price_cents: inferredUnit, line_total_cents: inferredLine }
+        }
+        return it
+      })
+    }
+
+    const itemsSum = enrichedItems.reduce((s: number, it: any) => {
+      const lineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? 0
+      return s + (lineCents / 100)
+    }, 0)
     order.total = Number(order.total) > 0 ? Number(order.total) : itemsSum
 
     // 2) PDF Generation
@@ -199,7 +269,7 @@ export const handler = async (event: any) => {
     y += 16
 
     // Items Table with Pagination
-    items.forEach((it: any, index: number) => {
+    enrichedItems.forEach((it: any, index: number) => {
       // Check if we need a new page before drawing the item
       y = checkPageBreak(y, ITEM_ROW_HEIGHT + 5)
 
@@ -217,8 +287,16 @@ export const handler = async (event: any) => {
       const name = it.product_name || it.sku || "-"
       const variant = it.variant_title ? ` • ${it.variant_title}` : ""
       const qty = Number(it.quantity || 0)
-      const unit = Number(it.unit_price || 0)
-      const lineTotal = it.line_total ? Number(it.line_total) : (qty * unit)
+      const unitCents =
+        asNumber(it.unit_price_cents) ??
+        guessMoneyToCents(it.unit_price) ??
+        0
+      const lineCents =
+        asNumber(it.line_total_cents) ??
+        guessMoneyToCents(it.line_total) ??
+        (unitCents * qty)
+      const unit = unitCents / 100
+      const lineTotal = lineCents / 100
 
       // Truncate long product names to fit on one line
       const maxNameWidth = right - 180
