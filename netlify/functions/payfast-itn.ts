@@ -213,13 +213,38 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 10. Generate invoice on payment (so it exists even if user never hits success page). Fire-and-forget.
-    const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
-    fetch(`${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ m_payment_id: orderId })
-    }).catch(e => console.error('Invoice generation (ITN):', e));
+    // 10. Generate invoice on payment (so it exists even if user never hits success page).
+    // IMPORTANT: Await completion; fire-and-forget is unreliable in serverless runtimes.
+    try {
+      const { data: invoiceRow } = await supabase
+        .from('orders')
+        .select('invoice_url')
+        .eq('id', orderUuid)
+        .maybeSingle();
+
+      if (!invoiceRow?.invoice_url) {
+        const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
+        const url = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf?return_url=1`;
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), 15000);
+        try {
+          const invRes = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ m_payment_id: orderId }),
+            signal: ac.signal
+          });
+          if (!invRes.ok) {
+            const detail = await invRes.text().catch(() => '');
+            console.error('Invoice generation (ITN) failed:', invRes.status, detail);
+          }
+        } finally {
+          clearTimeout(t);
+        }
+      }
+    } catch (e: any) {
+      console.error('Invoice generation (ITN) warning:', e?.message || e);
+    }
 
     // 11. Send a 200 OK to PayFast
     return { statusCode: 200, body: 'OK' };
