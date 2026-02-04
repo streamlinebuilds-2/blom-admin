@@ -192,17 +192,114 @@ export const handler: Handler = async (e) => {
         name, product_name, quantity, 
         unit_price_cents, line_total_cents, 
         price, unit_price, line_total,
-        variant, sku, product_id
+        variant, sku, product_id, variant_index
       `)
       .eq("order_id", id)
       .order("name", { ascending: true });
 
     if (iErr) throw iErr;
 
+    const safeParseJson = (value: any) => {
+      if (value == null) return null;
+      if (typeof value === "object") return value;
+      if (typeof value !== "string") return null;
+      try {
+        return JSON.parse(value);
+      } catch {
+        return null;
+      }
+    };
+
+    const toNumberLoose = (value: any) => {
+      if (value === undefined || value === null) return Number.NaN;
+      if (typeof value === "number") return value;
+      if (typeof value !== "string") return Number.NaN;
+      const cleaned = value.replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
+      if (!cleaned) return Number.NaN;
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : Number.NaN;
+    };
+
+    const asCents = (value: any) => {
+      if (value === undefined || value === null || value === "") return null;
+      const n = typeof value === "string" ? toNumberLoose(value) : Number(value);
+      if (!Number.isFinite(n)) return null;
+      return Math.round(n);
+    };
+
+    const asRandsToCents = (value: any) => {
+      if (value === undefined || value === null || value === "") return null;
+      const n = typeof value === "string" ? toNumberLoose(value) : Number(value);
+      if (!Number.isFinite(n)) return null;
+      return Math.round(n * 100);
+    };
+
+    let enrichedItems = (items || []).map((it: any) => {
+      const qty = Number(it.quantity ?? 0) || 0;
+      const unitCents =
+        asCents(it.unit_price_cents) ??
+        asRandsToCents(it.unit_price) ??
+        asRandsToCents(it.price) ??
+        null;
+      const lineCents =
+        asCents(it.line_total_cents) ??
+        asRandsToCents(it.line_total) ??
+        (unitCents != null ? unitCents * qty : null);
+
+      return {
+        ...it,
+        quantity: qty,
+        unit_price_cents: unitCents,
+        line_total_cents: lineCents,
+      };
+    });
+
+    const missingPriceProductIds = Array.from(
+      new Set(
+        enrichedItems
+          .filter((it: any) => (it.unit_price_cents == null || it.unit_price_cents <= 0) && it.product_id)
+          .map((it: any) => it.product_id)
+      )
+    );
+
+    if (missingPriceProductIds.length) {
+      const { data: products, error: pErr } = await s
+        .from("products")
+        .select("id, price_cents, price, variants")
+        .in("id", missingPriceProductIds);
+      if (!pErr && products?.length) {
+        const byId = new Map(products.map((p: any) => [p.id, p]));
+        enrichedItems = enrichedItems.map((it: any) => {
+          if (it.unit_price_cents != null && it.unit_price_cents > 0) return it;
+          const p = byId.get(it.product_id);
+          if (!p) return it;
+
+          let unitCents: number | null = null;
+          const variants = safeParseJson(p.variants) || p.variants;
+          if (variants && it.variant_index !== undefined && it.variant_index !== null && Array.isArray(variants)) {
+            const v = variants[it.variant_index];
+            unitCents =
+              asCents(v?.price_cents) ??
+              asCents(v?.priceCents) ??
+              asRandsToCents(v?.price) ??
+              null;
+          }
+
+          if (unitCents == null) {
+            unitCents = asCents(p.price_cents) ?? asRandsToCents(p.price) ?? null;
+          }
+
+          if (unitCents == null) return it;
+          const qty = Number(it.quantity ?? 0) || 0;
+          return { ...it, unit_price_cents: unitCents, line_total_cents: unitCents * qty };
+        });
+      }
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, order, items })
+      body: JSON.stringify({ ok: true, order, items: enrichedItems })
     };
   } catch (err:any) {
     console.error('❌ Order handler error:', err);

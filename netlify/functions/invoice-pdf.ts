@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const SITE = process.env.SITE_BASE_URL || process.env.SITE_URL || "https://blom-cosmetics.co.za"
+const SITE = process.env.SITE_BASE_URL || process.env.PUBLIC_SITE_URL || "https://blom-cosmetics.co.za"
 const BUCKET = "invoices"
 const LOGO_URL = "https://yvmnedjybrpvlupygusf.supabase.co/storage/v1/object/public/assets/blom_logo.png"
 
@@ -28,6 +28,16 @@ function safeParseJson(value: any) {
   } catch {
     return null
   }
+}
+
+function toNumberLoose(value: any): number {
+  if (value === undefined || value === null) return Number.NaN
+  if (typeof value === "number") return value
+  if (typeof value !== "string") return Number.NaN
+  const cleaned = value.replace(/,/g, "").replace(/[^\d.-]/g, "").trim()
+  if (!cleaned) return Number.NaN
+  const n = Number(cleaned)
+  return Number.isFinite(n) ? n : Number.NaN
 }
 
 export const handler = async (event: any) => {
@@ -88,22 +98,66 @@ export const handler = async (event: any) => {
     if (itemsErr) return { statusCode: 500, body: itemsErr.message }
     const items = rawItems || []
 
+    const unitFromItem = (it: any) => {
+      const cents = it.unit_price_cents != null ? toNumberLoose(it.unit_price_cents) : Number.NaN
+      if (Number.isFinite(cents) && cents > 0) return cents / 100
+      const unit = it.unit_price != null ? toNumberLoose(it.unit_price) : Number.NaN
+      if (Number.isFinite(unit) && unit > 0) return unit
+      const price = it.price != null ? toNumberLoose(it.price) : Number.NaN
+      if (Number.isFinite(price) && price > 0) return price
+      return null
+    }
+
+    const lineFromItem = (it: any) => {
+      const cents = it.line_total_cents != null ? toNumberLoose(it.line_total_cents) : Number.NaN
+      if (Number.isFinite(cents) && cents > 0) return cents / 100
+      const line = it.line_total != null ? toNumberLoose(it.line_total) : Number.NaN
+      if (Number.isFinite(line) && line > 0) return line
+      return null
+    }
+
+    const missingPriceIds = Array.from(
+      new Set(
+        items
+          .filter((it: any) => unitFromItem(it) == null && it.product_id)
+          .map((it: any) => it.product_id)
+      )
+    )
+
+    const productById = new Map<string, any>()
+    if (missingPriceIds.length) {
+      const { data: products, error: pErr } = await supabase
+        .from("products")
+        .select("id, price_cents, price, variants")
+        .in("id", missingPriceIds)
+      if (!pErr && products?.length) {
+        products.forEach((p: any) => productById.set(p.id, p))
+      }
+    }
+
+    const unitFromProduct = (it: any) => {
+      if (!it.product_id) return null
+      const p = productById.get(it.product_id)
+      if (!p) return null
+      const variants = safeParseJson(p.variants) || p.variants
+      if (variants && it.variant_index !== undefined && it.variant_index !== null && Array.isArray(variants)) {
+        const v = variants[it.variant_index]
+        const cents = v?.price_cents != null ? toNumberLoose(v.price_cents) : Number.NaN
+        if (Number.isFinite(cents) && cents > 0) return cents / 100
+        const price = v?.price != null ? toNumberLoose(v.price) : Number.NaN
+        if (Number.isFinite(price) && price > 0) return price
+      }
+      const cents = p.price_cents != null ? toNumberLoose(p.price_cents) : Number.NaN
+      if (Number.isFinite(cents) && cents > 0) return cents / 100
+      const price = p.price != null ? toNumberLoose(p.price) : Number.NaN
+      if (Number.isFinite(price) && price > 0) return price
+      return null
+    }
+
     const normalizedItems = items.map((it: any) => {
-      const qty = Number(it.quantity ?? it.qty ?? 0)
-      const unit =
-        it.unit_price_cents != null
-          ? Number(it.unit_price_cents) / 100
-          : it.unit_price != null
-            ? Number(it.unit_price)
-            : it.price != null
-              ? Number(it.price)
-              : 0
-      const lineTotal =
-        it.line_total_cents != null
-          ? Number(it.line_total_cents) / 100
-          : it.line_total != null
-            ? Number(it.line_total)
-            : qty * unit
+      const qty = Number(it.quantity ?? it.qty ?? 0) || 0
+      const unit = unitFromItem(it) ?? unitFromProduct(it) ?? 0
+      const lineTotal = lineFromItem(it) ?? (unit * qty)
 
       return {
         name: it.name || it.product_name || it.sku || "-",
@@ -281,10 +335,10 @@ export const handler = async (event: any) => {
     }
 
     // Calculate totals — only use explicit DB values, never infer discount
-    const shippingAmount = Number(order.shipping_cents ?? 0) / 100
-    const subtotalAmount = order.subtotal_cents != null ? Number(order.subtotal_cents) / 100 : itemsSum
-    const discountAmount = Number(order.discount_cents ?? 0) / 100
-    const taxAmount = Number(order.tax_cents ?? order.vat_cents ?? 0) / 100
+    const shippingAmount = toNumberLoose(order.shipping_cents ?? 0) / 100
+    const subtotalAmount = order.subtotal_cents != null ? toNumberLoose(order.subtotal_cents) / 100 : itemsSum
+    const discountAmount = toNumberLoose(order.discount_cents ?? 0) / 100
+    const taxAmount = toNumberLoose(order.tax_cents ?? order.vat_cents ?? 0) / 100
 
     // Only show discount line when there is a real explicit discount
     const showDiscount = discountAmount > 0.0001
@@ -327,11 +381,13 @@ export const handler = async (event: any) => {
 
     // Prefer stored order.total (what was paid); otherwise use calculated total
     const calculatedTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount + taxAmount)
+    const totalCentsRaw = toNumberLoose(order.total_cents ?? Number.NaN)
+    const totalRandsRaw = toNumberLoose(order.total ?? Number.NaN)
     const finalTotal =
-      order.total_cents != null && Number(order.total_cents) > 0
-        ? Number(order.total_cents) / 100
-        : Number(order.total) > 0
-          ? Number(order.total)
+      Number.isFinite(totalCentsRaw) && totalCentsRaw > 0
+        ? totalCentsRaw / 100
+        : Number.isFinite(totalRandsRaw) && totalRandsRaw > 0
+          ? totalRandsRaw
           : calculatedTotal
 
     // Subtotal

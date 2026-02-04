@@ -14,43 +14,6 @@ function generateOrderNumber() {
   return `ORD-${dateStr}-${random}`;
 }
 
-function asNumber(v) {
-  const n = typeof v === "string" ? Number(v) : v;
-  return Number.isFinite(n) ? n : null;
-}
-
-function guessMoneyToCents(value) {
-  const n = asNumber(value);
-  if (n === null) return null;
-  if (!Number.isInteger(n)) return Math.round(n * 100);
-  if (n >= 10000) return Math.round(n);
-  return Math.round(n * 100);
-}
-
-function getItemUnitPriceCents(item, product) {
-  if (!product) return guessMoneyToCents(item.unit_price_cents) ?? 0;
-
-  const variantIndex = item.variant_index ?? item.variantIndex;
-  if (variantIndex !== undefined && variantIndex !== null && Array.isArray(product.variants)) {
-    const v = product.variants[Number(variantIndex)];
-    if (v) {
-      const vCents =
-        guessMoneyToCents(v.price_cents) ??
-        guessMoneyToCents(v.priceCents) ??
-        guessMoneyToCents(v.price) ??
-        null;
-      if (vCents != null && vCents > 0) return vCents;
-    }
-  }
-
-  const pCents =
-    guessMoneyToCents(product.price_cents) ??
-    guessMoneyToCents(product.priceCents) ??
-    guessMoneyToCents(product.price) ??
-    null;
-  return pCents != null ? pCents : (guessMoneyToCents(item.unit_price_cents) ?? 0);
-}
-
 export const handler = async (event) => {
   try {
     const orderData = JSON.parse(event.body || "{}");
@@ -59,18 +22,16 @@ export const handler = async (event) => {
     const m_payment_id = randomUUID();
     const order_number = generateOrderNumber();
 
-    // 1. Verify Products & Stock and compute authoritative item prices
-    const orderItems = Array.isArray(orderData.items) ? orderData.items : [];
-    const productsById = new Map();
+    // 1. Verify Products & Stock
     if (orderData.items && orderData.items.length > 0) {
-      const productIds = orderItems
+      const productIds = orderData.items
         .filter(item => item.product_id)
         .map(item => item.product_id);
 
       if (productIds.length > 0) {
         const { data: products, error: productsError } = await supabase
           .from('products')
-          .select('id, name, price, price_cents, variants, inventory_quantity, track_inventory, status')
+          .select('id, name, price, inventory_quantity, track_inventory, status')
           .in('id', productIds);
 
         if (productsError) {
@@ -78,13 +39,11 @@ export const handler = async (event) => {
           throw new Error('Failed to validate products');
         }
 
-        for (const p of products || []) productsById.set(p.id, p);
-
         // Check stock for each item
-        for (const item of orderItems) {
+        for (const item of orderData.items) {
           if (!item.product_id) continue;
 
-          const product = productsById.get(item.product_id);
+          const product = products?.find(p => p.id === item.product_id);
 
           if (!product) {
             throw new Error(`Product not found: ${item.product_id}`);
@@ -96,8 +55,7 @@ export const handler = async (event) => {
           }
 
           // STOCK CHECK: Only check if track_inventory is TRUE
-          const qty = asNumber(item.qty ?? item.quantity) ?? 0;
-          if (product.track_inventory && product.inventory_quantity < qty) {
+          if (product.track_inventory && product.inventory_quantity < item.qty) {
             throw new Error(`Insufficient stock for ${product.name}. Available: ${product.inventory_quantity}`);
           }
         }
@@ -105,18 +63,9 @@ export const handler = async (event) => {
     }
 
     // Calculate subtotal (all in cents)
-    const normalizedItems = orderItems.map((item) => {
-      const qty = Math.max(0, Math.round(asNumber(item.qty ?? item.quantity) ?? 0));
-      const product = item.product_id ? productsById.get(item.product_id) : null;
-      const unit_price_cents = Math.max(0, Math.round(getItemUnitPriceCents(item, product) ?? 0));
-      return {
-        ...item,
-        qty,
-        unit_price_cents
-      };
-    });
-
-    const subtotal_cents = normalizedItems.reduce((sum, item) => sum + (item.unit_price_cents * item.qty), 0);
+    const subtotal_cents = orderData.items?.reduce((sum, item) => {
+      return sum + (item.unit_price_cents * item.qty);
+    }, 0) || 0;
 
     // Validate and apply coupon discount if provided
     let discount_cents = 0;
@@ -131,7 +80,7 @@ export const handler = async (event) => {
           body: JSON.stringify({
             couponCode: orderData.coupon_code,
             cartTotalCents: subtotal_cents,
-            cartItems: normalizedItems || []
+            cartItems: orderData.items || []
           })
         });
 
@@ -195,18 +144,50 @@ export const handler = async (event) => {
     }
 
     // Create order items
-    if (normalizedItems.length > 0) {
-      const itemsToInsert = normalizedItems.map((item) => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        sku: item.sku,
-        name: item.name,
-        variant: item.variant,
-        quantity: item.qty,
-        unit_price_cents: item.unit_price_cents,
-        line_total_cents: item.unit_price_cents * item.qty,
-        variant_index: item.variant_index !== undefined ? item.variant_index : null,
-      }));
+    if (orderData.items && orderData.items.length > 0) {
+      const toNumberLoose = (v) => {
+        if (v === undefined || v === null) return NaN;
+        if (typeof v === "number") return v;
+        if (typeof v !== "string") return NaN;
+        const cleaned = v.replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
+        if (!cleaned) return NaN;
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : NaN;
+      };
+
+      const toCents = (value) => {
+        const n = typeof value === "string" ? toNumberLoose(value) : Number(value);
+        if (!Number.isFinite(n)) return null;
+        return Math.round(n);
+      };
+
+      const randsToCents = (value) => {
+        const n = typeof value === "string" ? toNumberLoose(value) : Number(value);
+        if (!Number.isFinite(n)) return null;
+        return Math.round(n * 100);
+      };
+
+      const itemsToInsert = orderData.items.map((item) => {
+        const qty = Number(item.qty ?? item.quantity ?? 0) || 0;
+        const unitCents =
+          toCents(item.unit_price_cents) ??
+          toCents(item.price_cents) ??
+          randsToCents(item.unit_price) ??
+          randsToCents(item.price) ??
+          0;
+
+        return {
+          order_id: order.id,
+          product_id: item.product_id,
+          sku: item.sku,
+          name: item.name,
+          variant: item.variant,
+          quantity: qty,
+          unit_price_cents: unitCents,
+          line_total_cents: unitCents * qty,
+          variant_index: item.variant_index !== undefined ? item.variant_index : null,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from("order_items")

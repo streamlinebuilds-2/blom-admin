@@ -8,21 +8,22 @@ import {
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../lib/supabase";
 
-// Helper: Format currency safely (handles cents vs rands)
-const formatMoney = (cents) => {
-  if (cents === undefined || cents === null || cents === "" || isNaN(cents)) return "R0.00";
-  const n = typeof cents === "string" ? parseFloat(cents) : Number(cents);
-  if (!Number.isFinite(n)) return "R0.00";
-  return `R${(n / 100).toFixed(2)}`;
+const toNumberLoose = (value) => {
+  if (value === undefined || value === null) return Number.NaN;
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return Number.NaN;
+  const cleaned = value.replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
+  if (!cleaned) return Number.NaN;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : Number.NaN;
 };
 
-const guessMoneyToCents = (value) => {
-  if (value === undefined || value === null || value === "" || isNaN(value)) return null;
-  const n = typeof value === "string" ? parseFloat(value) : Number(value);
-  if (!Number.isFinite(n)) return null;
-  if (!Number.isInteger(n)) return Math.round(n * 100);
-  if (n >= 10000) return Math.round(n);
-  return Math.round(n * 100);
+// Helper: Format currency safely (handles cents vs rands)
+const formatMoney = (cents) => {
+  if (cents === undefined || cents === null || cents === "") return "R0.00";
+  const n = typeof cents === "string" ? toNumberLoose(cents) : Number(cents);
+  if (!Number.isFinite(n)) return "R0.00";
+  return `R${(n / 100).toFixed(2)}`;
 };
 
 // Helper: Format address safely (handle objects and strings)
@@ -73,15 +74,15 @@ export default function OrderDetail() {
   const order = data?.order;
   const items = data?.items || [];
   const asCentsColumn = (value) => {
-    if (value === undefined || value === null || value === "" || isNaN(value)) return null;
-    const n = typeof value === "string" ? parseFloat(value) : Number(value);
+    if (value === undefined || value === null || value === "") return null;
+    const n = typeof value === "string" ? toNumberLoose(value) : Number(value);
     if (!Number.isFinite(n)) return null;
     return Math.round(n);
   };
 
   const asRandsToCents = (value) => {
-    if (value === undefined || value === null || value === "" || isNaN(value)) return null;
-    const n = typeof value === "string" ? parseFloat(value) : Number(value);
+    if (value === undefined || value === null || value === "") return null;
+    const n = typeof value === "string" ? toNumberLoose(value) : Number(value);
     if (!Number.isFinite(n)) return null;
     return Math.round(n * 100);
   };
@@ -89,13 +90,13 @@ export default function OrderDetail() {
   const itemsSubtotalCents = (items || []).reduce((sum, item) => {
     const unitPriceCents =
       asCentsColumn(item.unit_price_cents) ??
-      guessMoneyToCents(item.unit_price) ??
-      guessMoneyToCents(item.price) ??
+      asCentsColumn(item.price) ??
+      (item.unit_price ? asRandsToCents(item.unit_price) : 0) ??
       0;
-    const quantity = Number(item.quantity || item.qty || 0) || 0;
+    const quantity = item.quantity || 0;
     const lineTotalCents =
       asCentsColumn(item.line_total_cents) ??
-      guessMoneyToCents(item.line_total) ??
+      asCentsColumn(item.line_total) ??
       (unitPriceCents * quantity);
     return sum + (lineTotalCents || 0);
   }, 0);
@@ -448,17 +449,17 @@ export default function OrderDetail() {
                 </td>
                 <td class="text-right">${item.quantity || 0}</td>
                 <td class="text-right">${formatMoney(
-                  item.unit_price_cents ??
-                  guessMoneyToCents(item.unit_price) ??
-                  guessMoneyToCents(item.price) ??
+                  asCentsColumn(item.unit_price_cents) ??
+                  asRandsToCents(item.unit_price) ??
+                  asRandsToCents(item.price) ??
                   0
                 )}</td>
                 <td class="text-right">${formatMoney(
-                  item.line_total_cents ??
-                  guessMoneyToCents(item.line_total) ??
-                  ((item.unit_price_cents ??
-                    guessMoneyToCents(item.unit_price) ??
-                    guessMoneyToCents(item.price) ??
+                  asCentsColumn(item.line_total_cents) ??
+                  asRandsToCents(item.line_total) ??
+                  ((asCentsColumn(item.unit_price_cents) ??
+                    asRandsToCents(item.unit_price) ??
+                    asRandsToCents(item.price) ??
                     0) * (item.quantity || 0))
                 )}</td>
               </tr>
@@ -467,6 +468,10 @@ export default function OrderDetail() {
         </table>
 
         <div class="summary">
+          <div class="summary-row">
+            <span>Subtotal:</span>
+            <span>${formatMoney(receiptSubtotalCents)}</span>
+          </div>
           <div class="summary-row">
             <span>Shipping:</span>
             <span>${formatMoney(receiptShippingCents)}</span>
@@ -715,25 +720,6 @@ export default function OrderDetail() {
       letter-spacing: 0.05em;
       border-bottom: 2px solid var(--border);
       background: var(--card);
-    }
-
-    .items-table th.text-center, .items-table td.text-center {
-      text-align: center;
-    }
-
-    .items-table th.text-right, .items-table td.text-right {
-      text-align: right;
-    }
-
-    .items-table th:nth-child(2), .items-table td:nth-child(2) {
-      width: 70px;
-      white-space: nowrap;
-    }
-
-    .items-table th:nth-child(3), .items-table td:nth-child(3),
-    .items-table th:nth-child(4), .items-table td:nth-child(4) {
-      width: 120px;
-      white-space: nowrap;
     }
 
     .items-table td {
@@ -1128,15 +1114,16 @@ export default function OrderDetail() {
                 </thead>
                 <tbody>
                   {items.map((item, i) => {
-                    const quantity = Number(item.quantity || item.qty || 0) || 0;
+                    // ROBUST: Handle multiple field name variations for pricing
                     const unitPriceCents =
                       asCentsColumn(item.unit_price_cents) ??
-                      guessMoneyToCents(item.unit_price) ??
-                      guessMoneyToCents(item.price) ??
+                      asRandsToCents(item.unit_price) ??
+                      asRandsToCents(item.price) ??
                       0;
+                    const quantity = item.quantity || 0;
                     const totalCents =
                       asCentsColumn(item.line_total_cents) ??
-                      guessMoneyToCents(item.line_total) ??
+                      asRandsToCents(item.line_total) ??
                       (unitPriceCents * quantity);
 
                     return (
@@ -1153,6 +1140,13 @@ export default function OrderDetail() {
                   })}
                 </tbody>
                 <tfoot>
+                  <tr className="border-t-2 border-gray-100">
+                    <td colSpan={2} className="py-3 px-3"></td>
+                    <td className="text-right py-2 px-3 text-sm text-gray-600">Subtotal</td>
+                    <td className="text-right py-2 px-3 text-sm font-medium">
+                      {formatMoney(subtotalCents)}
+                    </td>
+                  </tr>
                   <tr>
                     <td colSpan={2} className="py-0 px-3"></td>
                     <td className="text-right py-2 px-3 text-sm text-gray-600">Shipping</td>
