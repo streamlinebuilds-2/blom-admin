@@ -50,9 +50,46 @@ export const handler: Handler = async (e) => {
       }
 
       // Determine invoice information
-      const hasInvoice = !!order.invoice_url;
+      let hasInvoice = !!order.invoice_url;
       const canGenerateInvoice = order.status === 'paid' || order.payment_status === 'paid';
-      const needsManualGeneration = !hasInvoice && canGenerateInvoice;
+      let needsManualGeneration = !hasInvoice && canGenerateInvoice;
+      let generatedInvoiceUrl: string | null = null;
+      let invoiceGenerationError: string | null = null;
+
+      if (needsManualGeneration) {
+        try {
+          const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
+          const url = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf?return_url=1`;
+          const ac = new AbortController();
+          const t = setTimeout(() => ac.abort(), 15000);
+          try {
+            const invRes = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order_id: orderId, m_payment_id: order.m_payment_id }),
+              signal: ac.signal
+            });
+            if (!invRes.ok) {
+              const detail = await invRes.text().catch(() => '');
+              invoiceGenerationError = `invoice-pdf failed: ${invRes.status} ${detail}`;
+            } else {
+              const invJson: any = await invRes.json().catch(() => ({}));
+              generatedInvoiceUrl = invJson?.url || null;
+            }
+          } finally {
+            clearTimeout(t);
+          }
+
+          const { data: refreshed } = await s.from("orders").select("invoice_url").eq("id", orderId).maybeSingle();
+          if (refreshed?.invoice_url) {
+            order.invoice_url = refreshed.invoice_url;
+            hasInvoice = true;
+            needsManualGeneration = false;
+          }
+        } catch (e: any) {
+          invoiceGenerationError = e?.message || String(e);
+        }
+      }
 
       return {
         statusCode: 200,
@@ -69,7 +106,9 @@ export const handler: Handler = async (e) => {
             has_invoice: hasInvoice,
             invoice_url: order.invoice_url,
             can_generate_invoice: canGenerateInvoice,
-            needs_manual_generation: needsManualGeneration
+            needs_manual_generation: needsManualGeneration,
+            generated_invoice_url: generatedInvoiceUrl,
+            invoice_generation_error: invoiceGenerationError
           }
         })
       };
