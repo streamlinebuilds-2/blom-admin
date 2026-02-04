@@ -54,7 +54,7 @@ export const handler: Handler = async (e) => {
       // Get current order status
       const { data: currentOrder, error: fetchError } = await s
         .from("orders")
-        .select('status, paid_at')
+        .select('status, paid_at, m_payment_id, invoice_url, order_kind, payment_status')
         .eq("id", id)
         .single();
 
@@ -107,41 +107,42 @@ export const handler: Handler = async (e) => {
       let invoiceUrl: string | null = null;
       let invoiceError: string | null = null;
 
-      if (status === 'paid' && oldStatus !== 'paid') {
-        try {
-          const { data: invRow, error: invRowErr } = await s
-            .from("orders")
-            .select("invoice_url, m_payment_id")
-            .eq("id", id)
-            .maybeSingle();
-          if (invRowErr) throw invRowErr;
+      const shouldGenerateInvoice =
+        status === 'paid' &&
+        oldStatus !== 'paid' &&
+        !currentOrder?.invoice_url &&
+        currentOrder?.m_payment_id;
 
-          if (!invRow?.invoice_url) {
-            const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
-            const url = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf?return_url=1`;
-            const ac = new AbortController();
-            const t = setTimeout(() => ac.abort(), 15000);
-            try {
-              const invRes = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_id: id, m_payment_id: invRow?.m_payment_id }),
-                signal: ac.signal
-              });
-              if (!invRes.ok) {
-                const detail = await invRes.text().catch(() => '');
-                invoiceError = `invoice-pdf failed: ${invRes.status} ${detail}`;
-              } else {
-                const invJson: any = await invRes.json().catch(() => ({}));
-                invoiceGenerated = true;
-                invoiceUrl = invJson?.url || null;
-              }
-            } finally {
-              clearTimeout(t);
+      if (shouldGenerateInvoice) {
+        try {
+          const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
+          const fnUrl = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf`;
+          const ac = new AbortController();
+          const t = setTimeout(() => ac.abort(), 20000);
+          try {
+            const invRes = await fetch(fnUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ m_payment_id: currentOrder.m_payment_id, order_id: id }),
+              signal: ac.signal
+            });
+            if (!invRes.ok) {
+              const detail = await invRes.text().catch(() => '');
+              invoiceError = `invoice-pdf failed: ${invRes.status} ${detail}`;
+            } else {
+              invoiceGenerated = true;
+              const { data: invRow } = await s
+                .from("orders")
+                .select("invoice_url")
+                .eq("id", id)
+                .maybeSingle();
+              invoiceUrl = invRow?.invoice_url || null;
             }
+          } finally {
+            clearTimeout(t);
           }
-        } catch (e: any) {
-          invoiceError = e?.message || String(e);
+        } catch (err: any) {
+          invoiceError = err?.message || String(err);
         }
       }
 
@@ -170,7 +171,7 @@ export const handler: Handler = async (e) => {
     }
 
     // 1. Get Order with specific columns - include all pricing fields and invoice URL
-    const { data: orderData, error: oErr } = await s.from("orders")
+    const { data: order, error: oErr } = await s.from("orders")
       .select(`
         *,
         shipping_address,
@@ -184,7 +185,6 @@ export const handler: Handler = async (e) => {
       .eq("id", id).single();
 
     if (oErr) throw oErr;
-    let order: any = orderData;
 
     // 2. Get Items with correct column names - include variant information
     const { data: items, error: iErr } = await s.from("order_items")
@@ -199,129 +199,10 @@ export const handler: Handler = async (e) => {
 
     if (iErr) throw iErr;
 
-    const asNumber = (v: any) => {
-      const n = typeof v === "string" ? Number(v) : v;
-      return Number.isFinite(n) ? n : null;
-    };
-
-    const guessMoneyToCents = (value: any) => {
-      const n = asNumber(value);
-      if (n === null) return null;
-      if (!Number.isInteger(n)) return Math.round(n * 100);
-      if (n >= 10000) return Math.round(n);
-      return Math.round(n * 100);
-    };
-
-    const orderSubtotalCents =
-      asNumber(order?.subtotal_cents) ??
-      guessMoneyToCents(order?.subtotal) ??
-      null;
-
-    const needsBackfill = (items || []).some((it: any) => {
-      const q = asNumber(it.quantity) ?? 0;
-      if (q <= 0) return false;
-      const unitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? guessMoneyToCents(it.price) ?? 0;
-      const lineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (unitCents * q);
-      return (unitCents === 0 || lineCents === 0) && !!it.product_id;
-    });
-
-    let enrichedItems: any[] = items || [];
-    if (needsBackfill) {
-      if (orderSubtotalCents != null) {
-        const computedLineCents = (it: any) => {
-          const q = asNumber(it.quantity) ?? 0;
-          const unitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? guessMoneyToCents(it.price) ?? 0;
-          return asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (unitCents * q);
-        };
-
-        const missingIdx: number[] = [];
-        let existingSum = 0;
-        let missingQty = 0;
-
-        (items || []).forEach((it: any, idx: number) => {
-          const q = asNumber(it.quantity) ?? 0;
-          const line = computedLineCents(it) || 0;
-          if (q > 0 && line <= 0) {
-            missingIdx.push(idx);
-            missingQty += q;
-          } else {
-            existingSum += Math.max(0, line);
-          }
-        });
-
-        const remaining = Math.max(0, orderSubtotalCents - existingSum);
-
-        if (missingIdx.length > 0 && missingQty > 0 && remaining > 0) {
-          let allocated = 0;
-          const inferredLines = new Map<number, number>();
-          missingIdx.forEach((idx, i) => {
-            const q = asNumber((items || [])[idx]?.quantity) ?? 0;
-            if (i === missingIdx.length - 1) {
-              inferredLines.set(idx, Math.max(0, remaining - allocated));
-              return;
-            }
-            const line = Math.max(0, Math.round((remaining * q) / missingQty));
-            inferredLines.set(idx, line);
-            allocated += line;
-          });
-
-          enrichedItems = (items || []).map((it: any, idx: number) => {
-            if (!inferredLines.has(idx)) return it;
-            const q = asNumber(it.quantity) ?? 0;
-            const line = inferredLines.get(idx) ?? 0;
-            const unit = q > 0 ? Math.round(line / q) : 0;
-            return { ...it, unit_price_cents: unit, line_total_cents: line };
-          });
-        }
-      }
-    }
-
-    let invoiceGenerated = false;
-    let invoiceUrl: string | null = null;
-    let invoiceError: string | null = null;
-
-    if (order && !order.invoice_url && (order.status === 'paid' || order.payment_status === 'paid')) {
-      try {
-        const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
-        const url = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf?return_url=1`;
-        const ac = new AbortController();
-        const t = setTimeout(() => ac.abort(), 15000);
-        try {
-          const invRes = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_id: id, m_payment_id: order.m_payment_id }),
-            signal: ac.signal
-          });
-          if (!invRes.ok) {
-            const detail = await invRes.text().catch(() => '');
-            invoiceError = `invoice-pdf failed: ${invRes.status} ${detail}`;
-          } else {
-            const invJson: any = await invRes.json().catch(() => ({}));
-            invoiceGenerated = true;
-            invoiceUrl = invJson?.url || null;
-          }
-        } finally {
-          clearTimeout(t);
-        }
-
-        const { data: refreshed, error: rErr } = await s
-          .from("orders")
-          .select("invoice_url")
-          .eq("id", id)
-          .maybeSingle();
-        if (!rErr && refreshed?.invoice_url) {
-          order = { ...order, invoice_url: refreshed.invoice_url };
-        }
-      } catch (e: any) {
-        invoiceError = e?.message || String(e);
-      }
-    }
-
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, order, items: enrichedItems, invoiceGenerated, invoiceUrl, invoiceError })
+      body: JSON.stringify({ ok: true, order, items })
     };
   } catch (err:any) {
     console.error('❌ Order handler error:', err);
