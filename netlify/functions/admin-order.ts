@@ -170,7 +170,7 @@ export const handler: Handler = async (e) => {
     }
 
     // 1. Get Order with specific columns - include all pricing fields and invoice URL
-    const { data: order, error: oErr } = await s.from("orders")
+    const { data: orderData, error: oErr } = await s.from("orders")
       .select(`
         *,
         shipping_address,
@@ -184,6 +184,7 @@ export const handler: Handler = async (e) => {
       .eq("id", id).single();
 
     if (oErr) throw oErr;
+    let order: any = orderData;
 
     // 2. Get Items with correct column names - include variant information
     const { data: items, error: iErr } = await s.from("order_items")
@@ -275,10 +276,52 @@ export const handler: Handler = async (e) => {
       }
     }
 
+    let invoiceGenerated = false;
+    let invoiceUrl: string | null = null;
+    let invoiceError: string | null = null;
+
+    if (order && !order.invoice_url && (order.status === 'paid' || order.payment_status === 'paid')) {
+      try {
+        const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
+        const url = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf?return_url=1`;
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), 15000);
+        try {
+          const invRes = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: id, m_payment_id: order.m_payment_id }),
+            signal: ac.signal
+          });
+          if (!invRes.ok) {
+            const detail = await invRes.text().catch(() => '');
+            invoiceError = `invoice-pdf failed: ${invRes.status} ${detail}`;
+          } else {
+            const invJson: any = await invRes.json().catch(() => ({}));
+            invoiceGenerated = true;
+            invoiceUrl = invJson?.url || null;
+          }
+        } finally {
+          clearTimeout(t);
+        }
+
+        const { data: refreshed, error: rErr } = await s
+          .from("orders")
+          .select("invoice_url")
+          .eq("id", id)
+          .maybeSingle();
+        if (!rErr && refreshed?.invoice_url) {
+          order = { ...order, invoice_url: refreshed.invoice_url };
+        }
+      } catch (e: any) {
+        invoiceError = e?.message || String(e);
+      }
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ ok: true, order, items: enrichedItems })
+      body: JSON.stringify({ ok: true, order, items: enrichedItems, invoiceGenerated, invoiceUrl, invoiceError })
     };
   } catch (err:any) {
     console.error('❌ Order handler error:', err);
