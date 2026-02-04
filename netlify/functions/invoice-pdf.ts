@@ -1,18 +1,12 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
 import fetch from "node-fetch"
+import { createClient } from "@supabase/supabase-js"
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const SITE_URL = "https://blom-cosmetics.co.za/"
-const BUCKET = "invoices" 
+const SITE = process.env.SITE_BASE_URL || process.env.SITE_URL || "https://blom-cosmetics.co.za"
+const BUCKET = "invoices"
 const LOGO_URL = "https://yvmnedjybrpvlupygusf.supabase.co/storage/v1/object/public/assets/blom_logo.png"
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, X-M-Payment-Id, X-Order-Id",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Expose-Headers": "X-Invoice-Url",
-} as const
 
 // Page dimensions (A4)
 const PAGE_WIDTH = 595.28
@@ -25,33 +19,21 @@ function money(n: any) {
   return "R " + Number(n || 0).toFixed(2)
 }
 
-function sanitizeWinAnsi(text: string) {
-  return Array.from(text).filter((ch) => (ch.codePointAt(0) ?? 0) <= 0xff).join("")
-}
-
-function asNumber(v: any) {
-  const n = typeof v === "string" ? Number(v) : v
-  return Number.isFinite(n) ? n : null
-}
-
-function guessMoneyToCents(value: any) {
-  const n = asNumber(value)
-  if (n === null) return null
-  if (!Number.isInteger(n)) return Math.round(n * 100)
-  if (n >= 10000) return Math.round(n)
-  return Math.round(n * 100)
-}
-
-async function fetchJson(url: string) {
-  const res = await fetch(url, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
+function safeParseJson(value: any) {
+  if (value == null) return null
+  if (typeof value === "object") return value
+  if (typeof value !== "string") return null
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
 }
 
 export const handler = async (event: any) => {
   try {
-    if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: CORS_HEADERS, body: "" }
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      return { statusCode: 500, body: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }
     }
 
     const contentType = event.headers['content-type'] || '';
@@ -71,98 +53,69 @@ export const handler = async (event: any) => {
     let m_payment_id = body.m_payment_id || q.m_payment_id || event.headers['x-m-payment-id'];
     const order_id = body.order_id || q.order_id || event.headers['x-order-id'];
 
-    // ID Lookup logic
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { persistSession: false },
+      global: { fetch: fetch as any }
+    })
+
     if (!m_payment_id && order_id) {
-      try {
-        const orderResponse: any = await fetchJson(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order_id}&select=m_payment_id`);
-        if (orderResponse && orderResponse.length > 0) m_payment_id = orderResponse[0].m_payment_id;
-      } catch (error) { console.error('ID Lookup Error', error); }
+      const { data: idRow, error: idErr } = await supabase
+        .from("orders")
+        .select("m_payment_id")
+        .eq("id", order_id)
+        .maybeSingle()
+      if (!idErr && idRow?.m_payment_id) m_payment_id = idRow.m_payment_id
     }
 
     if (!m_payment_id) {
-      return {
-        statusCode: 400,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "ID required" }),
-      }
+      return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'ID required' }) };
     }
 
-    // 1) Load Order Data
-    const orderResponse: any = await fetchJson(
-      `${SUPABASE_URL}/rest/v1/orders?m_payment_id=eq.${encodeURIComponent(m_payment_id)}&select=id,buyer_name,buyer_email,buyer_phone,fulfillment_method,delivery_address,collection_location,total,subtotal_cents,shipping_cents,discount_cents,coupon_code,status,created_at`
-    )
-    const order = Array.isArray(orderResponse) ? orderResponse[0] : orderResponse
+    const { data: order, error: orderErr } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("m_payment_id", m_payment_id)
+      .maybeSingle()
+
+    if (orderErr) return { statusCode: 500, body: orderErr.message }
     if (!order) return { statusCode: 404, body: "ORDER_NOT_FOUND" }
 
-    const items = await fetchJson(
-      `${SUPABASE_URL}/rest/v1/order_items?order_id=eq.${order.id}&select=product_id,product_name,sku,quantity,unit_price_cents,line_total_cents,unit_price,line_total,variant_title`
-    ) as any[]
+    const { data: rawItems, error: itemsErr } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", order.id)
 
-    const orderSubtotalCents = asNumber(order.subtotal_cents) ?? guessMoneyToCents(order.subtotal) ?? null
-    const needsBackfill = (items || []).some((it: any) => {
-      const q = asNumber(it.quantity) ?? 0
-      if (q <= 0) return false
-      const unitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? 0
-      const lineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (unitCents * q)
-      return (unitCents === 0 || lineCents === 0) && !!it.product_id
+    if (itemsErr) return { statusCode: 500, body: itemsErr.message }
+    const items = rawItems || []
+
+    const normalizedItems = items.map((it: any) => {
+      const qty = Number(it.quantity ?? it.qty ?? 0)
+      const unit =
+        it.unit_price_cents != null
+          ? Number(it.unit_price_cents) / 100
+          : it.unit_price != null
+            ? Number(it.unit_price)
+            : it.price != null
+              ? Number(it.price)
+              : 0
+      const lineTotal =
+        it.line_total_cents != null
+          ? Number(it.line_total_cents) / 100
+          : it.line_total != null
+            ? Number(it.line_total)
+            : qty * unit
+
+      return {
+        name: it.name || it.product_name || it.sku || "-",
+        variant: it.variant || it.variant_title || "",
+        sku: it.sku || "",
+        quantity: qty,
+        unit_price: unit,
+        line_total: lineTotal
+      }
     })
 
-    let enrichedItems: any[] = items || []
-    if (needsBackfill) {
-      if (orderSubtotalCents != null) {
-        const computedLineCents = (it: any) => {
-          const q = asNumber(it.quantity) ?? 0
-          const unitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? 0
-          return asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (unitCents * q)
-        }
-
-        const missingIdx: number[] = []
-        let existingSum = 0
-        let missingQty = 0
-
-        ;(items || []).forEach((it: any, idx: number) => {
-          const q = asNumber(it.quantity) ?? 0
-          const line = computedLineCents(it) || 0
-          if (q > 0 && line <= 0) {
-            missingIdx.push(idx)
-            missingQty += q
-          } else {
-            existingSum += Math.max(0, line)
-          }
-        })
-
-        const remaining = Math.max(0, orderSubtotalCents - existingSum)
-
-        if (missingIdx.length > 0 && missingQty > 0 && remaining > 0) {
-          let allocated = 0
-          const inferredLines = new Map<number, number>()
-          missingIdx.forEach((idx, i) => {
-            const q = asNumber((items || [])[idx]?.quantity) ?? 0
-            if (i === missingIdx.length - 1) {
-              inferredLines.set(idx, Math.max(0, remaining - allocated))
-              return
-            }
-            const line = Math.max(0, Math.round((remaining * q) / missingQty))
-            inferredLines.set(idx, line)
-            allocated += line
-          })
-
-          enrichedItems = (items || []).map((it: any, idx: number) => {
-            if (!inferredLines.has(idx)) return it
-            const q = asNumber(it.quantity) ?? 0
-            const line = inferredLines.get(idx) ?? 0
-            const unit = q > 0 ? Math.round(line / q) : 0
-            return { ...it, unit_price_cents: unit, line_total_cents: line }
-          })
-        }
-      }
-    }
-
-    const itemsSum = enrichedItems.reduce((s: number, it: any) => {
-      const lineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? 0
-      return s + (lineCents / 100)
-    }, 0)
-    order.total = Number(order.total) > 0 ? Number(order.total) : itemsSum
+    const itemsSum = normalizedItems.reduce((s: number, it: any) => s + Number(it.line_total || 0), 0)
 
     // 2) PDF Generation
     const pdf = await PDFDocument.create()
@@ -176,16 +129,14 @@ export const handler = async (event: any) => {
 
     // Helper functions
     const drawText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
-      const safeText = sanitizeWinAnsi(String(text))
-      page.drawText(safeText, { x, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
+      page.drawText(String(text), { x, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
     const drawLine = (x1: number, y1: number, x2: number, y2: number, page = currentPage) => {
       page.drawLine({ start: { x: x1, y: PAGE_HEIGHT - y1 }, end: { x: x2, y: PAGE_HEIGHT - y2 }, thickness: 1, color: rgb(0.9, 0.92, 0.95) })
     }
     const drawRightText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
-      const safeText = sanitizeWinAnsi(String(text))
-      const textWidth = (bold ? fontBold : font).widthOfTextAtSize(safeText, size)
-      page.drawText(safeText, { x: x - textWidth, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
+      const textWidth = (bold ? fontBold : font).widthOfTextAtSize(String(text), size)
+      page.drawText(String(text), { x: x - textWidth, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
 
     // Function to add a new page
@@ -238,16 +189,22 @@ export const handler = async (event: any) => {
     drawText("Customer", left, y, 12, true)
     drawText("Fulfillment", right - 200, y, 12, true)
     y += 18
-    drawText(order.buyer_name || "-", left, y, 11)
-    drawText(String(order.fulfillment_method || '-').toUpperCase(), right - 200, y, 11)
+    const buyerName = order.buyer_name || order.customer_name || "-"
+    const buyerEmail = order.buyer_email || order.customer_email || "-"
+    const buyerPhone = order.contact_phone || order.buyer_phone || order.customer_phone || ""
+    const fulfillment = order.fulfillment_method || order.delivery_method || order.fulfillment_type || order.shipping_method || "-"
+    drawText(buyerName, left, y, 11)
+    drawText(String(fulfillment || "-").toUpperCase(), right - 200, y, 11)
     y += 16
-    drawText(order.buyer_email || "-", left, y, 10, false, rgb(0.4, 0.45, 0.52))
+    drawText(buyerEmail, left, y, 10, false, rgb(0.4, 0.45, 0.52))
     if (order.collection_location) drawText(String(order.collection_location), right - 200, y, 10, false, rgb(0.4, 0.45, 0.52))
     y += 16
-    drawText(order.buyer_phone || "", left, y, 10, false, rgb(0.4, 0.45, 0.52))
+    drawText(buyerPhone, left, y, 10, false, rgb(0.4, 0.45, 0.52))
     
-    if (order.delivery_address && order.fulfillment_method === 'delivery') {
-      const addr = order.delivery_address
+    const addrRaw = order.shipping_address ?? order.delivery_address ?? order.delivery_address_json
+    const addrObj = safeParseJson(addrRaw) || addrRaw
+    if (addrObj && String(fulfillment).toLowerCase().includes("delivery")) {
+      const addr = addrObj
       const addrLines = [
         addr.line1 || addr.street_address,
         [addr.city, addr.postal_code || addr.code].filter(Boolean).join(' '),
@@ -274,7 +231,7 @@ export const handler = async (event: any) => {
     y += 16
 
     // Items Table with Pagination
-    enrichedItems.forEach((it: any, index: number) => {
+    normalizedItems.forEach((it: any) => {
       // Check if we need a new page before drawing the item
       y = checkPageBreak(y, ITEM_ROW_HEIGHT + 5)
 
@@ -289,23 +246,15 @@ export const handler = async (event: any) => {
         y += 16
       }
 
-      const name = it.product_name || it.sku || "-"
-      const variant = it.variant_title ? ` • ${it.variant_title}` : ""
+      const name = it.name || it.sku || "-"
+      const variant = it.variant ? ` • ${it.variant}` : ""
       const qty = Number(it.quantity || 0)
-      const unitCents =
-        asNumber(it.unit_price_cents) ??
-        guessMoneyToCents(it.unit_price) ??
-        0
-      const lineCents =
-        asNumber(it.line_total_cents) ??
-        guessMoneyToCents(it.line_total) ??
-        (unitCents * qty)
-      const unit = unitCents / 100
-      const lineTotal = lineCents / 100
+      const unit = Number(it.unit_price || 0)
+      const lineTotal = Number(it.line_total || 0)
 
       // Truncate long product names to fit on one line
       const maxNameWidth = right - 180
-      let displayName = sanitizeWinAnsi(name + variant)
+      let displayName = name + variant
       const nameWidth = font.widthOfTextAtSize(displayName, 10)
       if (nameWidth > maxNameWidth) {
         // Truncate and add ellipsis
@@ -333,8 +282,9 @@ export const handler = async (event: any) => {
 
     // Calculate totals — only use explicit DB values, never infer discount
     const shippingAmount = Number(order.shipping_cents ?? 0) / 100
-    const subtotalAmount = order.subtotal_cents != null ? order.subtotal_cents / 100 : itemsSum
+    const subtotalAmount = order.subtotal_cents != null ? Number(order.subtotal_cents) / 100 : itemsSum
     const discountAmount = Number(order.discount_cents ?? 0) / 100
+    const taxAmount = Number(order.tax_cents ?? order.vat_cents ?? 0) / 100
 
     // Only show discount line when there is a real explicit discount
     const showDiscount = discountAmount > 0.0001
@@ -364,21 +314,30 @@ export const handler = async (event: any) => {
       y += ITEM_ROW_HEIGHT
     }
 
+    if (taxAmount > 0.0001) {
+      y = checkPageBreak(y, ITEM_ROW_HEIGHT)
+      drawText("Tax", left, y, 10)
+      drawRightText(money(taxAmount), right - 20, y, 10)
+      y += ITEM_ROW_HEIGHT
+    }
+
     y += 10
     drawLine(left, y, right, y)
     y += 20
 
-    // Prefer stored order.total when it matches the computed grand total; otherwise use calculated total
-    const calculatedTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount)
-    const storedTotal = Number(order.total || 0)
-    const subtotalMinusDiscount = Math.max(0, subtotalAmount - discountAmount)
-    const looksLikeMissingShipping =
-      shippingAmount > 0 &&
-      storedTotal > 0 &&
-      (Math.abs(storedTotal - subtotalAmount) <= 0.01 || Math.abs(storedTotal - subtotalMinusDiscount) <= 0.01) &&
-      storedTotal < calculatedTotal - 0.01
+    // Prefer stored order.total (what was paid); otherwise use calculated total
+    const calculatedTotal = Math.max(0, subtotalAmount + shippingAmount - discountAmount + taxAmount)
+    const finalTotal =
+      order.total_cents != null && Number(order.total_cents) > 0
+        ? Number(order.total_cents) / 100
+        : Number(order.total) > 0
+          ? Number(order.total)
+          : calculatedTotal
 
-    const finalTotal = storedTotal > 0 && !looksLikeMissingShipping ? storedTotal : calculatedTotal
+    // Subtotal
+    drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
+    drawRightText(money(subtotalAmount), right - 20, y, 10)
+    y += 18
 
     // Total row
     drawLine(right - 250, y - 2, right, y - 2)
@@ -393,9 +352,7 @@ export const handler = async (event: any) => {
     drawText("Thank you for your purchase!", left, y, 10, false, rgb(0.35, 0.38, 0.45))
     y += 14
     drawText("Questions? Contact us: shopblomcosmetics@gmail.com | +27 79 548 3317", left, y, 9, false, rgb(0.4, 0.45, 0.52))
-    y += 12
-    const footerText = `Blom Cosmetics | ${SITE_URL}`
-    drawText(footerText, left, y, 9, false, rgb(0.4, 0.45, 0.52))
+    drawRightText(SITE.replace(/^https?:\/\//, ""), right, y, 9, false, rgb(0.4, 0.45, 0.52))
 
     // Add page numbers to all pages
     const pages = pdf.getPages()
@@ -415,60 +372,33 @@ export const handler = async (event: any) => {
     const version = q.v || Date.now().toString()
     const filename = `${m_payment_id}-${version}.pdf`
     
-    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(filename)}`, {
-      method: "POST",
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/pdf", "x-upsert": "true" },
-      body: Buffer.from(pdfBytes)
-    })
-    if (!uploadRes.ok) {
-      const detail = await uploadRes.text().catch(() => "")
-      throw new Error(`INVOICE_UPLOAD_FAILED: ${uploadRes.status} ${detail}`)
-    }
+    const uploadRes = await supabase.storage
+      .from(BUCKET)
+      .upload(filename, Buffer.from(pdfBytes), { upsert: true, contentType: "application/pdf" })
 
-    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(filename)}`
-    
-    // Update Order Invoice URL
-    const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
-      method: "PATCH",
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ invoice_url: publicUrl })
-    })
-    if (!updateRes.ok) {
-      const detail = await updateRes.text().catch(() => "")
-      throw new Error(`ORDER_INVOICE_URL_UPDATE_FAILED: ${updateRes.status} ${detail}`)
-    }
+    if (uploadRes.error) return { statusCode: 500, body: uploadRes.error.message }
 
-    const wantsJson =
-      q.return_url === "1" ||
-      q.json === "1" ||
-      String(event.headers?.accept || "").includes("application/json")
+    const publicUrl = supabase.storage.from(BUCKET).getPublicUrl(filename).data.publicUrl
 
-    if (wantsJson) {
-      return {
-        statusCode: 200,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json", "X-Invoice-Url": publicUrl },
-        body: JSON.stringify({ ok: true, url: publicUrl }),
-      }
-    }
+    const { error: upErr } = await supabase
+      .from("orders")
+      .update({ invoice_url: publicUrl })
+      .eq("id", order.id)
+
+    if (upErr) return { statusCode: 500, body: upErr.message }
 
     const disposition = (q.download === '1' || body.download === true) ? 'attachment' : 'inline'
     return {
       statusCode: 200,
       headers: {
-        ...CORS_HEADERS,
         'Content-Type': 'application/pdf',
         'Content-Disposition': `${disposition}; filename="Invoice-${m_payment_id}.pdf"`,
-        'Cache-Control': 'public, max-age=3600',
-        'X-Invoice-Url': publicUrl
+        'Cache-Control': 'public, max-age=3600'
       },
       body: Buffer.from(pdfBytes).toString('base64'),
       isBase64Encoded: true
     }
   } catch (e: any) {
-    return {
-      statusCode: 500,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: false, error: e?.message ?? "Error" }),
-    }
+    return { statusCode: 500, body: e?.message ?? "Error" }
   }
 }
