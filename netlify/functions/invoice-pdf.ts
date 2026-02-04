@@ -109,48 +109,53 @@ export const handler = async (event: any) => {
 
     let enrichedItems: any[] = items || []
     if (needsBackfill) {
-      const ids = Array.from(new Set((items || []).map((it: any) => it.product_id).filter(Boolean)))
-      const products = await fetchJson(
-        `${SUPABASE_URL}/rest/v1/products?id=in.(${ids.map((x: string) => `"${x}"`).join(",")})&select=id,price`
-      ) as any[]
-      const priceById = new Map<string, number>()
-      for (const p of products || []) {
-        const cents = guessMoneyToCents(p.price) ?? 0
-        if (cents > 0) priceById.set(p.id, cents)
+      if (orderSubtotalCents != null) {
+        const computedLineCents = (it: any) => {
+          const q = asNumber(it.quantity) ?? 0
+          const unitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? 0
+          return asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (unitCents * q)
+        }
+
+        const missingIdx: number[] = []
+        let existingSum = 0
+        let missingQty = 0
+
+        ;(items || []).forEach((it: any, idx: number) => {
+          const q = asNumber(it.quantity) ?? 0
+          const line = computedLineCents(it) || 0
+          if (q > 0 && line <= 0) {
+            missingIdx.push(idx)
+            missingQty += q
+          } else {
+            existingSum += Math.max(0, line)
+          }
+        })
+
+        const remaining = Math.max(0, orderSubtotalCents - existingSum)
+
+        if (missingIdx.length > 0 && missingQty > 0 && remaining > 0) {
+          let allocated = 0
+          const inferredLines = new Map<number, number>()
+          missingIdx.forEach((idx, i) => {
+            const q = asNumber((items || [])[idx]?.quantity) ?? 0
+            if (i === missingIdx.length - 1) {
+              inferredLines.set(idx, Math.max(0, remaining - allocated))
+              return
+            }
+            const line = Math.max(0, Math.round((remaining * q) / missingQty))
+            inferredLines.set(idx, line)
+            allocated += line
+          })
+
+          enrichedItems = (items || []).map((it: any, idx: number) => {
+            if (!inferredLines.has(idx)) return it
+            const q = asNumber(it.quantity) ?? 0
+            const line = inferredLines.get(idx) ?? 0
+            const unit = q > 0 ? Math.round(line / q) : 0
+            return { ...it, unit_price_cents: unit, line_total_cents: line }
+          })
+        }
       }
-
-      const baseSum = (items || []).reduce((sum: number, it: any) => {
-        const q = asNumber(it.quantity) ?? 0
-        const baseUnit = it.product_id ? (priceById.get(it.product_id) ?? 0) : 0
-        return sum + Math.max(0, baseUnit * q)
-      }, 0)
-
-      const scale = orderSubtotalCents != null && baseSum > 0 ? orderSubtotalCents / baseSum : 1
-
-      let allocated = 0
-      const inferredLines: number[] = (items || []).map((it: any, idx: number) => {
-        const q = asNumber(it.quantity) ?? 0
-        const baseUnit = it.product_id ? (priceById.get(it.product_id) ?? 0) : 0
-        const baseLine = Math.max(0, baseUnit * q)
-        if (idx === (items || []).length - 1 && orderSubtotalCents != null) {
-          return Math.max(0, orderSubtotalCents - allocated)
-        }
-        const inferred = Math.max(0, Math.round(baseLine * scale))
-        allocated += inferred
-        return inferred
-      })
-
-      enrichedItems = (items || []).map((it: any, idx: number) => {
-        const q = asNumber(it.quantity) ?? 0
-        const existingUnitCents = asNumber(it.unit_price_cents) ?? guessMoneyToCents(it.unit_price) ?? null
-        const existingLineCents = asNumber(it.line_total_cents) ?? guessMoneyToCents(it.line_total) ?? (existingUnitCents != null ? existingUnitCents * q : null)
-        if (q > 0 && (existingUnitCents === 0 || existingLineCents === 0) && it.product_id) {
-          const inferredLine = inferredLines[idx] ?? 0
-          const inferredUnit = Math.round(inferredLine / q)
-          return { ...it, unit_price_cents: inferredUnit, line_total_cents: inferredLine }
-        }
-        return it
-      })
     }
 
     const itemsSum = enrichedItems.reduce((s: number, it: any) => {
