@@ -254,6 +254,19 @@ export const handler: Handler = async (e) => {
       };
     });
 
+    if (enrichedItems.length === 1) {
+      const only = enrichedItems[0];
+      const orderSubtotalCents = asCents(order?.subtotal_cents) ?? asRandsToCents(order?.subtotal) ?? null;
+      const qty = Number(only.quantity ?? 0) || 1;
+      const unitMissing = only.unit_price_cents == null || Number(only.unit_price_cents) <= 0;
+      const lineMissing = only.line_total_cents == null || Number(only.line_total_cents) <= 0;
+      const inconsistent = orderSubtotalCents != null && Number(only.line_total_cents || 0) !== orderSubtotalCents;
+      if (orderSubtotalCents != null && (unitMissing || lineMissing || inconsistent) && (order?.order_kind === "course" || order?.order_kind == null)) {
+        only.unit_price_cents = Math.round(orderSubtotalCents / qty);
+        only.line_total_cents = orderSubtotalCents;
+      }
+    }
+
     const missingPriceProductIds = Array.from(
       new Set(
         enrichedItems
@@ -294,6 +307,30 @@ export const handler: Handler = async (e) => {
           return { ...it, unit_price_cents: unitCents, line_total_cents: unitCents * qty };
         });
       }
+    }
+
+    const paid = order?.status === "paid" || order?.payment_status === "paid" || order?.payment_status === "complete";
+    if (paid && !order?.invoice_url && order?.m_payment_id) {
+      try {
+        const base = process.env.URL || process.env.SITE_URL || "https://blom-cosmetics.co.za";
+        const fnUrl = `${base.replace(/\/$/, "")}/.netlify/functions/invoice-pdf?return_url=1`;
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), 20000);
+        try {
+          const invRes = await fetch(fnUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ m_payment_id: order.m_payment_id, order_id: order.id, return_url: true }),
+            signal: ac.signal,
+          });
+          if (invRes.ok) {
+            const data = await invRes.json().catch(() => null);
+            if (data?.invoice_url) order.invoice_url = data.invoice_url;
+          }
+        } finally {
+          clearTimeout(t);
+        }
+      } catch {}
     }
 
     return {

@@ -62,6 +62,7 @@ export const handler = async (event: any) => {
     const q = event.queryStringParameters || {};
     let m_payment_id = body.m_payment_id || q.m_payment_id || event.headers['x-m-payment-id'];
     const order_id = body.order_id || q.order_id || event.headers['x-order-id'];
+    const returnUrlOnly = q.return_url === '1' || body.return_url === true;
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { persistSession: false },
@@ -340,6 +341,19 @@ export const handler = async (event: any) => {
     const discountAmount = toNumberLoose(order.discount_cents ?? 0) / 100
     const taxAmount = toNumberLoose(order.tax_cents ?? order.vat_cents ?? 0) / 100
 
+    if (normalizedItems.length === 1) {
+      const only = normalizedItems[0]
+      const paidSubtotal = Number.isFinite(subtotalAmount) && subtotalAmount > 0 ? subtotalAmount : 0
+      const qty = Number(only.quantity || 0) || 1
+      const unitLooksMissing = !(Number.isFinite(only.unit_price) && only.unit_price > 0)
+      const lineLooksMissing = !(Number.isFinite(only.line_total) && only.line_total > 0)
+      const looksInconsistent = Math.abs((only.line_total || 0) - paidSubtotal) > 0.01
+      if (paidSubtotal > 0 && (unitLooksMissing || lineLooksMissing || looksInconsistent) && (order.order_kind === "course" || order.order_kind == null)) {
+        only.unit_price = paidSubtotal / qty
+        only.line_total = paidSubtotal
+      }
+    }
+
     // Only show discount line when there is a real explicit discount
     const showDiscount = discountAmount > 0.0001
 
@@ -442,6 +456,14 @@ export const handler = async (event: any) => {
       .eq("id", order.id)
 
     if (upErr) return { statusCode: 500, body: upErr.message }
+
+    if (returnUrlOnly) {
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, invoice_url: publicUrl })
+      }
+    }
 
     const disposition = (q.download === '1' || body.download === true) ? 'attachment' : 'inline'
     return {
