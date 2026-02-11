@@ -134,6 +134,68 @@ export default function OrderDetail() {
     if (order?.notes) setNotes(order.notes);
   }, [order]);
 
+  const isPaid =
+    order?.status === "paid" ||
+    order?.payment_status === "paid" ||
+    order?.payment_status === "complete" ||
+    !!order?.paid_at;
+
+  const hasInvoice = !!order?.invoice_url;
+
+  const generateInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      if (!order?.m_payment_id) throw new Error("Missing m_payment_id");
+      const res = await fetch("/.netlify/functions/invoice-pdf?return_url=1", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: id,
+          m_payment_id: order.m_payment_id,
+          return_url: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(detail || `Invoice generation failed (${res.status})`);
+      }
+
+      const json = await res.json().catch(() => null);
+      if (!json?.ok) throw new Error(json?.error || "Invoice generation failed");
+      return json;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["order", id] });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
+      showToast("Invoice generated", "success");
+    },
+    onError: (err) => {
+      showToast(err?.message || "Invoice generation failed", "error");
+    },
+  });
+
+  const notifyOrderMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/.netlify/functions/admin-notify-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: id })
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || 'Notification trigger failed');
+      }
+      return json;
+    },
+    onSuccess: () => {
+      showToast('Notification webhook triggered', 'success');
+    },
+    onError: (err) => {
+      showToast(err?.message || 'Notification trigger failed', 'error');
+    }
+  });
+
   // 2. Update Status Mutation - Send webhook payload AND update database
   const statusMutation = useMutation({
     mutationFn: async (newStatus) => {
@@ -1261,32 +1323,64 @@ export default function OrderDetail() {
           </div>
 
           {/* Invoice Info */}
-          {order.invoice_url && (
-            <div className="section-card">
-              <h3 className="sidebar-section-title">
-                <FileText size={18} />
-                Invoice
-              </h3>
-              <div className="invoice-section">
-                <div className="info-item mb-3">
-                  <div className="info-label">Status</div>
+          <div className="section-card">
+            <h3 className="sidebar-section-title">
+              <FileText size={18} />
+              Invoice
+            </h3>
+            <div className="invoice-section">
+              <div className="info-item mb-3">
+                <div className="info-label">Status</div>
+                {hasInvoice ? (
                   <div className="info-value text-green-600 font-bold">✅ Invoice Available</div>
-                </div>
-                <div className="info-item">
-                  <div className="info-label mb-2">Actions</div>
-                  <a 
-                    href={order.invoice_url} 
-                    target="_blank" 
+                ) : (
+                  <div className="info-value text-orange-600 font-bold">⚠️ No invoice yet</div>
+                )}
+              </div>
+
+              <div className="info-item">
+                <div className="info-label mb-2">Actions</div>
+                {hasInvoice ? (
+                  <a
+                    href={order.invoice_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="btn-primary inline-flex items-center gap-2"
                   >
                     <Download size={16} />
                     View/Download Invoice
                   </a>
-                </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-primary inline-flex items-center gap-2"
+                    disabled={!isPaid || !order?.m_payment_id || generateInvoiceMutation.isPending}
+                    onClick={() => generateInvoiceMutation.mutate()}
+                  >
+                    <FileText size={16} />
+                    {generateInvoiceMutation.isPending ? "Generating…" : "Generate Invoice"}
+                  </button>
+                )}
+
+                {!isPaid && !hasInvoice && (
+                  <div className="text-xs text-[var(--text-muted)] mt-2">
+                    Invoice can be generated once payment is marked as paid.
+                  </div>
+                )}
+
+                {isPaid && (
+                  <button
+                    type="button"
+                    className="btn-secondary inline-flex items-center gap-2 mt-3"
+                    disabled={notifyOrderMutation.isPending}
+                    onClick={() => notifyOrderMutation.mutate()}
+                  >
+                    {notifyOrderMutation.isPending ? 'Sending…' : 'Send Notification'}
+                  </button>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Delivery / Collection Info */}
           <div className="section-card">

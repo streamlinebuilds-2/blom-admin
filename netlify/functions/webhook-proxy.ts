@@ -30,6 +30,7 @@ export const handler = async (event: any) => {
       'ready-for-delivery': 'https://dockerfile-1n82.onrender.com/webhook/ready-for-delivery',
       'ready-for-collection': 'https://dockerfile-1n82.onrender.com/webhook/ready-for-collection', 
       'out-for-delivery': 'https://dockerfile-1n82.onrender.com/webhook/out-for-delivery',
+      'notify-order': 'https://dockerfile-1n82.onrender.com/webhook/notify-order',
     };
 
     const targetWebhookUrl = webhookMappings[path];

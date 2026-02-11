@@ -28,3 +28,6 @@ dist-ssr
 *.sw?
 
 .envshop-admin-pro-9e871867-main
+
+# Trae IDE
+.trae/

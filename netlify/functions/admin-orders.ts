@@ -50,46 +50,9 @@ export const handler: Handler = async (e) => {
       }
 
       // Determine invoice information
-      let hasInvoice = !!order.invoice_url;
+      const hasInvoice = !!order.invoice_url;
       const canGenerateInvoice = order.status === 'paid' || order.payment_status === 'paid';
-      let needsManualGeneration = !hasInvoice && canGenerateInvoice;
-      let generatedInvoiceUrl: string | null = null;
-      let invoiceGenerationError: string | null = null;
-
-      if (needsManualGeneration) {
-        try {
-          const base = process.env.URL || process.env.SITE_URL || 'https://blom-cosmetics.co.za';
-          const url = `${base.replace(/\/$/, '')}/.netlify/functions/invoice-pdf?return_url=1`;
-          const ac = new AbortController();
-          const t = setTimeout(() => ac.abort(), 15000);
-          try {
-            const invRes = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ order_id: orderId, m_payment_id: order.m_payment_id }),
-              signal: ac.signal
-            });
-            if (!invRes.ok) {
-              const detail = await invRes.text().catch(() => '');
-              invoiceGenerationError = `invoice-pdf failed: ${invRes.status} ${detail}`;
-            } else {
-              const invJson: any = await invRes.json().catch(() => ({}));
-              generatedInvoiceUrl = invJson?.url || null;
-            }
-          } finally {
-            clearTimeout(t);
-          }
-
-          const { data: refreshed } = await s.from("orders").select("invoice_url").eq("id", orderId).maybeSingle();
-          if (refreshed?.invoice_url) {
-            order.invoice_url = refreshed.invoice_url;
-            hasInvoice = true;
-            needsManualGeneration = false;
-          }
-        } catch (e: any) {
-          invoiceGenerationError = e?.message || String(e);
-        }
-      }
+      const needsManualGeneration = !hasInvoice && canGenerateInvoice;
 
       return {
         statusCode: 200,
@@ -106,9 +69,7 @@ export const handler: Handler = async (e) => {
             has_invoice: hasInvoice,
             invoice_url: order.invoice_url,
             can_generate_invoice: canGenerateInvoice,
-            needs_manual_generation: needsManualGeneration,
-            generated_invoice_url: generatedInvoiceUrl,
-            invoice_generation_error: invoiceGenerationError
+            needs_manual_generation: needsManualGeneration
           }
         })
       };
@@ -151,12 +112,11 @@ export const handler: Handler = async (e) => {
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
     const status = url.searchParams.get("status") || "";
     const fulfillment = url.searchParams.get("fulfillment") || "";
-    const kind = url.searchParams.get("kind") || "";
     const search = (url.searchParams.get("search") || "").trim();
     const from = (page - 1) * size;
     const to = from + size - 1;
 
-    const baseSelect = "id,order_number,m_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived,invoice_url";
+    const baseSelect = "id,order_number,m_payment_id,merchant_payment_id,buyer_name,buyer_email,contact_phone,status,payment_status,total_cents,created_at,placed_at,paid_at,fulfillment_type,fulfillment_method,shipping_method,customer_name,customer_email,customer_phone,shipping_address,delivery_method,collection_slot,subtotal_cents,shipping_cents,discount_cents,archived,invoice_url";
     const selectCols = hasOrderKind ? `${baseSelect},order_kind` : baseSelect;
 
     let query = s.from("orders")
@@ -173,7 +133,10 @@ export const handler: Handler = async (e) => {
     // Never show demo seed orders
     query = query.not('order_number', 'like', 'DEMO-COURSE-%');
 
-    if (hasOrderKind && kind) query = query.eq('order_kind', kind);
+    // Prefer to show product orders only when order_kind exists
+    if (hasOrderKind) {
+      query = query.or('order_kind.eq.product,order_kind.is.null');
+    }
 
     // NOTE: Removed strict fulfillment_type requirement to show all orders
     // Previously: query = query.not('fulfillment_type', 'is', null);
@@ -183,6 +146,9 @@ export const handler: Handler = async (e) => {
     if (search) {
       query = query.or([
         `m_payment_id.ilike.%${search}%`,
+        `merchant_payment_id.ilike.%${search}%`,
+        `order_number.ilike.%${search}%`,
+        `id.eq.${search}`,
         `buyer_email.ilike.%${search}%`,
         `buyer_name.ilike.%${search}%`,
         `contact_phone.ilike.%${search}%`

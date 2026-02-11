@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, RefreshCw, Truck, Package, Archive, Filter, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '../components/ui/dialog';
 
 export default function Orders() {
+  const navigate = useNavigate();
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
@@ -35,7 +36,57 @@ export default function Orders() {
   const [showFilters, setShowFilters] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, order: null });
 
+  const [backfill, setBackfill] = useState({
+    payment_id: '',
+    amount: '',
+    buyer_email: '',
+    buyer_name: ''
+  });
+  const [backfilling, setBackfilling] = useState(false);
+
   const orders = ordersResponse || [];
+
+  const runBackfill = async () => {
+    if (!backfill.payment_id?.trim()) {
+      alert('Please enter the Payment ID / Reference');
+      return;
+    }
+    if (!backfill.amount?.trim()) {
+      alert('Please enter the amount (e.g. 2420.00)');
+      return;
+    }
+
+    setBackfilling(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-backfill-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_id: backfill.payment_id,
+          amount: backfill.amount,
+          buyer_email: backfill.buyer_email,
+          buyer_name: backfill.buyer_name,
+          provider: 'manual'
+        })
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || 'Backfill failed');
+      }
+
+      await refetch();
+      setBackfill({ payment_id: '', amount: '', buyer_email: '', buyer_name: '' });
+
+      if (json.order_id) {
+        navigate(`/orders/${json.order_id}`);
+      }
+    } catch (err) {
+      alert(err?.message || 'Backfill failed');
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   // Listen for order updates from other pages
   useEffect(() => {
@@ -80,7 +131,7 @@ export default function Orders() {
       const searchLower = filters.search.toLowerCase();
       const customerName = (order.buyer_name || order.customer_name || '').toLowerCase();
       const customerEmail = (order.buyer_email || order.customer_email || '').toLowerCase();
-      const orderCode = (order.short_code || order.m_payment_id || order.id || '').toLowerCase();
+      const orderCode = (order.short_code || order.order_number || order.merchant_payment_id || order.m_payment_id || order.id || '').toLowerCase();
       
       if (!customerName.includes(searchLower) && 
           !customerEmail.includes(searchLower) && 
@@ -806,6 +857,48 @@ export default function Orders() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="filter-group" style={{ gridColumn: '1 / -1' }}>
+            <label className="filter-label">Missing order? Backfill from Payment ID</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr 2fr auto', gap: '12px', alignItems: 'end' }}>
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Payment ID / Reference (e.g. BL-MLHUIZ46-754416)"
+                value={backfill.payment_id}
+                onChange={(e) => setBackfill({ ...backfill, payment_id: e.target.value })}
+              />
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Amount (e.g. 2420.00)"
+                value={backfill.amount}
+                onChange={(e) => setBackfill({ ...backfill, amount: e.target.value })}
+              />
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Customer email (optional)"
+                value={backfill.buyer_email}
+                onChange={(e) => setBackfill({ ...backfill, buyer_email: e.target.value })}
+              />
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Customer name (optional)"
+                value={backfill.buyer_name}
+                onChange={(e) => setBackfill({ ...backfill, buyer_name: e.target.value })}
+              />
+              <button
+                type="button"
+                className="btn-filter"
+                onClick={runBackfill}
+                disabled={backfilling}
+              >
+                {backfilling ? 'Adding…' : 'Add Order'}
+              </button>
+            </div>
           </div>
         </div>
         

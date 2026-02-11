@@ -110,38 +110,50 @@ export const handler = async (event) => {
     const total_rands = Math.round(total_cents) / 100;
 
     // Create order in database
-    const { data: order, error: orderError } = await supabase
+    const baseOrderInsert = {
+      order_number,
+      m_payment_id: m_payment_id,
+      merchant_payment_id: m_payment_id,
+      customer_name: orderData.customer_name,
+      customer_email: orderData.customer_email,
+      customer_phone: orderData.customer_phone,
+      delivery_method: orderData.delivery_method,
+      shipping_address: orderData.shipping_address,
+      collection_slot: orderData.collection_slot,
+      collection_location: orderData.collection_location,
+      subtotal_cents,
+      shipping_cents,
+      discount_cents,
+      tax_cents,
+      total_cents,
+      total: total_rands,
+      currency: orderData.currency || "ZAR",
+      status: "unpaid",
+      payment_status: "unpaid",
+      fulfillment_status: "pending",
+      placed_at: new Date().toISOString(),
+    };
+
+    let orderRes = await supabase
       .from("orders")
-      .insert({
-        order_number,
-        m_payment_id: m_payment_id,
-        merchant_payment_id: m_payment_id,
-        customer_name: orderData.customer_name,
-        customer_email: orderData.customer_email,
-        customer_phone: orderData.customer_phone,
-        delivery_method: orderData.delivery_method,
-        shipping_address: orderData.shipping_address,
-        collection_slot: orderData.collection_slot,
-        collection_location: orderData.collection_location,
-        subtotal_cents,
-        shipping_cents,
-        discount_cents,
-        tax_cents,
-        total_cents,
-        total: total_rands,
-        currency: orderData.currency || "ZAR",
-        status: "unpaid",
-        payment_status: "unpaid",
-        fulfillment_status: "pending",
-        placed_at: new Date().toISOString(),
-      })
+      .insert({ ...baseOrderInsert, order_kind: "product" })
       .select()
       .single();
 
-    if (orderError) {
-      console.error("Error creating order:", orderError);
+    if (orderRes.error && /order_kind/i.test(orderRes.error.message || "")) {
+      orderRes = await supabase
+        .from("orders")
+        .insert(baseOrderInsert)
+        .select()
+        .single();
+    }
+
+    if (orderRes.error) {
+      console.error("Error creating order:", orderRes.error);
       throw new Error("Failed to create order");
     }
+
+    const order = orderRes.data;
 
     // Create order items
     if (orderData.items && orderData.items.length > 0) {
