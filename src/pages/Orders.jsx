@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, RefreshCw, Truck, Package, Archive, Filter, X } from 'lucide-react';
+import { Eye, RefreshCw, Truck, Package, Archive, Filter, X, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '../components/ui/dialog';
 
@@ -43,8 +43,41 @@ export default function Orders() {
     buyer_name: ''
   });
   const [backfilling, setBackfilling] = useState(false);
+  const [regeneratingId, setRegeneratingId] = useState(null);
 
   const orders = ordersResponse || [];
+
+  const regenerateInvoice = async (order) => {
+    const m_payment_id = order?.m_payment_id || order?.merchant_payment_id;
+    if (!order?.id || !m_payment_id) {
+      alert('Missing order id or payment reference');
+      return;
+    }
+
+    const confirmed = window.confirm('Regenerate invoice? This will overwrite the existing invoice link.');
+    if (!confirmed) return;
+
+    setRegeneratingId(order.id);
+    try {
+      const res = await fetch('/.netlify/functions/invoice-pdf?return_url=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: order.id, m_payment_id, return_url: true })
+      });
+
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(detail || `Invoice regeneration failed (${res.status})`);
+      }
+
+      await refetch();
+      alert('Invoice regenerated. Open it again to see the updated PDF.');
+    } catch (err) {
+      alert(err?.message || 'Invoice regeneration failed');
+    } finally {
+      setRegeneratingId(null);
+    }
+  };
 
   const runBackfill = async () => {
     if (!backfill.payment_id?.trim()) {
@@ -377,6 +410,33 @@ export default function Orders() {
         .btn-archive:hover {
           transform: translateY(-1px);
           box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+
+        .btn-invoice {
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+        }
+
+        .btn-invoice:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+
+        .btn-invoice:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
         }
 
         .filters-section {
@@ -980,6 +1040,26 @@ export default function Orders() {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                        {order.invoice_url && (
+                          <a
+                            href={order.invoice_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-invoice"
+                            title="Open invoice PDF"
+                          >
+                            <FileText size={14} /> Invoice
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          className="btn-invoice"
+                          onClick={() => regenerateInvoice(order)}
+                          disabled={regeneratingId === order.id}
+                          title="Regenerate invoice"
+                        >
+                          <RefreshCw size={14} /> {regeneratingId === order.id ? 'Regen…' : 'Regen'}
+                        </button>
                         <Link to={`/orders/${order.id}`} className="btn-view">
                           <Eye size={14} /> View
                         </Link>
