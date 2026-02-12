@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Package, MapPin, FileText, CheckCircle,
-  Truck, User, Clock, CreditCard, AlertCircle, Download, Printer
+  Truck, User, Clock, CreditCard, AlertCircle, Download, Printer, RefreshCw
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../lib/supabase";
@@ -1341,15 +1341,30 @@ export default function OrderDetail() {
               <div className="info-item">
                 <div className="info-label mb-2">Actions</div>
                 {hasInvoice ? (
-                  <a
-                    href={order.invoice_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary inline-flex items-center gap-2"
-                  >
-                    <Download size={16} />
-                    View/Download Invoice
-                  </a>
+                  <div className="flex flex-col gap-2">
+                    <a
+                      href={order.invoice_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary inline-flex items-center gap-2 w-full justify-center"
+                    >
+                      <Download size={16} />
+                      View/Download Invoice
+                    </a>
+                    <button
+                      type="button"
+                      className="btn-secondary inline-flex items-center gap-2 w-full justify-center text-sm"
+                      disabled={generateInvoiceMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm('Regenerate invoice? This will overwrite the existing file.')) {
+                          generateInvoiceMutation.mutate();
+                        }
+                      }}
+                    >
+                      <RefreshCw size={14} />
+                      {generateInvoiceMutation.isPending ? "Regenerating..." : "Regenerate Invoice"}
+                    </button>
+                  </div>
                 ) : (
                   <button
                     type="button"
