@@ -134,6 +134,21 @@ export default function OrderDetail() {
     if (order?.notes) setNotes(order.notes);
   }, [order]);
 
+  const [invoiceToolsEnabled, setInvoiceToolsEnabled] = useState(() => localStorage.getItem('blom_invoice_tools') === '1');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('tools');
+    if (v === '1') {
+      localStorage.setItem('blom_invoice_tools', '1');
+      setInvoiceToolsEnabled(true);
+    }
+    if (v === '0') {
+      localStorage.removeItem('blom_invoice_tools');
+      setInvoiceToolsEnabled(false);
+    }
+  }, []);
+
   const isPaid =
     order?.status === "paid" ||
     order?.payment_status === "paid" ||
@@ -1351,19 +1366,21 @@ export default function OrderDetail() {
                       <Download size={16} />
                       View/Download Invoice
                     </a>
-                    <button
-                      type="button"
-                      className="btn-secondary inline-flex items-center gap-2 w-full justify-center text-sm"
-                      disabled={generateInvoiceMutation.isPending}
-                      onClick={() => {
-                        if (window.confirm('Regenerate invoice? This will overwrite the existing file.')) {
-                          generateInvoiceMutation.mutate();
-                        }
-                      }}
-                    >
-                      <RefreshCw size={14} />
-                      {generateInvoiceMutation.isPending ? "Regenerating..." : "Regenerate Invoice"}
-                    </button>
+                    {invoiceToolsEnabled && (
+                      <button
+                        type="button"
+                        className="btn-secondary inline-flex items-center gap-2 w-full justify-center text-sm"
+                        disabled={generateInvoiceMutation.isPending}
+                        onClick={() => {
+                          if (window.confirm('Regenerate invoice? This will overwrite the existing file.')) {
+                            generateInvoiceMutation.mutate();
+                          }
+                        }}
+                      >
+                        <RefreshCw size={14} />
+                        {generateInvoiceMutation.isPending ? "Regenerating..." : "Regenerate Invoice"}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <button

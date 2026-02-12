@@ -403,11 +403,6 @@ export const handler = async (event: any) => {
         : Number.isFinite(totalRandsRaw) && totalRandsRaw > 0
           ? totalRandsRaw
           : calculatedTotal
-    
-    // Subtotal REMOVED as per user request
-    // drawRightText("Subtotal", right - 140, y, 10, false, rgb(0.4, 0.4, 0.45))
-    // drawRightText(money(subtotalAmount), right - 20, y, 10)
-    // y += 18
 
     // Total row
     drawLine(right - 250, y - 2, right, y - 2)
@@ -422,8 +417,6 @@ export const handler = async (event: any) => {
     drawText("Thank you for your purchase!", left, y, 10, false, rgb(0.35, 0.38, 0.45))
     y += 14
     drawText("Questions? Contact us: shopblomcosmetics@gmail.com | +27 79 548 3317", left, y, 9, false, rgb(0.4, 0.45, 0.52))
-    // Website link removed as per user request
-    // drawRightText(SITE.replace(/^https?:\/\//, ""), right, y, 9, false, rgb(0.4, 0.45, 0.52))
 
     // Add page numbers to all pages
     const pages = pdf.getPages()

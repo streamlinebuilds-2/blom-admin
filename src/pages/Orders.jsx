@@ -44,8 +44,22 @@ export default function Orders() {
   });
   const [backfilling, setBackfilling] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState(null);
+  const [invoiceToolsEnabled, setInvoiceToolsEnabled] = useState(() => localStorage.getItem('blom_invoice_tools') === '1');
 
   const orders = ordersResponse || [];
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('tools');
+    if (v === '1') {
+      localStorage.setItem('blom_invoice_tools', '1');
+      setInvoiceToolsEnabled(true);
+    }
+    if (v === '0') {
+      localStorage.removeItem('blom_invoice_tools');
+      setInvoiceToolsEnabled(false);
+    }
+  }, []);
 
   const regenerateInvoice = async (order) => {
     const m_payment_id = order?.m_payment_id || order?.merchant_payment_id;
@@ -862,6 +876,17 @@ export default function Orders() {
               placeholder="Search orders, customers..."
               value={filters.search}
               onChange={(e) => setFilters({...filters, search: e.target.value})}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                if (filters.search.trim() === '/tools') {
+                  const next = !invoiceToolsEnabled;
+                  if (next) localStorage.setItem('blom_invoice_tools', '1');
+                  else localStorage.removeItem('blom_invoice_tools');
+                  setInvoiceToolsEnabled(next);
+                  setFilters({ ...filters, search: '' });
+                  e.preventDefault();
+                }
+              }}
             />
           </div>
           
@@ -1051,15 +1076,17 @@ export default function Orders() {
                             <FileText size={14} /> Invoice
                           </a>
                         )}
-                        <button
-                          type="button"
-                          className="btn-invoice"
-                          onClick={() => regenerateInvoice(order)}
-                          disabled={regeneratingId === order.id}
-                          title="Regenerate invoice"
-                        >
-                          <RefreshCw size={14} /> {regeneratingId === order.id ? 'Regen…' : 'Regen'}
-                        </button>
+                        {invoiceToolsEnabled && (
+                          <button
+                            type="button"
+                            className="btn-invoice"
+                            onClick={() => regenerateInvoice(order)}
+                            disabled={regeneratingId === order.id}
+                            title="Regenerate invoice"
+                          >
+                            <RefreshCw size={14} /> {regeneratingId === order.id ? 'Regen…' : 'Regen'}
+                          </button>
+                        )}
                         <Link to={`/orders/${order.id}`} className="btn-view">
                           <Eye size={14} /> View
                         </Link>
