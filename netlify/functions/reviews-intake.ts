@@ -73,24 +73,32 @@ export const handler: Handler = async (e) => {
 
     // Optional: notify n8n if you set REVIEWS_INTAKE_WEBHOOK
     if (process.env.REVIEWS_INTAKE_WEBHOOK) {
-      fetch(process.env.REVIEWS_INTAKE_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          review_id: data.id,
-          product_id,
-          product_slug,
-          name,
-          email,
-          title,
-          body,
-          rating,
-          images,
-          is_verified_buyer,
-          order_id,
-          status: "pending",
-        }),
-      }).catch(() => {});
+      console.log("Triggering N8N webhook:", process.env.REVIEWS_INTAKE_WEBHOOK);
+      try {
+        await fetch(process.env.REVIEWS_INTAKE_WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            review_id: data.id,
+            product_id,
+            product_slug,
+            name,
+            email,
+            title,
+            body,
+            rating,
+            images,
+            is_verified_buyer,
+            order_id,
+            status: "pending",
+          }),
+        });
+        console.log("N8N webhook triggered successfully");
+      } catch (webhookError: any) {
+        console.error("Failed to trigger N8N webhook:", webhookError.message);
+      }
+    } else {
+        console.log("No REVIEWS_INTAKE_WEBHOOK configured");
     }
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, id: data.id }) };

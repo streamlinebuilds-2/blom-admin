@@ -18,8 +18,25 @@ export const handler: Handler = async (e) => {
     const updates: any = { status };
     if (status === 'approved') updates.published_at = new Date().toISOString();
 
-    const { error } = await s.from("product_reviews").update(updates).eq("id", id);
+    const { data, error } = await s.from("product_reviews").update(updates).eq("id", id).select().single();
     if (error) throw error;
+
+    // Trigger webhook if configured
+    if (status === 'approved' && process.env.REVIEWS_APPROVE_WEBHOOK) {
+      console.log("Triggering approval webhook:", process.env.REVIEWS_APPROVE_WEBHOOK);
+      await fetch(process.env.REVIEWS_APPROVE_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).catch(err => console.error("Webhook error:", err));
+    } else if (status === 'rejected' && process.env.REVIEWS_REJECT_WEBHOOK) {
+      console.log("Triggering rejection webhook:", process.env.REVIEWS_REJECT_WEBHOOK);
+      await fetch(process.env.REVIEWS_REJECT_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).catch(err => console.error("Webhook error:", err));
+    }
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) };
   } catch (err: any) {

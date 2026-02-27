@@ -54,7 +54,7 @@ const navigationGroups = [
       { name: "Orders", url: "Orders", icon: ShoppingCart },
       { name: "Course Bookings", url: "course-bookings", icon: BookOpen },
       { name: "Sales", url: "Payments", icon: CreditCard },
-      { name: "Stock", url: "Stock", icon: Archive } // Changed from Warehouse to Archive
+      // { name: "Stock", url: "Stock", icon: Archive } // Changed from Warehouse to Archive
     ]
   },
   {
