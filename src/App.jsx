@@ -203,6 +203,7 @@ const AuthenticatedApp = () => {
         {/* Orders - Canonical Routes */}
         <Route path="/orders" element={<Orders/>} />
         <Route path="/orders/:id" element={<OrderDetail/>} />
+        <Route path="/order/:id" element={<Navigate to="/orders/:id" replace />} />
         <Route path="/course-bookings" element={<CourseBookings/>} />
         <Route path="/course-bookings/:id" element={<CourseBookingDetail/>} />
 
