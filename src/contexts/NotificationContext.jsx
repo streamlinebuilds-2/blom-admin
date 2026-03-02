@@ -27,12 +27,14 @@ export function NotificationProvider({ children }) {
       const lastMessages = getLastChecked('messages');
       const lastReviews = getLastChecked('reviews');
 
+      console.log('🔔 Checking notifications since:', { lastOrders, lastBookings, lastMessages, lastReviews });
+
       // Fetch counts in parallel
       const [
-        { count: ordersCount },
-        { count: bookingsCount },
-        { count: messagesCount },
-        { count: reviewsCount }
+        { count: ordersCount, error: ordersError },
+        { count: bookingsCount, error: bookingsError },
+        { count: messagesCount, error: messagesError },
+        { count: reviewsCount, error: reviewsError }
       ] = await Promise.all([
         supabase.from('orders').select('*', { count: 'exact', head: true }).gt('placed_at', lastOrders),
         supabase.from('course_purchases').select('*', { count: 'exact', head: true }).gt('created_at', lastBookings),
@@ -40,12 +42,20 @@ export function NotificationProvider({ children }) {
         supabase.from('reviews').select('*', { count: 'exact', head: true }).gt('created_at', lastReviews)
       ]);
 
-      setCounts({
+      if (ordersError) console.error('Orders count error:', ordersError);
+      if (bookingsError) console.error('Bookings count error:', bookingsError);
+      if (messagesError) console.error('Messages count error:', messagesError);
+      if (reviewsError) console.error('Reviews count error:', reviewsError);
+
+      const newCounts = {
         orders: ordersCount || 0,
         course_bookings: bookingsCount || 0,
         messages: messagesCount || 0,
         reviews: reviewsCount || 0
-      });
+      };
+
+      console.log('🔔 New notification counts:', newCounts);
+      setCounts(newCounts);
     } catch (err) {
       console.error('Error fetching notification counts:', err);
     }
