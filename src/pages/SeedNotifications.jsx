@@ -17,24 +17,38 @@ export default function SeedNotifications() {
       localStorage.setItem('last_checked_course_bookings', '1970-01-01T00:00:00.000Z');
 
       // 2. Insert 1 Course Booking (purchase)
+      // Use API function if possible to avoid RLS issues, otherwise try direct insert
       const { data: courses } = await supabase.from('courses').select('slug').limit(1);
       const slug = courses?.[0]?.slug || 'dummy-course';
-
-      const { error: bookingError } = await supabase.from('course_purchases').insert([
-        {
-          course_slug: slug,
-          buyer_email: 'test@example.com',
-          buyer_name: 'Test Buyer',
-          invitation_status: 'pending',
-          course_type: 'online',
-          amount_cents: 10000,
-          created_at: now
-        }
-      ]);
-
-      if (bookingError) {
-        console.error('Booking seed error:', bookingError);
-        showToast(`Booking seed failed: ${bookingError.message}`, 'error');
+      
+      // Try to use the server function if available (via fetch)
+      try {
+        await fetch('/.netlify/functions/admin-course-purchases', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'create',
+            course_slug: slug,
+            buyer_email: 'test@example.com',
+            buyer_name: 'Test Buyer',
+            invitation_status: 'pending',
+            course_type: 'online',
+            amount_cents: 10000
+          })
+        });
+      } catch (err) {
+        console.warn('Function insert failed, trying direct supabase insert', err);
+        const { error: bookingError } = await supabase.from('course_purchases').insert([
+          {
+            course_slug: slug,
+            buyer_email: 'test@example.com',
+            buyer_name: 'Test Buyer',
+            invitation_status: 'pending',
+            course_type: 'online',
+            amount_cents: 10000,
+            created_at: now
+          }
+        ]);
+        if (bookingError) throw bookingError;
       }
 
       // 3. Insert 2 Reviews (pending)
