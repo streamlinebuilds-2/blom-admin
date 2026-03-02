@@ -1094,9 +1094,13 @@ export default function Orders() {
                             <RefreshCw size={14} /> {regeneratingId === order.id ? 'Regen…' : 'Regen'}
                           </button>
                         )}
-                        <Link to={`/orders/${order.id}`} className="btn-view">
+                        <button 
+                          onClick={() => navigate(`/orders/${order.id}`)} 
+                          className="btn-view"
+                          title="View Order Details"
+                        >
                           <Eye size={14} /> View
-                        </Link>
+                        </button>
                         <button 
                           onClick={() => handleArchiveOrder(order.id)} 
                           className="btn-archive"
