@@ -19,9 +19,10 @@ export default function Messages() {
   const { markAsRead } = useNotifications();
   const searchTimeoutRef = useRef(null);
 
-  useEffect(() => {
-    markAsRead('messages');
-  }, [markAsRead]);
+  // Status-based notifications don't need markAsRead on view
+  // useEffect(() => {
+  //   markAsRead('messages');
+  // }, [markAsRead]);
 
   async function load() {
     setLoading(true);
