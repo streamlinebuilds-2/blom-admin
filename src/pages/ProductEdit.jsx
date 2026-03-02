@@ -5,6 +5,7 @@ import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../components/supabaseClient";
+import { uploadToCloudinary } from "../lib/cloudinary";
 
 const CATEGORIES = [
   'Bundle Deals',
@@ -159,65 +160,6 @@ export default function ProductEdit() {
     };
   }, [id, uploadLock, isUploading]);
 
-  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-
-  const uploadToCloudinary = async (file) => {
-    console.log('☁️ Starting Cloudinary upload for file:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      preset: CLOUDINARY_UPLOAD_PRESET,
-      cloudName: CLOUDINARY_CLOUD_NAME
-    });
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    try {
-      console.log('📤 Sending request to Cloudinary...');
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: formData }
-      );
-
-      console.log('📥 Cloudinary response status:', response.status);
-      const data = await response.json();
-      console.log('📥 Cloudinary response data:', data);
-
-      // Validate response
-      if (!response.ok) {
-        const errorMsg = data.error?.message || `Upload failed with status ${response.status}`;
-        console.error('❌ Cloudinary upload error:', errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      if (data.error) {
-        const errorMsg = data.error.message || 'Cloudinary returned an error';
-        console.error('❌ Cloudinary returned error:', errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      if (!data.secure_url) {
-        console.error('❌ No secure URL returned from Cloudinary');
-        throw new Error('No secure URL returned from Cloudinary');
-      }
-
-      // Validate the URL is actually from Cloudinary
-      if (!data.secure_url.includes('res.cloudinary.com')) {
-        console.error('❌ Invalid URL format received:', data.secure_url);
-        throw new Error('Invalid URL format received');
-      }
-
-      console.log('✅ Cloudinary upload successful, returning URL:', data.secure_url);
-      return data.secure_url;
-    } catch (error) {
-      console.error('❌ Cloudinary upload error:', error);
-      throw error;
-    }
-  };
-
   const handleVariantImageUpload = async (index, file) => {
     console.log('🖼️ Starting variant image upload for index:', index, 'file:', {
       name: file?.name,
@@ -245,7 +187,7 @@ export default function ProductEdit() {
     try {
       console.log('📤 Uploading variant image to Cloudinary...');
       showToast('info', 'Uploading variant image...');
-      const url = await uploadToCloudinary(file);
+      const { url } = await uploadToCloudinary(file);
       console.log('✅ Variant upload successful, URL:', url);
 
       console.log('🔄 Updating variant state with new URL...');
@@ -1842,7 +1784,7 @@ export default function ProductEdit() {
                         try {
                           showToast('info', 'Uploading main image to Cloudinary...');
                           console.log('📤 Starting main image upload for file:', file.name, file.size);
-                          const url = await uploadToCloudinary(file);
+                          const { url } = await uploadToCloudinary(file);
                           console.log('✅ Main image upload successful, URL:', url);
                           console.log('🔄 Updating main image state with URL:', url);
                           
@@ -1946,7 +1888,7 @@ export default function ProductEdit() {
                         try {
                           showToast('info', 'Uploading hover image to Cloudinary...');
                           console.log('📤 Starting hover image upload for file:', file.name, file.size);
-                          const url = await uploadToCloudinary(file);
+                          const { url } = await uploadToCloudinary(file);
                           console.log('✅ Hover image upload successful, URL:', url);
                           console.log('🔄 Updating hover image state with URL:', url);
                           

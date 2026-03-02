@@ -5,6 +5,7 @@ import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../components/supabaseClient";
+import { uploadToCloudinary } from "../lib/cloudinary";
 import { createPageUrl } from "../utils";
 
 const slugify = (value) =>
@@ -74,29 +75,12 @@ export default function BundleEdit() {
   const [allProducts, setAllProducts] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
 
-  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-
-  const uploadToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      { method: 'POST', body: formData }
-    );
-
-    const data = await response.json();
-    return data.secure_url;
-  };
-
   const handleVariantImageUpload = async (index, file) => {
     if (!file) return;
 
     try {
       showToast('info', 'Uploading variant image...');
-      const url = await uploadToCloudinary(file);
+      const { url } = await uploadToCloudinary(file);
 
       const current = form.variants[index];
       const updated = typeof current === "string"
@@ -1416,7 +1400,7 @@ export default function BundleEdit() {
                         if (!file) return;
                         try {
                           showToast('info', 'Uploading...');
-                          const url = await uploadToCloudinary(file);
+                          const { url } = await uploadToCloudinary(file);
                           update("thumbnail_url", url);
                           showToast('success', 'Image uploaded');
                         } catch (err) {
@@ -1520,12 +1504,12 @@ export default function BundleEdit() {
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            try {
-                              showToast('info', 'Uploading...');
-                              const url = await uploadToCloudinary(file);
-                              updateArr("gallery_urls", index, url);
-                              showToast('success', 'Image uploaded');
-                            } catch (err) {
+                          try {
+                            showToast('info', 'Uploading...');
+                            const { url } = await uploadToCloudinary(file);
+                            updateArr("gallery_urls", index, url);
+                            showToast('success', 'Image uploaded');
+                          } catch (err) {
                               showToast('error', 'Upload failed');
                             }
                           }}

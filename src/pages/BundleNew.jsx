@@ -5,6 +5,7 @@ import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../components/supabaseClient";
+import { uploadToCloudinary } from "../lib/cloudinary";
 import { createPageUrl } from "../utils";
 
 // ... existing helper functions (slugify, ensureList, etc) ...
@@ -51,24 +52,6 @@ export default function BundleNew() {
   const [allProducts, setAllProducts] = useState([]);
   const [productSearchTerm, setProductSearchTerm] = useState(""); // NEW: Search state
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
-
-  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-
-  // ... uploadToCloudinary function ...
-  const uploadToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      { method: 'POST', body: formData }
-    );
-
-    const data = await response.json();
-    return data.secure_url;
-  };
 
   // UPDATED: Load ALL products with strict status filtering and pagination handling
   useEffect(() => {
@@ -940,7 +923,7 @@ export default function BundleNew() {
                           if (!file) return;
                           try {
                             showToast('info', 'Uploading hover image...');
-                            const url = await uploadToCloudinary(file);
+                            const { url } = await uploadToCloudinary(file);
                             update("hover_url", url);
                             showToast('success', 'Hover image uploaded');
                           } catch (err) {

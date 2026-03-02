@@ -4,6 +4,7 @@ import { ArrowLeft, Upload } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { api } from "../components/data/api";
 import { supabase } from "@/lib/supabase";
+import { uploadToCloudinary } from "../lib/cloudinary";
 
 const slugify = (value) =>
   String(value || "")
@@ -190,69 +191,19 @@ export default function CourseEdit() {
     return Boolean(form.slug && form.slug.trim());
   }, [form.slug]);
 
-  const fileToBase64 = (file) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || "");
-        const commaIndex = result.indexOf(",");
-        resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-      };
-      reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
-      reader.readAsDataURL(file);
-    });
-
-  const uploadCourseImage = async (file) => {
-    if (!file) throw new Error("No file selected");
-    if (!canUpload) throw new Error("Please set a slug before uploading");
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-    const base64 = await fileToBase64(file);
-
-    try {
-      const res = await fetch("/.netlify/functions/upload-course-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug: form.slug,
-          filename: safeName,
-          contentType: file.type || "application/octet-stream",
-          base64,
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Upload failed: ${res.status}`);
-      }
-      const json = await res.json();
-      if (!json?.publicUrl) throw new Error("Failed to generate public URL");
-      return json.publicUrl;
-    } catch (err) {
-      if (!supabase) throw err;
-
-      const path = `${form.slug}/${Date.now()}-${safeName}`;
-      const { error } = await supabase.storage.from("course-images").upload(path, file, {
-        upsert: true,
-        contentType: file.type || "application/octet-stream",
-      });
-      if (error) throw error;
-
-      const { data } = supabase.storage.from("course-images").getPublicUrl(path);
-      if (!data?.publicUrl) throw new Error("Failed to generate public URL");
-      return data.publicUrl;
-    }
-  };
-
   const handleImageFile = async (file) => {
     if (!file) return;
     try {
       setUploading(true);
       setServerError("");
-      showToast("info", "Uploading image...");
-      const url = await uploadCourseImage(file);
-      update("image_url", url);
+      showToast("info", "Uploading image to Cloudinary...");
+      
+      const { hero } = await uploadToCloudinary(file, form.slug || "course");
+      update("image_url", hero);
+      
       showToast("success", "Image uploaded — click Update Course to save");
     } catch (err) {
+      console.error("Upload error:", err);
       showToast("error", err?.message || "Image upload failed");
     } finally {
       setUploading(false);

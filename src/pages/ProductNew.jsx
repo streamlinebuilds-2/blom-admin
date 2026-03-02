@@ -5,6 +5,7 @@ import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../components/supabaseClient";
+import { uploadToCloudinary } from "../lib/cloudinary";
 
 const CATEGORIES = [
   'Bundle Deals',
@@ -129,53 +130,12 @@ export default function ProductNew() {
   // Track which variants are being edited
   const [editingVariantPrice, setEditingVariantPrice] = useState({});
 
-  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-
-  const uploadToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: formData }
-      );
-
-      const data = await response.json();
-
-      // Validate response
-      if (!response.ok) {
-        throw new Error(data.error?.message || `Upload failed with status ${response.status}`);
-      }
-
-      if (data.error) {
-        throw new Error(data.error.message || 'Cloudinary returned an error');
-      }
-
-      if (!data.secure_url) {
-        throw new Error('No secure URL returned from Cloudinary');
-      }
-
-      // Validate the URL is actually from Cloudinary
-      if (!data.secure_url.includes('res.cloudinary.com')) {
-        throw new Error('Invalid URL format received');
-      }
-
-      return data.secure_url;
-    } catch (error) {
-      console.error('Cloudinary upload error:', error);
-      throw error;
-    }
-  };
-
   const handleVariantImageUpload = async (index, file) => {
     if (!file) return;
 
     try {
       showToast('info', 'Uploading variant image...');
-      const url = await uploadToCloudinary(file);
+      const { url } = await uploadToCloudinary(file);
 
       const current = form.variants[index];
       const updated = typeof current === "string"
@@ -1446,7 +1406,7 @@ export default function ProductNew() {
                         if (!file) return;
                         try {
                           showToast('info', 'Uploading to Cloudinary...');
-                          const url = await uploadToCloudinary(file);
+                          const { url } = await uploadToCloudinary(file);
                           update("hover_url", url);
                           showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {

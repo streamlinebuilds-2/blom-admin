@@ -6,7 +6,7 @@ export type UploadedImage = {
 }
 
 export async function uploadToCloudinary(file: File, slug: string): Promise<UploadedImage> {
-  const cloud = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dd89enrjz"
+  const cloud = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "drsrbzm2t"
   const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "blom_unsigned"
   const endpoint = `https://api.cloudinary.com/v1_1/${cloud}/auto/upload`
 
