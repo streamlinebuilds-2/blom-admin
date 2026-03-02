@@ -135,12 +135,10 @@ export default function ProductNew() {
 
     try {
       showToast('info', 'Uploading variant image...');
-      const { url } = await uploadToCloudinary(file);
-
-      const current = form.variants[index];
+      const { original } = await uploadToCloudinary(file);
       const updated = typeof current === "string"
-        ? { name: current, image: url }
-        : { ...current, image: url };
+        ? { name: current, image: original }
+        : { ...current, image: original };
 
       updateArr("variants", index, updated);
       showToast('success', 'Variant image uploaded');
@@ -1359,8 +1357,8 @@ export default function ProductNew() {
                         if (!file) return;
                         try {
                           showToast('info', 'Uploading to Cloudinary...');
-                          const url = await uploadToCloudinary(file);
-                          update("thumbnail_url", url);
+                          const { original } = await uploadToCloudinary(file);
+                          update("thumbnail_url", original);
                           showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
@@ -1406,8 +1404,8 @@ export default function ProductNew() {
                         if (!file) return;
                         try {
                           showToast('info', 'Uploading to Cloudinary...');
-                          const { url } = await uploadToCloudinary(file);
-                          update("hover_url", url);
+                          const { original } = await uploadToCloudinary(file);
+                          update("hover_url", original);
                           showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));

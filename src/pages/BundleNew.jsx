@@ -870,8 +870,8 @@ export default function BundleNew() {
                           if (!file) return;
                           try {
                             showToast('info', 'Uploading...');
-                            const url = await uploadToCloudinary(file);
-                            update("thumbnail_url", url);
+                            const { original } = await uploadToCloudinary(file);
+                            update("thumbnail_url", original);
                             showToast('success', 'Image uploaded');
                           } catch (err) {
                             showToast('error', 'Upload failed');
@@ -923,8 +923,8 @@ export default function BundleNew() {
                           if (!file) return;
                           try {
                             showToast('info', 'Uploading hover image...');
-                            const { url } = await uploadToCloudinary(file);
-                            update("hover_url", url);
+                            const { original } = await uploadToCloudinary(file);
+                            update("hover_url", original);
                             showToast('success', 'Hover image uploaded');
                           } catch (err) {
                             showToast('error', 'Upload failed');

@@ -187,15 +187,15 @@ export default function ProductEdit() {
     try {
       console.log('📤 Uploading variant image to Cloudinary...');
       showToast('info', 'Uploading variant image...');
-      const { url } = await uploadToCloudinary(file);
-      console.log('✅ Variant upload successful, URL:', url);
+      const { original } = await uploadToCloudinary(file);
+      console.log('✅ Variant upload successful, URL:', original);
 
       console.log('🔄 Updating variant state with new URL...');
       // Force explicit state update with detailed logging
       setForm(prev => {
         console.log('🔄 setForm called for variant update:', {
           index,
-          newUrl: url,
+          newUrl: original,
           uploadLock,
           isUploading,
           currentVariants: prev.variants.map((v, i) => ({ index: i, type: typeof v, name: typeof v === 'string' ? v : v?.name, image: typeof v === 'string' ? '' : v?.image }))
@@ -206,8 +206,8 @@ export default function ProductEdit() {
         console.log('🔄 Current variant at index:', index, '=', current);
         
         const updatedVariant = typeof current === "string"
-          ? { name: current, image: url }
-          : { ...current, image: url };
+          ? { name: current, image: original }
+          : { ...current, image: original };
           
         console.log('🔄 Updated variant:', updatedVariant);
         next[index] = updatedVariant;
@@ -1784,19 +1784,19 @@ export default function ProductEdit() {
                         try {
                           showToast('info', 'Uploading main image to Cloudinary...');
                           console.log('📤 Starting main image upload for file:', file.name, file.size);
-                          const { url } = await uploadToCloudinary(file);
-                          console.log('✅ Main image upload successful, URL:', url);
-                          console.log('🔄 Updating main image state with URL:', url);
+                          const { original } = await uploadToCloudinary(file);
+                          console.log('✅ Main image upload successful, URL:', original);
+                          console.log('🔄 Updating main image state with URL:', original);
                           
                           // Force state update with explicit setForm
                           setForm(prev => {
                             console.log('🔄 setForm called for main image update:', {
                               oldThumbnail: prev.thumbnail_url,
-                              newThumbnail: url,
+                              newThumbnail: original,
                               uploadLock,
                               isUploading
                             });
-                            const newState = { ...prev, thumbnail_url: url };
+                            const newState = { ...prev, thumbnail_url: original };
                             console.log('🔄 New main image state:', {
                               thumbnail_url: newState.thumbnail_url,
                               hover_url: newState.hover_url
@@ -1888,19 +1888,19 @@ export default function ProductEdit() {
                         try {
                           showToast('info', 'Uploading hover image to Cloudinary...');
                           console.log('📤 Starting hover image upload for file:', file.name, file.size);
-                          const { url } = await uploadToCloudinary(file);
-                          console.log('✅ Hover image upload successful, URL:', url);
-                          console.log('🔄 Updating hover image state with URL:', url);
+                          const { original } = await uploadToCloudinary(file);
+                          console.log('✅ Hover image upload successful, URL:', original);
+                          console.log('🔄 Updating hover image state with URL:', original);
                           
                           // Force state update with explicit setForm
                           setForm(prev => {
                             console.log('🔄 setForm called for hover image update:', {
                               oldHover: prev.hover_url,
-                              newHover: url,
+                              newHover: original,
                               uploadLock,
                               isUploading
                             });
-                            const newState = { ...prev, hover_url: url };
+                            const newState = { ...prev, hover_url: original };
                             console.log('🔄 New hover image state:', {
                               thumbnail_url: newState.thumbnail_url,
                               hover_url: newState.hover_url

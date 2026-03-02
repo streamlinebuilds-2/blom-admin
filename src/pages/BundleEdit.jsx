@@ -80,12 +80,12 @@ export default function BundleEdit() {
 
     try {
       showToast('info', 'Uploading variant image...');
-      const { url } = await uploadToCloudinary(file);
+      const { original } = await uploadToCloudinary(file);
 
       const current = form.variants[index];
       const updated = typeof current === "string"
-        ? { label: current, image: url }
-        : { ...current, image: url };
+        ? { label: current, image: original }
+        : { ...current, image: original };
 
       updateArr("variants", index, updated);
       showToast('success', 'Variant image uploaded');
@@ -1399,11 +1399,11 @@ export default function BundleEdit() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         try {
-                          showToast('info', 'Uploading...');
-                          const { url } = await uploadToCloudinary(file);
-                          update("thumbnail_url", url);
-                          showToast('success', 'Image uploaded');
-                        } catch (err) {
+                            showToast('info', 'Uploading...');
+                            const { original } = await uploadToCloudinary(file);
+                            update("thumbnail_url", original);
+                            showToast('success', 'Image uploaded');
+                          } catch (err) {
                           showToast('error', 'Upload failed');
                         }
                       }}
@@ -1450,11 +1450,11 @@ export default function BundleEdit() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         try {
-                          showToast('info', 'Uploading hover image...');
-                          const url = await uploadToCloudinary(file);
-                          update("hover_url", url);
-                          showToast('success', 'Hover image uploaded');
-                        } catch (err) {
+                            showToast('info', 'Uploading hover image...');
+                            const { original } = await uploadToCloudinary(file);
+                            update("hover_url", original);
+                            showToast('success', 'Hover image uploaded');
+                          } catch (err) {
                           showToast('error', 'Upload failed');
                         }
                       }}
@@ -1506,8 +1506,8 @@ export default function BundleEdit() {
                             if (!file) return;
                           try {
                             showToast('info', 'Uploading...');
-                            const { url } = await uploadToCloudinary(file);
-                            updateArr("gallery_urls", index, url);
+                            const { original } = await uploadToCloudinary(file);
+                            updateArr("gallery_urls", index, original);
                             showToast('success', 'Image uploaded');
                           } catch (err) {
                               showToast('error', 'Upload failed');
