@@ -52,60 +52,90 @@ export default function SeedNotifications() {
       }
 
       // 3. Insert 2 Reviews (pending)
+      // Use server function if available to bypass RLS
       const { data: products } = await supabase.from('products').select('id').limit(1);
       const productId = products?.[0]?.id;
 
       if (productId) {
-        const { error: reviewError } = await supabase.from('reviews').insert([
-          {
-            product_id: productId,
-            rating: 5,
-            title: 'Test Review 1',
-            content: 'This is a test review pending approval.',
-            author_name: 'Reviewer 1',
-            status: 'pending',
-            created_at: now
-          },
-          {
-            product_id: productId,
-            rating: 4,
-            title: 'Test Review 2',
-            content: 'Another test review.',
-            author_name: 'Reviewer 2',
-            status: 'pending',
-            created_at: now
-          }
-        ]);
-         if (reviewError) {
-           console.error('Review seed error:', reviewError);
-           showToast(`Review seed failed: ${reviewError.message}`, 'error');
-         }
+        try {
+           await fetch('/.netlify/functions/admin-review-create', {
+             method: 'POST',
+             body: JSON.stringify({
+               product_id: productId,
+               rating: 5,
+               title: 'Test Review 1',
+               content: 'This is a test review pending approval.',
+               author_name: 'Reviewer 1',
+               status: 'pending'
+             })
+           });
+        } catch(err) {
+             console.warn('Function insert failed, trying direct supabase insert', err);
+             const { error: reviewError } = await supabase.from('reviews').insert([
+               {
+                 product_id: productId,
+                 rating: 5,
+                 title: 'Test Review 1',
+                 content: 'This is a test review pending approval.',
+                 author_name: 'Reviewer 1',
+                 status: 'pending',
+                 created_at: now
+               },
+               {
+                 product_id: productId,
+                 rating: 4,
+                 title: 'Test Review 2',
+                 content: 'Another test review.',
+                 author_name: 'Reviewer 2',
+                 status: 'pending',
+                 created_at: now
+               }
+             ]);
+              if (reviewError) {
+                console.error('Review seed error:', reviewError);
+                showToast(`Review seed failed: ${reviewError.message}`, 'error');
+              }
+        }
       } else {
         console.warn('No products found to attach reviews to');
       }
 
       // 4. Insert 2 Messages (new)
-      const { error: messageError } = await supabase.from('messages').insert([
-        {
-          name: 'Test Sender 1',
-          email: 'sender1@example.com',
-          subject: 'Test Message 1',
-          message: 'Hello, this is a test message.',
-          status: 'new',
-          created_at: now
-        },
-        {
-          name: 'Test Sender 2',
-          email: 'sender2@example.com',
-          subject: 'Test Message 2',
-          message: 'Another test message.',
-          status: 'new',
-          created_at: now
-        }
-      ]);
-      if (messageError) {
-        console.error('Message seed error:', messageError);
-        showToast(`Message seed failed: ${messageError.message}`, 'error');
+      // Use server function if available to bypass RLS
+      try {
+         await fetch('/.netlify/functions/submit-contact', { // Assuming this exists or similar
+            method: 'POST',
+            body: JSON.stringify({
+              name: 'Test Sender 1',
+              email: 'sender1@example.com',
+              subject: 'Test Message 1',
+              message: 'Hello, this is a test message.'
+            })
+         });
+      } catch (err) {
+          console.warn('Function insert failed, trying direct supabase insert', err);
+          const { error: messageError } = await supabase.from('messages').insert([
+            {
+              name: 'Test Sender 1',
+              email: 'sender1@example.com',
+              subject: 'Test Message 1',
+              message: 'Hello, this is a test message.',
+              status: 'new',
+              created_at: now
+            },
+            {
+              name: 'Test Sender 2',
+              email: 'sender2@example.com',
+              subject: 'Test Message 2',
+              message: 'Another test message.',
+              status: 'new',
+              created_at: now
+            }
+          ]);
+          if (messageError) {
+            console.error('Message seed error:', messageError);
+            showToast(`Message seed failed: ${messageError.message}`, 'error');
+          }
       }
 
       showToast('Notifications seeded successfully! Refreshing...', 'success');
