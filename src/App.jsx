@@ -79,6 +79,7 @@ import PriceUpdates from '@/pages/PriceUpdates'
 import Specials from '@/pages/Specials'
 import Featured from '@/pages/Featured'
 import FixImages from '@/pages/FixImages'
+import SeedNotifications from '@/pages/SeedNotifications'
 
 // Initialize Supabase adapter for real database access, with fallback to mock
 function initializeAdapter() {
@@ -197,6 +198,7 @@ const AuthenticatedApp = () => {
         
         {/* Admin Tools */}
         <Route path="/fix-images" element={<FixImages />} />
+        <Route path="/seed" element={<SeedNotifications />} />
 
         {/* Orders - Canonical Routes */}
         <Route path="/orders" element={<Orders/>} />

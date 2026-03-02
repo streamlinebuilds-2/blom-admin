@@ -538,6 +538,9 @@ export default function Layout({ children, currentPageName }) {
             </div>
 
             <div className="topbar-actions">
+              <Link to="/seed" className="theme-toggle" title="Seed Test Data">
+                <Sparkles className="w-5 h-5" />
+              </Link>
               <button className="theme-toggle" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
