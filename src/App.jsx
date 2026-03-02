@@ -13,6 +13,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { setAPI } from '@/components/data/api'
 import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
 import { createMockAdapter } from '@/components/data/mockAdapter'
+import { NotificationProvider } from '@/contexts/NotificationContext'
 import React from 'react';
 
 // Error Boundary Component
