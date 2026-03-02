@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/ToastProvider";
 import { RefreshCw, MessageSquare } from "lucide-react";
+import { useNotifications } from '../contexts/NotificationContext';
 
 export default function Messages() {
   const [rows, setRows] = useState([]);
@@ -15,7 +16,12 @@ export default function Messages() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { markAsRead } = useNotifications();
   const searchTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    markAsRead('messages');
+  }, [markAsRead]);
 
   async function load() {
     setLoading(true);

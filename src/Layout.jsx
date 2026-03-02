@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ToastProvider } from "./components/ui/ToastProvider";
+import { useNotifications } from "@/contexts/NotificationContext";
 import {
   LayoutDashboard, // Replaced Home
   Package,
@@ -75,7 +76,16 @@ const navigationGroups = [
 
 function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
   const [isOpen, setIsOpen] = useState(true);
+  const { counts } = useNotifications();
   const hasActive = group.items.some(item => currentPath.includes(item.url.toLowerCase()));
+
+  const getBadgeCount = (url) => {
+    if (url === 'Orders') return counts.orders;
+    if (url === 'course-bookings') return counts.course_bookings;
+    if (url === 'Messages') return counts.messages;
+    if (url === 'Reviews') return counts.reviews;
+    return 0;
+  };
 
   return (
     <div className="nav-group">
@@ -92,17 +102,36 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
       </button>
       {isOpen && (
         <div className="nav-items">
-          {group.items.map(item => (
-            <Link
-              key={item.url}
-              to={item.url === "Orders" ? "/orders" : item.url === "featured" ? "/featured" : createPageUrl(item.url)}
-              className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
-              onClick={onNavClick}
-            >
-              <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
-              {!isCollapsed && <span>{item.name}</span>}
-            </Link>
-          ))}
+          {group.items.map(item => {
+            const count = getBadgeCount(item.url);
+            return (
+              <Link
+                key={item.url}
+                to={item.url === "Orders" ? "/orders" : item.url === "featured" ? "/featured" : createPageUrl(item.url)}
+                className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
+                onClick={onNavClick}
+              >
+                <div className="relative">
+                  <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
+                  {count > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center border-2 border-[var(--bg)]">
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <span className="flex-1 flex justify-between items-center">
+                    {item.name}
+                    {count > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        {count > 99 ? '99+' : count}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

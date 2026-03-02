@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api";
@@ -6,11 +6,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star, Check, X, Trash2 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
+import { useNotifications } from "../contexts/NotificationContext";
 
 export default function Reviews() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const { showToast } = useToast();
+  const { markAsRead } = useNotifications();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    markAsRead('reviews');
+  }, [markAsRead]);
 
   const { data: reviews = [], isLoading, error } = useQuery({
     queryKey: ['reviews', statusFilter],

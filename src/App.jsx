@@ -77,6 +77,7 @@ import CourseBookingDetail from '@/pages/CourseBookingDetail'
 import PriceUpdates from '@/pages/PriceUpdates'
 import Specials from '@/pages/Specials'
 import Featured from '@/pages/Featured'
+import FixImages from '@/pages/FixImages'
 
 // Initialize Supabase adapter for real database access, with fallback to mock
 function initializeAdapter() {
@@ -192,6 +193,9 @@ const AuthenticatedApp = () => {
 
         {/* Featured - Canonical Routes */}
         <Route path="/featured" element={<Featured />} />
+        
+        {/* Admin Tools */}
+        <Route path="/fix-images" element={<FixImages />} />
 
         {/* Orders - Canonical Routes */}
         <Route path="/orders" element={<Orders/>} />
@@ -240,14 +244,16 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <NavigationTracker />
-            <AuthenticatedApp />
-          </Router>
-          <Toaster />
-          <VisualEditAgent />
-        </QueryClientProvider>
+        <NotificationProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <Router>
+              <NavigationTracker />
+              <AuthenticatedApp />
+            </Router>
+            <Toaster />
+            <VisualEditAgent />
+          </QueryClientProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   )
