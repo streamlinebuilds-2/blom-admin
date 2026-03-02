@@ -16,6 +16,7 @@ export default function Messages() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { markAsRead } = useNotifications();
   const searchTimeoutRef = useRef(null);
 
   async function load() {
@@ -393,6 +394,12 @@ export default function Messages() {
               <option value="new">Unanswered</option>
               <option value="handled">Answered</option>
             </select>
+            <button
+              onClick={() => markAsRead('messages')}
+              className="btn-secondary"
+            >
+              Mark read
+            </button>
             <button
               onClick={() => load()}
               className="btn-secondary"

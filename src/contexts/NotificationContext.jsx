@@ -36,8 +36,8 @@ export function NotificationProvider({ children }) {
       ] = await Promise.all([
         supabase.from('orders').select('*', { count: 'exact', head: true }).gt('placed_at', lastOrders),
         supabase.from('course_purchases').select('*', { count: 'exact', head: true }).gt('created_at', lastBookings),
-        supabase.from('messages').select('*', { count: 'exact', head: true }).eq('status', 'new'),
-        supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+        supabase.from('messages').select('*', { count: 'exact', head: true }).gt('created_at', lastMessages),
+        supabase.from('reviews').select('*', { count: 'exact', head: true }).gt('created_at', lastReviews)
       ]);
 
       setCounts({
@@ -59,9 +59,8 @@ export function NotificationProvider({ children }) {
   }, []);
 
   const markAsRead = (section) => {
-    // Only mark as read for time-based notifications (orders, bookings)
-    // Messages and Reviews are status-based and clear when actioned
-    if (section === 'orders' || section === 'course_bookings') {
+    // Mark as read for all time-based notifications
+    if (['orders', 'course_bookings', 'messages', 'reviews'].includes(section)) {
       const now = new Date().toISOString();
       localStorage.setItem(`last_checked_${section}`, now);
       // Optimistically clear count

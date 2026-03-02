@@ -11,6 +11,7 @@ import { useNotifications } from "../contexts/NotificationContext";
 export default function Reviews() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const { showToast } = useToast();
+  const { markAsRead } = useNotifications();
   const queryClient = useQueryClient();
 
   const { data: reviews = [], isLoading, error } = useQuery({
@@ -315,7 +316,23 @@ export default function Reviews() {
       {error && <Banner type="error">{error.message || 'Failed to load reviews'}</Banner>}
 
       <div className="reviews-header">
-        <h1 className="reviews-title">Reviews</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 className="reviews-title">Reviews</h1>
+          <button
+              onClick={() => markAsRead('reviews')}
+              style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'var(--card)',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  boxShadow: '2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light)'
+              }}
+          >
+              Mark all read
+          </button>
+        </div>
       </div>
 
       <div className="filter-tabs">

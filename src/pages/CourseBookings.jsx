@@ -4,9 +4,11 @@ import { RefreshCw, Filter, X, CheckCircle, Clock, AlertCircle } from 'lucide-re
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { api } from '@/components/data/api';
+import { useNotifications } from '../contexts/NotificationContext';
 
 export default function CourseBookings() {
   const [page, setPage] = useState(1);
+  const { markAsRead } = useNotifications();
 
   const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState({
@@ -115,9 +117,17 @@ export default function CourseBookings() {
             </button>
           )}
         </div>
-        <button onClick={() => refetch()} className="btn-secondary">
-          <RefreshCw size={16} /> Reload
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => markAsRead('course_bookings')}
+            className="btn-secondary"
+          >
+            <CheckCircle size={16} /> Mark read
+          </button>
+          <button onClick={() => refetch()} className="btn-secondary">
+            <RefreshCw size={16} /> Reload
+          </button>
+        </div>
       </div>
 
       <div className={`filters-section ${showFilters ? 'show' : ''}`}>
