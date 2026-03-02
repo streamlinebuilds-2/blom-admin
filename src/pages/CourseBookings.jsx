@@ -4,15 +4,9 @@ import { RefreshCw, Filter, X, CheckCircle, Clock, AlertCircle } from 'lucide-re
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { api } from '@/components/data/api';
-import { useNotifications } from '../contexts/NotificationContext';
 
 export default function CourseBookings() {
   const [page, setPage] = useState(1);
-  const { markAsRead } = useNotifications();
-
-  useEffect(() => {
-    markAsRead('course_bookings');
-  }, [markAsRead]);
 
   const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState({

@@ -11,13 +11,7 @@ import { useNotifications } from "../contexts/NotificationContext";
 export default function Reviews() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const { showToast } = useToast();
-  const { markAsRead } = useNotifications();
   const queryClient = useQueryClient();
-
-  // Status-based notifications don't need markAsRead on view
-  // useEffect(() => {
-  //   markAsRead('reviews');
-  // }, [markAsRead]);
 
   const { data: reviews = [], isLoading, error } = useQuery({
     queryKey: ['reviews', statusFilter],

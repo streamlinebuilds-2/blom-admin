@@ -4,15 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, RefreshCw, Truck, Package, Archive, Filter, X, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '../components/ui/dialog';
-import { useNotifications } from '../contexts/NotificationContext';
 
 export default function Orders() {
   const navigate = useNavigate();
-  const { markAsRead } = useNotifications();
-
-  useEffect(() => {
-    markAsRead('orders');
-  }, [markAsRead]);
 
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],

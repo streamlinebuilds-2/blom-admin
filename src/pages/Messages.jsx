@@ -16,13 +16,7 @@ export default function Messages() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { markAsRead } = useNotifications();
   const searchTimeoutRef = useRef(null);
-
-  // Status-based notifications don't need markAsRead on view
-  // useEffect(() => {
-  //   markAsRead('messages');
-  // }, [markAsRead]);
 
   async function load() {
     setLoading(true);
