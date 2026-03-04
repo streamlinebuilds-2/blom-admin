@@ -62,6 +62,7 @@ const initialFormState = {
   overview: "",
   thumbnail_url: "",
   hover_url: "",
+  gallery_urls: [""],
   variants: [{ name: "", image: "", price_cents: null }],
   features: [""],
   how_to_use: [""],
@@ -496,6 +497,11 @@ export default function ProductNew() {
     [form.key_ingredients]
   );
 
+  const galleryUrls = useMemo(
+    () => ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean),
+    [form.gallery_urls]
+  );
+
   const inStock = useMemo(() => inventoryQuantityNumber > 0, [inventoryQuantityNumber]);
 
   const images = useMemo(() => {
@@ -505,9 +511,9 @@ export default function ProductNew() {
     
     // We only want the main image in the gallery as requested
     // If you ever want hover back, add it to this list
-    const list = [primary].filter(Boolean);
-    return list;
-  }, [form.thumbnail_url]);
+    const list = [primary, ...galleryUrls].filter(Boolean);
+    return [...new Set(list)];
+  }, [form.thumbnail_url, galleryUrls]);
 
   const previewImages = useMemo(
     () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
@@ -653,7 +659,7 @@ export default function ProductNew() {
       description: form.overview,
       thumbnail_url: sanitizeImageUrl(form.thumbnail_url),
       hover_url: sanitizeImageUrl(form.hover_url),
-      gallery_urls: [],
+      gallery_urls: galleryUrls,
       variants,
       features,
       how_to_use: howToUse,
@@ -1382,10 +1388,64 @@ export default function ProductNew() {
                     <span>Image URL: {form.thumbnail_url.substring(0, 60)}{form.thumbnail_url.length > 60 ? '...' : ''}</span>
                   </div>
                 )}
-                <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
-                {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
+                <small className="text-xs text-[var(--text-muted)]">Optional hover image for product cards</small>
               </div>
-              {/* Hover image section removed as requested */}
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-[var(--text)]">Gallery URLs</label>
+                  {errors.images ? (
+                    <span className="text-xs font-medium text-red-500">{errors.images}</span>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  {ensureList(form.gallery_urls).map((item, index) => (
+                    <div key={`gallery_urls-${index}`} className="flex gap-2">
+                      <input
+                        type="text"
+                        className="product-form-input flex-1"
+                        value={item}
+                        placeholder="https://..."
+                        onChange={(event) => updateArr("gallery_urls", index, event.target.value)}
+                      />
+                      <label className="product-btn-secondary cursor-pointer">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              showToast('info', 'Uploading...');
+                              const { original } = await uploadToCloudinary(file);
+                              updateArr("gallery_urls", index, original);
+                              showToast('success', 'Image uploaded');
+                            } catch (err) {
+                              showToast('error', 'Upload failed');
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeRow("gallery_urls", index)}
+                        className="product-btn-secondary"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addRow("gallery_urls")}
+                  className="product-btn-add"
+                >
+                  + Add image
+                </button>
+              </div>
             </div>
           </section>
 

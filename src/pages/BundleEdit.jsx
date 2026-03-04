@@ -139,8 +139,18 @@ export default function BundleEdit() {
         if (bundle) {
           // Map bundles table columns to form fields properly
           const bundleImages = Array.isArray(bundle.images) ? bundle.images : [];
-          const galleryUrls = Array.isArray(bundle.gallery_urls) ? bundle.gallery_urls : [];
-          const allImages = [...bundleImages, ...galleryUrls];
+          const rawGalleryUrls = Array.isArray(bundle.gallery_urls) ? bundle.gallery_urls : [];
+          
+          // Combine and deduplicate all available images
+          let allImages = [...bundleImages, ...rawGalleryUrls].filter(Boolean);
+          allImages = [...new Set(allImages)];
+
+          // Determine the primary thumbnail
+          const thumbnail = bundle.thumbnail_url || allImages[0] || '';
+          
+          // Filter out the thumbnail from the gallery list to prevent duplicates in the UI
+          // The user only wants to see "extra" images in the gallery list
+          const galleryForForm = allImages.filter(url => url !== thumbnail);
           
           setForm({
             id: bundle.id,
@@ -156,9 +166,9 @@ export default function BundleEdit() {
             barcode: bundle.barcode || '',
             short_description: bundle.short_desc || '',
             overview: bundle.long_desc || '',
-            thumbnail_url: bundle.thumbnail_url || bundleImages[0] || '',
+            thumbnail_url: thumbnail,
             hover_url: bundle.hover_image || '',
-            gallery_urls: allImages.length > 0 ? allImages : [''],
+            gallery_urls: galleryForForm.length > 0 ? galleryForForm : [''],
             variants: Array.isArray(bundle.variants) ? bundle.variants : [{ label: "", image: "" }],
             features: Array.isArray(bundle.features) ? bundle.features : [''],
             how_to_use: Array.isArray(bundle.how_to_use) ? bundle.how_to_use : [''],
