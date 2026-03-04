@@ -75,6 +75,13 @@ export default function BundleEdit() {
   const [allProducts, setAllProducts] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
 
+  // Default badges to empty array with one empty string if null/undefined
+  useEffect(() => {
+    if (!form.badges || form.badges.length === 0) {
+      setForm(prev => ({ ...prev, badges: [""] }));
+    }
+  }, []);
+
   const handleVariantImageUpload = async (index, file) => {
     if (!file) return;
 

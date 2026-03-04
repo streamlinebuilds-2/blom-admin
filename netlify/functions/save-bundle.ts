@@ -66,9 +66,10 @@ export const handler: Handler = async (event) => {
       (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
     // product_type: 'collection' or 'bundle'
-    // As per user request, ALL bundles/collections must be categorized as 'Bundle Deals'
-    const rawType = String(payload.product_type || '').toLowerCase();
-    const productType = (rawType === 'bundle' || rawType === 'bundle deals') ? 'bundle' : 'collection';
+    // As per user request, ALL bundles/collections must be categorized as 'Bundle Deals' and type 'bundle'
+    // const rawType = String(payload.product_type || '').toLowerCase();
+    // const productType = (rawType === 'bundle' || rawType === 'bundle deals') ? 'bundle' : 'collection';
+    const productType = 'bundle';
     
     // FORCE 'Bundle Deals' category regardless of type
     const category = 'Bundle Deals';
@@ -98,6 +99,8 @@ export const handler: Handler = async (event) => {
       thumbnail_url: payload.thumbnail_url || '',
       hover_image: payload.hover_url || payload.hover_image || null,
       
+      badges: payload.badges || [],
+
       // The components - saved as JSONB array in bundles table as well for easier access
       bundle_products: payload.bundle_products || [],
       

@@ -25,7 +25,7 @@ const ensureList = (value) => {
 // ... initialFormState ...
 const initialFormState = {
   name: '',
-  product_type: 'collection', // 'collection' → Collections; 'bundle' → Bundle Deals (e.g. Prep & Primer)
+  product_type: 'bundle', // Default to 'bundle' as requested
   price: '',
   compare_at_price: '',
   short_description: '',
