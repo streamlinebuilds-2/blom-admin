@@ -30,10 +30,14 @@ export const handler: Handler = async (event) => {
     };
 
     // 1. Merge 'Bundles' category into 'Bundle Deals' for the bundles table
+    // Also ensure product_type is 'bundle'
     const { data: bundlesData, error: bundlesError } = await supabase
       .from('bundles')
-      .update({ category: 'Bundle Deals' })
-      .ilike('category', 'Bundles') // Matches 'Bundles', 'bundles'
+      .update({ 
+        category: 'Bundle Deals',
+        product_type: 'bundle' 
+      })
+      .or('category.ilike.Bundles,category.ilike.bundle') // Matches 'Bundles', 'bundles', 'bundle'
       .select('id');
     
     if (bundlesError) throw bundlesError;
@@ -42,12 +46,28 @@ export const handler: Handler = async (event) => {
     // 2. Merge 'Bundles' category into 'Bundle Deals' for the products table
     const { data: productsData, error: productsError } = await supabase
       .from('products')
-      .update({ category: 'Bundle Deals' })
-      .ilike('category', 'Bundles')
+      .update({ 
+        category: 'Bundle Deals',
+        product_type: 'bundle' // Assuming products table also has product_type
+      })
+      .or('category.ilike.Bundles,category.ilike.bundle')
       .select('id');
 
-    if (productsError) throw productsError;
-    results.productsUpdated = productsData?.length || 0;
+    // Note: products table might not have product_type column or it might be different.
+    // If it fails, we try updating just category.
+    if (productsError) {
+        console.warn('Could not update product_type on products table, trying category only', productsError.message);
+        const { data: productsDataRetry, error: productsErrorRetry } = await supabase
+        .from('products')
+        .update({ category: 'Bundle Deals' })
+        .or('category.ilike.Bundles,category.ilike.bundle')
+        .select('id');
+        
+        if (productsErrorRetry) throw productsErrorRetry;
+        results.productsUpdated = productsDataRetry?.length || 0;
+    } else {
+        results.productsUpdated = productsData?.length || 0;
+    }
 
     // 3. Force specific products to be 'Bundle Deals' as requested
     const targetNames = [
