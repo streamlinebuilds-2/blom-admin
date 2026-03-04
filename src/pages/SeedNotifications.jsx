@@ -1,11 +1,64 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/ToastProvider';
 
 export default function SeedNotifications() {
   const { showToast } = useToast();
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [sourceCat, setSourceCat] = useState('');
+  const [targetCat, setTargetCat] = useState('');
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/.netlify/functions/admin-category-stats');
+      const data = await res.json();
+      if (data.ok) {
+        setCategories(data.stats);
+      }
+    } catch (e) {
+      console.error('Failed to load categories', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const mergeCategories = async () => {
+    if (!sourceCat || !targetCat) {
+      showToast('Please select both source and target categories', 'error');
+      return;
+    }
+    if (sourceCat === targetCat) {
+      showToast('Source and target must be different', 'error');
+      return;
+    }
+    if (!confirm(`Are you sure you want to move all items from "${sourceCat}" to "${targetCat}"? This cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-category-merge', {
+        method: 'POST',
+        body: JSON.stringify({ sourceCategory: sourceCat, targetCategory: targetCat })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(data.message, 'success');
+        fetchCategories(); // Refresh list
+        setSourceCat('');
+      } else {
+        showToast(data.error || 'Merge failed', 'error');
+      }
+    } catch (e) {
+      showToast('Network error during merge', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const seed = async () => {
     setLoading(true);
@@ -158,6 +211,7 @@ export default function SeedNotifications() {
       const result = await response.json();
       if (result.ok) {
         showToast(result.message || 'Bundles updated successfully', 'success');
+        fetchCategories(); // Refresh category list
       } else {
         showToast(result.error || 'Failed to update bundles', 'error');
       }
@@ -170,29 +224,96 @@ export default function SeedNotifications() {
   };
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Debug Tools</h1>
+    <div className="p-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Debug & Maintenance Tools</h1>
       
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">Seed Notifications</h2>
-        <p className="mb-2">This will insert dummy data to test notifications:</p>
-        <ul className="list-disc ml-6 mb-4">
-          <li>1 Course Booking (and reset last_checked)</li>
-          <li>2 Pending Reviews</li>
-          <li>2 New Messages</li>
-        </ul>
-        <Button onClick={seed} disabled={loading}>
-          {loading ? 'Processing...' : 'Seed Notification Data'}
+      {/* Category Manager */}
+      <div className="mb-8 p-6 bg-white rounded-lg shadow border border-gray-200">
+        <h2 className="text-xl font-semibold mb-4">Category Cleanup</h2>
+        <p className="text-sm text-gray-500 mb-4">Merge duplicate or messy categories. Move all products from one category to another.</p>
+        
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Source Category (Move from)</label>
+            <select 
+              className="w-full p-2 border rounded"
+              value={sourceCat}
+              onChange={e => setSourceCat(e.target.value)}
+            >
+              <option value="">Select Category</option>
+              {categories.map(c => (
+                <option key={c.name} value={c.name}>{c.name} ({c.total})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Target Category (Move to)</label>
+            <select 
+              className="w-full p-2 border rounded"
+              value={targetCat}
+              onChange={e => setTargetCat(e.target.value)}
+            >
+              <option value="">Select Category</option>
+              {categories.map(c => (
+                <option key={c.name} value={c.name}>{c.name} ({c.total})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <Button onClick={mergeCategories} disabled={loading || !sourceCat || !targetCat} className="w-full md:w-auto">
+          {loading ? 'Merging...' : 'Merge Categories'}
         </Button>
+
+        <div className="mt-6">
+          <h3 className="font-semibold text-sm mb-2">Current Category Distribution:</h3>
+          <div className="bg-gray-50 p-4 rounded max-h-60 overflow-y-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="border-b">
+                  <th className="pb-2">Category</th>
+                  <th className="pb-2 text-right">Products</th>
+                  <th className="pb-2 text-right">Bundles</th>
+                  <th className="pb-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((c, i) => (
+                  <tr key={i} className="border-b last:border-0 border-gray-100">
+                    <td className="py-2">{c.name}</td>
+                    <td className="py-2 text-right text-gray-500">{c.products}</td>
+                    <td className="py-2 text-right text-gray-500">{c.bundles}</td>
+                    <td className="py-2 text-right font-medium">{c.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <div className="mb-8 pt-8 border-t">
-        <h2 className="text-xl font-semibold mb-2">Fix Bundle Categories</h2>
-        <p className="mb-2">This will convert specific "Collection" products to "Bundle" type/category as requested.</p>
-        <p className="text-sm text-gray-500 mb-4">Targets: Red Collection, High Tea, Blossom Sugar Rush, Snowberry, Petal, Pastel, Blooming Love</p>
-        <Button onClick={fixBundles} disabled={loading} variant="secondary" className="bg-blue-600 hover:bg-blue-700 text-white">
-          {loading ? 'Processing...' : 'Fix Specific Bundles'}
-        </Button>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
+          <h2 className="text-xl font-semibold mb-2">Seed Notifications</h2>
+          <p className="text-sm text-gray-500 mb-4">Inserts dummy data to test the notification system.</p>
+          <ul className="list-disc ml-6 mb-4 text-sm text-gray-600">
+            <li>1 Course Booking (reset last_checked)</li>
+            <li>2 Pending Reviews</li>
+            <li>2 New Messages</li>
+          </ul>
+          <Button onClick={seed} disabled={loading} variant="outline">
+            {loading ? 'Processing...' : 'Seed Notification Data'}
+          </Button>
+        </div>
+
+        <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
+          <h2 className="text-xl font-semibold mb-2">Fix Bundle Categories</h2>
+          <p className="text-sm text-gray-500 mb-4">Moves "Collection" products to "Bundle Deals" category.</p>
+          <p className="text-xs text-gray-400 mb-4">Includes: Red Collection, High Tea, Blossom Sugar Rush, etc.</p>
+          <Button onClick={fixBundles} disabled={loading} variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+            {loading ? 'Processing...' : 'Fix Specific Bundles'}
+          </Button>
+        </div>
       </div>
     </div>
   );
