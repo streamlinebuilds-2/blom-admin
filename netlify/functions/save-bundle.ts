@@ -66,7 +66,8 @@ export const handler: Handler = async (event) => {
       (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
     // product_type: 'collection' (default, category=Collections) or 'bundle' (category=Bundle Deals, e.g. Prep & Primer)
-    const productType = (payload.product_type === 'bundle') ? 'bundle' : 'collection';
+    const rawType = String(payload.product_type || '').toLowerCase();
+    const productType = (rawType === 'bundle' || rawType === 'bundle deals') ? 'bundle' : 'collection';
     const category = productType === 'bundle' ? 'Bundle Deals' : 'Collections';
 
     // Build bundle data for the bundles table

@@ -32,6 +32,7 @@ const initialFormState = {
   overview: '',
   thumbnail_url: '',
   hover_url: '',
+  gallery_urls: [''],
   features: [''],
   how_to_use: [''],
   status: 'active',
@@ -202,9 +203,13 @@ export default function BundleNew() {
 
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
-    const hover = form.hover_url?.trim();
-    return [primary, hover].filter(Boolean);
-  }, [form.thumbnail_url, form.hover_url]);
+    const galleryUrls = ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean);
+    // Exclude hover_url from the main images list as requested
+    // const hover = form.hover_url?.trim();
+    const list = [primary, ...galleryUrls].filter(Boolean);
+    // Deduplicate images
+    return [...new Set(list)];
+  }, [form.thumbnail_url, form.gallery_urls]);
 
   const previewImages = useMemo(
     () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
@@ -319,11 +324,11 @@ export default function BundleNew() {
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
       short_description: form.short_description,
-      overview: form.overview,
-      description: form.overview,
+      overview: form.overview || form.short_description,
+      description: form.overview || form.short_description,
       thumbnail_url: form.thumbnail_url?.trim() || "",
       hover_url: form.hover_url?.trim() || "",
-      gallery_urls: [],
+      gallery_urls: ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean),
       variants: [],
       features,
       how_to_use: howToUse,
@@ -959,6 +964,59 @@ export default function BundleNew() {
                     )}
                   </div>
                   <small className="text-xs text-[var(--text-muted)]">Optional hover image for product cards</small>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold text-[var(--text)]">Gallery URLs</label>
+                  </div>
+                  <div className="space-y-2">
+                    {ensureList(form.gallery_urls).map((item, index) => (
+                      <div key={`gallery_urls-${index}`} className="flex gap-2">
+                        <input
+                          type="text"
+                          className="product-form-input flex-1"
+                          value={item}
+                          placeholder="https://..."
+                          onChange={(event) => updateArr("gallery_urls", index, event.target.value)}
+                        />
+                        <label className="product-btn-secondary cursor-pointer">
+                          Upload
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                showToast('info', 'Uploading...');
+                                const { original } = await uploadToCloudinary(file);
+                                updateArr("gallery_urls", index, original);
+                                showToast('success', 'Image uploaded');
+                              } catch (err) {
+                                showToast('error', 'Upload failed');
+                              }
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeRow("gallery_urls", index)}
+                          className="product-btn-secondary"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addRow("gallery_urls")}
+                    className="product-btn-add"
+                  >
+                    + Add image
+                  </button>
                 </div>
               </div>
             </section>

@@ -102,6 +102,9 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
   // Current display image: use variant image if selected and available, otherwise use gallery
   const currentMainImage = selectedVariant?.image || product.images[selectedImage] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop';
 
+  // Ensure overview has a fallback
+  const displayOverview = product.overview || product.shortDescription;
+
   // Set page title and meta description
   useEffect(() => {
     document.title = product.seo.title;
@@ -432,7 +435,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                   </button>
                   {expandedAccordion === 'overview' && (
                     <div className="px-6 pb-6">
-                      <p className="text-gray-600 leading-relaxed">{product.overview}</p>
+                      <p className="text-gray-600 leading-relaxed">{displayOverview}</p>
                     </div>
                   )}
                 </Card>

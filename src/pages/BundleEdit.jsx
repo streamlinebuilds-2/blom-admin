@@ -365,10 +365,12 @@ export default function BundleEdit() {
 
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
-    const hover = form.hover_url?.trim();
-    const list = [primary, hover, ...galleryUrls].filter(Boolean);
-    return list;
-  }, [form.thumbnail_url, form.hover_url, galleryUrls]);
+    // Exclude hover_url from the main images list as requested
+    // const hover = form.hover_url?.trim();
+    const list = [primary, ...galleryUrls].filter(Boolean);
+    // Deduplicate images
+    return [...new Set(list)];
+  }, [form.thumbnail_url, galleryUrls]);
 
   const previewImages = useMemo(
     () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
@@ -498,8 +500,8 @@ export default function BundleEdit() {
       weight: weightNumber,
       barcode: form.barcode?.trim() || null,
       short_description: form.short_description,
-      overview: form.overview,
-      description: form.overview,
+      overview: form.overview || form.short_description,
+      description: form.overview || form.short_description,
       thumbnail_url: form.thumbnail_url?.trim() || "",
       hover_url: form.hover_url?.trim() || "",
       gallery_urls: galleryUrls,
