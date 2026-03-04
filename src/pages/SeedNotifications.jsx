@@ -149,18 +149,51 @@ export default function SeedNotifications() {
     }
   };
 
+  const fixBundles = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/.netlify/functions/fix-bundle-categories', {
+        method: 'POST',
+      });
+      const result = await response.json();
+      if (result.ok) {
+        showToast(result.message || 'Bundles updated successfully', 'success');
+      } else {
+        showToast(result.error || 'Failed to update bundles', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Error calling fix function', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Seed Notifications</h1>
-      <p className="mb-4">This will insert dummy data to test notifications:</p>
-      <ul className="list-disc ml-6 mb-6">
-        <li>1 Course Booking (and reset last_checked)</li>
-        <li>2 Pending Reviews</li>
-        <li>2 New Messages</li>
-      </ul>
-      <Button onClick={seed} disabled={loading}>
-        {loading ? 'Seeding...' : 'Seed Data'}
-      </Button>
+      <h1 className="text-2xl font-bold mb-4">Debug Tools</h1>
+      
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-2">Seed Notifications</h2>
+        <p className="mb-2">This will insert dummy data to test notifications:</p>
+        <ul className="list-disc ml-6 mb-4">
+          <li>1 Course Booking (and reset last_checked)</li>
+          <li>2 Pending Reviews</li>
+          <li>2 New Messages</li>
+        </ul>
+        <Button onClick={seed} disabled={loading}>
+          {loading ? 'Processing...' : 'Seed Notification Data'}
+        </Button>
+      </div>
+
+      <div className="mb-8 pt-8 border-t">
+        <h2 className="text-xl font-semibold mb-2">Fix Bundle Categories</h2>
+        <p className="mb-2">This will convert specific "Collection" products to "Bundle" type/category as requested.</p>
+        <p className="text-sm text-gray-500 mb-4">Targets: Red Collection, High Tea, Blossom Sugar Rush, Snowberry, Petal, Pastel, Blooming Love</p>
+        <Button onClick={fixBundles} disabled={loading} variant="secondary" className="bg-blue-600 hover:bg-blue-700 text-white">
+          {loading ? 'Processing...' : 'Fix Specific Bundles'}
+        </Button>
+      </div>
     </div>
   );
 }
