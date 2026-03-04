@@ -1599,6 +1599,11 @@ export default function ProductEdit() {
                 )}
                 {errors.category ? <p className="text-xs text-red-500">{errors.category}</p> : null}
               </div>
+              
+              {/* Slug and SKU hidden */}
+              <input type="hidden" value={form.slug} />
+              <input type="hidden" value={form.sku} />
+
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
                   Status
@@ -1925,146 +1930,7 @@ export default function ProductEdit() {
             </div>
           </section>
 
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Variants &amp; Highlights</h2>
-              <p className="text-sm text-[var(--text-muted)]">List variants, key features and how to use steps.</p>
-            </header>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-[var(--text)]">Variants</label>
-                <small className="text-xs text-[var(--text-muted)] block mb-2">
-                  e.g., different sizes or colors with unique images. Each variant can have its own price or use the default product price.
-                </small>
-                <div className="space-y-3">
-                  {ensureList(form.variants).map((variant, index) => (
-                    <div key={`variant-${index}`} className="variant-row">
-                      <div className="flex flex-col gap-2">
-                        <span className="text-xs font-medium text-[var(--text-muted)]">#{index + 1}</span>
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => moveVariant("variants", index, 'up')}
-                            disabled={index === 0}
-                            className="product-btn-secondary px-2 py-1 text-xs"
-                            title="Move up"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveVariant("variants", index, 'down')}
-                            disabled={index === ensureList(form.variants).length - 1}
-                            className="product-btn-secondary px-2 py-1 text-xs"
-                            title="Move down"
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <textarea
-                        placeholder="Variant name (e.g. 250ml, Pink)"
-                        className="product-form-input"
-                        style={{ 
-                          flex: 3, 
-                          minWidth: '250px',
-                          minHeight: '84px',
-                          maxHeight: '120px',
-                          resize: 'vertical',
-                          overflowY: 'auto'
-                        }}
-                        rows={3}
-                        value={(() => {
-                          if (typeof variant === 'string') {
-                            return variant;
-                          }
-                          // Handle empty variant objects properly
-                          const name = variant?.name?.trim();
-                          return name || '';
-                        })()}
-                        onChange={(e) => {
-                          const current = form.variants[index];
-                          const updated = typeof current === "string"
-                            ? { name: e.target.value, image: "" }
-                            : { ...current, name: e.target.value };
-                          updateArr("variants", index, updated);
-                        }}
-                        onFocus={(e) => {
-                          // If the field is empty and shows placeholder, ensure it's truly empty
-                          if (!e.target.value && typeof variant === 'object' && !variant?.name?.trim()) {
-                            e.target.value = '';
-                          }
-                        }}
-                      />
-                      
-                      <div className="flex flex-col gap-2" style={{ minWidth: '180px' }}>
-                        {/* Image Upload/Change Button */}
-                        <div className="variant-image-upload">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            id={`variant-image-${index}`}
-                            style={{ display: 'none' }}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              console.log('🖼️ Variant file selected for index:', index, 'file:', {
-                                name: file?.name,
-                                size: file?.size,
-                                type: file?.type,
-                                hasFile: !!file
-                              });
-                              if (file) {
-                                console.log('🔄 Calling handleVariantImageUpload for index:', index);
-                                handleVariantImageUpload(index, file);
-                              } else {
-                                console.log('❌ No file selected for variant at index:', index);
-                              }
-                            }}
-                          />
-                          <label htmlFor={`variant-image-${index}`} className="upload-btn" style={{ width: '100%' }}>
-                            {variant?.image ? '📷 Change Image' : '📷 Upload Image'}
-                          </label>
-                          {variant?.image && (
-                            <img
-                              src={variant.image}
-                              alt={variant?.name || 'Variant'}
-                              className="variant-thumbnail"
-                            />
-                          )}
-                        </div>
-                        
-                        {/* Price Edit Button */}
-                        <div>
-                          <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Price</label>
-                          {getVariantPriceInput(index)}
-                        </div>
-                        
-                        {/* Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() => removeRow("variants", index)}
-                          className="product-btn-secondary"
-                          style={{ width: '100%', background: '#ef4444', color: 'white' }}
-                        >
-                          🗑️ Delete Variant
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addRow("variants")}
-                  className="product-btn-add"
-                >
-                  + Add variant
-                </button>
-              </div>
-              {renderArrayField("features", "Features", "Key selling point", "Add feature")}
-              {renderArrayField("how_to_use", "How to Use", "Usage instruction", "Add step")}
-            </div>
-          </section>
+          {/* Variants & Highlights removed */}
 
           <section className="product-form-section">
             <header className="mb-4">
@@ -2115,62 +1981,7 @@ export default function ProductEdit() {
             </div>
           </section>
 
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Related Products</h2>
-              <p className="text-sm text-[var(--text-muted)]">Select products to recommend (up to 3).</p>
-            </header>
-            <div className="space-y-2">
-              {form.related.map((productId, index) => (
-                <div key={index} className="flex gap-2">
-                  <select
-                    value={productId}
-                    onChange={(e) => {
-                      const updated = [...form.related];
-                      updated[index] = e.target.value;
-                      setForm(prev => ({ ...prev, related: updated }));
-                    }}
-                    className="product-form-select flex-1"
-                  >
-                    <option value="">Select product...</option>
-                    {allProducts
-                      .filter(p => !form.related.includes(p.id) || p.id === productId)
-                      .map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name}
-                        </option>
-                      ))
-                    }
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForm(prev => ({
-                        ...prev,
-                        related: prev.related.filter((_, i) => i !== index)
-                      }));
-                    }}
-                    className="product-btn-secondary"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-
-              {form.related.length < 3 && (
-                <button
-                  type="button"
-                  onClick={() => setForm(prev => ({
-                    ...prev,
-                    related: [...prev.related, '']
-                  }))}
-                  className="product-btn-add"
-                >
-                  + Add Related Product
-                </button>
-              )}
-            </div>
-          </section>
+          {/* Related Products removed */}
 
           {serverError ? (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">{serverError}</div>
