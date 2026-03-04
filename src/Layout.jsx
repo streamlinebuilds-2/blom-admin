@@ -80,6 +80,8 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
   const hasActive = group.items.some(item => currentPath.includes(item.url.toLowerCase()));
 
   const getBadgeCount = (url) => {
+    // Debug logging
+    // console.log('Checking badge for:', url, counts);
     if (url === 'Orders') return counts?.orders || 0;
     if (url === 'course-bookings') return counts?.course_bookings || 0;
     if (url === 'Messages') return counts?.messages || 0;
