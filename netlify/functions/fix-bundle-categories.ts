@@ -21,6 +21,35 @@ export const handler: Handler = async (event) => {
     
     const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
+    console.log('Starting Category Merge: Bundles -> Bundle Deals');
+
+    const results = {
+      bundlesUpdated: 0,
+      productsUpdated: 0,
+      specificFixes: 0
+    };
+
+    // 1. Merge 'Bundles' category into 'Bundle Deals' for the bundles table
+    const { data: bundlesData, error: bundlesError } = await supabase
+      .from('bundles')
+      .update({ category: 'Bundle Deals' })
+      .ilike('category', 'Bundles') // Matches 'Bundles', 'bundles'
+      .select('id');
+    
+    if (bundlesError) throw bundlesError;
+    results.bundlesUpdated = bundlesData?.length || 0;
+
+    // 2. Merge 'Bundles' category into 'Bundle Deals' for the products table
+    const { data: productsData, error: productsError } = await supabase
+      .from('products')
+      .update({ category: 'Bundle Deals' })
+      .ilike('category', 'Bundles')
+      .select('id');
+
+    if (productsError) throw productsError;
+    results.productsUpdated = productsData?.length || 0;
+
+    // 3. Force specific products to be 'Bundle Deals' as requested
     const targetNames = [
       'Red Collection',
       'High Tea Brigerton Combo',
@@ -31,35 +60,27 @@ export const handler: Handler = async (event) => {
       'Blooming Love Acrylic Collection'
     ];
 
-    console.log(`Fixing categories for ${targetNames.length} bundles...`);
-
-    const { data, error } = await supabase
+    const { data: specificData, error: specificError } = await supabase
       .from('bundles')
       .update({ 
         product_type: 'bundle',
         category: 'Bundle Deals'
       })
       .in('name', targetNames)
-      .select('id, name, product_type, category');
+      .select('id, name');
 
-    if (error) {
-      console.error('Error updating bundles:', error);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ ok: false, error: error.message })
-      };
-    }
+    if (specificError) throw specificError;
+    results.specificFixes = specificData?.length || 0;
 
-    console.log('Update successful:', data);
+    console.log('Merge successful:', results);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         ok: true, 
-        message: `Updated ${data?.length || 0} bundles`,
-        updated: data 
+        message: `Merged categories successfully.`,
+        details: results
       })
     };
 
