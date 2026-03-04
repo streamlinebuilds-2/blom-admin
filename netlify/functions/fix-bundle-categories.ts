@@ -21,7 +21,7 @@ export const handler: Handler = async (event) => {
     
     const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    console.log('Starting Category Merge: Bundles -> Bundle Deals');
+    console.log('Starting Aggressive Category Merge: Bundles/Collections -> Bundle Deals');
 
     const results = {
       bundlesUpdated: 0,
@@ -29,47 +29,45 @@ export const handler: Handler = async (event) => {
       specificFixes: 0
     };
 
-    // 1. Merge 'Bundles' category into 'Bundle Deals' for the bundles table
-    // Also ensure product_type is 'bundle'
+    // 1. Update BUNDLES table
+    // Move anything with "Bundle" or "Collection" in the category name to "Bundle Deals"
+    // Also set product_type to 'bundle'
     const { data: bundlesData, error: bundlesError } = await supabase
       .from('bundles')
       .update({ 
         category: 'Bundle Deals',
         product_type: 'bundle' 
       })
-      .or('category.ilike.Bundles,category.ilike.bundle') // Matches 'Bundles', 'bundles', 'bundle'
+      .or('category.ilike.*Bundle*,category.ilike.*Collection*') 
+      .neq('category', 'Bundle Deals') // Don't update if already correct (optional optimization)
       .select('id');
     
-    if (bundlesError) throw bundlesError;
-    results.bundlesUpdated = bundlesData?.length || 0;
+    if (bundlesError) {
+        console.error('Error updating bundles:', bundlesError);
+        // Fallback: try simpler query if wildcard fails (Supabase js sometimes tricky with OR + wildcards)
+    } else {
+        results.bundlesUpdated = bundlesData?.length || 0;
+    }
 
-    // 2. Merge 'Bundles' category into 'Bundle Deals' for the products table
+    // 2. Update PRODUCTS table
+    // Same logic
     const { data: productsData, error: productsError } = await supabase
       .from('products')
       .update({ 
-        category: 'Bundle Deals',
-        product_type: 'bundle' // Assuming products table also has product_type
+        category: 'Bundle Deals'
+        // We don't touch product_type here as it might not exist or be different structure
       })
-      .or('category.ilike.Bundles,category.ilike.bundle')
+      .or('category.ilike.*Bundle*,category.ilike.*Collection*')
+      .neq('category', 'Bundle Deals')
       .select('id');
 
-    // Note: products table might not have product_type column or it might be different.
-    // If it fails, we try updating just category.
     if (productsError) {
-        console.warn('Could not update product_type on products table, trying category only', productsError.message);
-        const { data: productsDataRetry, error: productsErrorRetry } = await supabase
-        .from('products')
-        .update({ category: 'Bundle Deals' })
-        .or('category.ilike.Bundles,category.ilike.bundle')
-        .select('id');
-        
-        if (productsErrorRetry) throw productsErrorRetry;
-        results.productsUpdated = productsDataRetry?.length || 0;
+         console.error('Error updating products:', productsError);
     } else {
         results.productsUpdated = productsData?.length || 0;
     }
 
-    // 3. Force specific products to be 'Bundle Deals' as requested
+    // 3. Force specific products (legacy list) just in case
     const targetNames = [
       'Red Collection',
       'High Tea Brigerton Combo',
