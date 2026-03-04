@@ -1112,43 +1112,11 @@ export default function BundleEdit() {
                 />
                 {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="slug">
-                  Slug <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="slug"
-                  type="text"
-                  className="product-form-input"
-                  value={form.slug}
-                  onChange={(event) => update("slug", event.target.value)}
-                  placeholder="ultimate-nail-care-bundle"
-                />
-                {errors.slug ? <p className="text-xs text-red-500">{errors.slug}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="sku">
-                  SKU <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="sku"
-                    type="text"
-                    className="product-form-input flex-1"
-                    value={form.sku}
-                    onChange={(event) => update("sku", event.target.value)}
-                    placeholder="Auto-generated"
-                  />
-                  <button
-                    type="button"
-                    className="product-btn-secondary"
-                    onClick={() => update("sku", generateSKU())}
-                  >
-                    Generate
-                  </button>
-                </div>
-                {errors.sku ? <p className="text-xs text-red-500">{errors.sku}</p> : null}
-              </div>
+              
+              {/* Slug and SKU are hidden but preserved */}
+              <input type="hidden" value={form.slug} />
+              <input type="hidden" value={form.sku} />
+
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
                   Status
@@ -1427,57 +1395,6 @@ export default function BundleEdit() {
                 </div>
               </div>
               
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
-                  Hover Image URL
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="hover_url"
-                    type="url"
-                    className="product-form-input flex-1"
-                    value={form.hover_url}
-                    onChange={(event) => update("hover_url", event.target.value)}
-                    placeholder="https://..."
-                  />
-                  <label className="product-btn-secondary cursor-pointer">
-                    Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        try {
-                            showToast('info', 'Uploading hover image...');
-                            const { original } = await uploadToCloudinary(file);
-                            update("hover_url", original);
-                            showToast('success', 'Hover image uploaded');
-                          } catch (err) {
-                          showToast('error', 'Upload failed');
-                        }
-                      }}
-                    />
-                  </label>
-                  {form.hover_url && (
-                    <div style={{ maxWidth: '60px', maxHeight: '60px' }}>
-                      <img 
-                        src={form.hover_url} 
-                        alt="Hover preview" 
-                        style={{ 
-                          width: '60px', 
-                          height: '60px', 
-                          objectFit: 'cover', 
-                          borderRadius: '8px',
-                          border: '2px solid var(--border)'
-                        }} 
-                      />
-                    </div>
-                  )}
-                </div>
-                <small className="text-xs text-[var(--text-muted)]">Optional hover image for product cards</small>
-              </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-semibold text-[var(--text)]">Gallery URLs</label>
@@ -1539,65 +1456,7 @@ export default function BundleEdit() {
             </div>
           </section>
 
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Variants &amp; Highlights</h2>
-              <p className="text-sm text-[var(--text-muted)]">List variants, key features and how to use steps.</p>
-            </header>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-[var(--text)]">Variants</label>
-                <div className="space-y-2">
-                  {ensureList(form.variants).map((variant, index) => (
-                    <div key={`variant-${index}`} className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Variant name (e.g. 100ml)"
-                        className="product-form-input flex-1"
-                        value={variant?.label || variant}
-                        onChange={(e) => {
-                          const current = form.variants[index];
-                          const updated = typeof current === "string"
-                            ? { label: e.target.value, image: "" }
-                            : { ...current, label: e.target.value };
-                          updateArr("variants", index, updated);
-                        }}
-                      />
-                      <input
-                        type="url"
-                        placeholder="Image URL (optional)"
-                        className="product-form-input flex-1"
-                        value={variant?.image || ""}
-                        onChange={(e) => {
-                          const current = form.variants[index];
-                          const updated = typeof current === "string"
-                            ? { label: current, image: e.target.value }
-                            : { ...current, image: e.target.value };
-                          updateArr("variants", index, updated);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeRow("variants", index)}
-                        className="product-btn-secondary"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addRow("variants")}
-                  className="product-btn-add"
-                >
-                  + Add variant
-                </button>
-              </div>
-              {renderArrayField("features", "Features", "Key selling point", "Add feature")}
-              {renderArrayField("how_to_use", "How to Use", "Usage instruction", "Add step")}
-            </div>
-          </section>
+          {/* Variants & Highlights removed */}
 
           <section className="product-form-section">
             <header className="mb-4">
@@ -1648,40 +1507,7 @@ export default function BundleEdit() {
             </div>
           </section>
 
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">SEO</h2>
-              <p className="text-sm text-[var(--text-muted)]">Meta information for search engines.</p>
-            </header>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_title">
-                  Meta Title
-                </label>
-                <input
-                  id="meta_title"
-                  type="text"
-                  className="product-form-input"
-                  value={form.meta_title}
-                  onChange={(event) => update("meta_title", event.target.value)}
-                  placeholder="Ultimate Bundle | Nail Care"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="meta_description">
-                  Meta Description
-                </label>
-                <textarea
-                  id="meta_description"
-                  className={textareaClass(false)}
-                  rows={3}
-                  value={form.meta_description}
-                  onChange={(event) => update("meta_description", event.target.value)}
-                  placeholder="Complete nail care bundle with all essentials."
-                />
-              </div>
-            </div>
-          </section>
+          {/* SEO removed */}
 
           <section className="product-form-section">
             <header className="mb-4">
@@ -1712,13 +1538,7 @@ export default function BundleEdit() {
             </div>
           </section>
 
-          <section className="product-form-section">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Related Products</h2>
-              <p className="text-sm text-[var(--text-muted)]">Surface complementary products by ID or slug.</p>
-            </header>
-            {renderArrayField("related", "Related Product IDs or Slugs", "product-slug", "Add related product")}
-          </section>
+          {/* Related Products removed */}
 
           {serverError ? (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">{serverError}</div>
