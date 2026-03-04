@@ -24,6 +24,7 @@ export const handler: Handler = async (event) => {
     const { data: rows, error } = await supabase
       .from('bundles')
       .select('*')
+      .neq('status', 'deleted')
       .order('updated_at', { ascending: false });
 
     if (error) throw error;

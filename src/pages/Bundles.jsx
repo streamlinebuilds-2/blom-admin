@@ -40,12 +40,16 @@ export default function Bundles() {
       if (!result.ok) {
         throw new Error(result.error || 'Failed to delete bundle');
       }
-      return id;
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['bundles'] });
       queryClient.invalidateQueries({ queryKey: ['bundle-items'] });
-      showToast('success', 'Bundle deleted successfully');
+      if (result.softDeleted) {
+        showToast('success', 'Bundle removed from view (soft deleted due to dependencies)');
+      } else {
+        showToast('success', 'Bundle deleted successfully');
+      }
     },
     onError: (err) => {
       showToast('error', err.message || 'Failed to delete bundle');
@@ -63,6 +67,7 @@ export default function Bundles() {
   };
 
   const filteredBundles = bundles.filter(b => {
+    if (b.status === 'deleted') return false; // Always exclude deleted
     const matchesSearch = b.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
     return matchesSearch && matchesStatus;

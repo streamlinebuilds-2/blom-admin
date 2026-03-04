@@ -30,16 +30,47 @@ export const handler: Handler = async (event) => {
       .match(id ? { id } : { slug });
     
     if (error) {
+       // If foreign key constraint error, soft delete instead
+       if (error.message.includes('foreign key constraint') || error.code === '23503') {
+        console.log(`Hard delete failed for bundle ${id || slug} due to FK constraints. Soft deleting instead.`);
+        
+        const { data, error: softDeleteError } = await supabase
+          .from('bundles')
+          .update({ 
+            status: 'deleted', 
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .match(id ? { id } : { slug })
+          .select('*')
+          .single();
+        
+        if (softDeleteError) {
+          return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `Soft delete failed: ${softDeleteError.message}` }) };
+        }
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ 
+            ok: true, 
+            deleted: true, // Pretend it was deleted to the client
+            softDeleted: true,
+            message: 'Bundle soft deleted successfully',
+            bundle: data
+          }),
+        };
+      }
+
       return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
     }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true }),
+      body: JSON.stringify({ ok: true, deleted: true, message: 'Bundle permanently deleted' }),
     };
   } catch (err: any) {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: err?.message || 'Delete failed' }) };
   }
 };
-

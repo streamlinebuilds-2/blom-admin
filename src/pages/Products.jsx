@@ -44,7 +44,8 @@ export default function Products() {
       const mainProducts = allProducts.filter(p => 
         !p.is_variant && 
         p.is_variant !== true &&
-        !p.variant_name // Also exclude products with variant names
+        !p.variant_name && // Also exclude products with variant names
+        p.status !== 'deleted' // Exclude soft-deleted products
       );
       console.log(`📊 Filtered ${allProducts.length} products to ${mainProducts.length} main products (excluded variants)`);
       return mainProducts;
@@ -74,7 +75,9 @@ export default function Products() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      if (result.archived) {
+      if (result.softDeleted) {
+         showToast('success', 'Product removed from view (soft deleted due to existing orders)');
+      } else if (result.archived) {
         showToast('info', result.message || 'Product could not be permanently deleted and was archived instead (has existing orders)');
       } else if (result.deleted) {
         showToast('success', 'Product permanently deleted successfully');
@@ -104,14 +107,18 @@ export default function Products() {
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       const archivedCount = results.filter(r => r.archived).length;
-      const deletedCount = results.filter(r => r.deleted).length;
+      const softDeletedCount = results.filter(r => r.softDeleted).length;
+      const hardDeletedCount = results.filter(r => r.deleted && !r.softDeleted).length;
+      const totalDeleted = softDeletedCount + hardDeletedCount;
       
-      if (archivedCount > 0 && deletedCount > 0) {
-        showToast('info', `${deletedCount} products deleted, ${archivedCount} products archived (had existing orders)`);
+      if (archivedCount > 0 && totalDeleted > 0) {
+        showToast('info', `${totalDeleted} products deleted (${softDeletedCount} soft-deleted), ${archivedCount} archived`);
       } else if (archivedCount > 0) {
         showToast('info', `${archivedCount} products archived (had existing orders)`);
+      } else if (softDeletedCount > 0) {
+        showToast('success', `${totalDeleted} products deleted (${softDeletedCount} removed from view due to dependencies)`);
       } else {
-        showToast('success', `${deletedCount} products deleted successfully`);
+        showToast('success', `${totalDeleted} products deleted successfully`);
       }
       
       setSelectedIds([]);

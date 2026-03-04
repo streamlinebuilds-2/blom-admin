@@ -52,6 +52,7 @@ export function createSupabaseAdapter() {
         const { data, error } = await supabase
           .from('products')
           .select('*')
+          .neq('status', 'deleted')
           .order('updated_at', { ascending: false });
         
         const products = ensureArray(data, error);
