@@ -482,11 +482,6 @@ export default function BundleEdit() {
       nextErrors.price = "Price must be greater than 0";
     }
 
-    // Images are now optional
-    // if (images.length === 0) {
-    //   nextErrors.images = "Add at least one product image";
-    // }
-
     if (form.bundle_products.length === 0 || !form.bundle_products.some(bp => bp.product_id)) {
       nextErrors.bundle_products = "Add at least one product to the bundle";
     }
@@ -503,7 +498,7 @@ export default function BundleEdit() {
       slug: form.slug.trim(),
       sku: form.sku.trim(),
       category: 'Bundle Deals',
-      product_type: form.product_type === 'bundle' ? 'bundle' : 'collection',
+      product_type: 'bundle', // Force to 'bundle' and ignore form.product_type
       status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
@@ -1146,21 +1141,6 @@ export default function BundleEdit() {
                   </button>
                 </div>
                 {errors.sku ? <p className="text-xs text-red-500">{errors.sku}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="product_type">
-                  Type
-                </label>
-                <select
-                  id="product_type"
-                  className="product-form-select"
-                  value={form.product_type}
-                  onChange={(e) => update("product_type", e.target.value)}
-                >
-                  <option value="collection">Collection</option>
-                  <option value="bundle">Bundle</option>
-                </select>
-                <small className="text-xs text-[var(--text-muted)]">Both types will appear under 'Bundle Deals' category</small>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">

@@ -37,6 +37,7 @@ const initialFormState = {
   how_to_use: [''],
   status: 'active',
   is_featured: false,
+  badges: [''],
   bundle_products: [{ product_id: '', variant_id: '', quantity: 1 }],
 };
 
@@ -319,7 +320,7 @@ export default function BundleNew() {
       slug: slug, // Added generated slug
       sku: sku, // Added generated SKU
       category: 'Bundle Deals',
-      product_type: form.product_type === 'bundle' ? 'bundle' : 'collection',
+      product_type: 'bundle', // Force to 'bundle' and ignore form.product_type
       status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
@@ -339,7 +340,7 @@ export default function BundleNew() {
       claims: [],
       is_active: true,
       is_featured: Boolean(form.is_featured),
-      badges: [],
+      badges: ensureList(form.badges).map((item) => item.trim()).filter(Boolean),
       related: [],
       stock_label: stockLabel,
       price_string: priceString,
@@ -621,21 +622,6 @@ export default function BundleNew() {
                   {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-semibold text-[var(--text)]" htmlFor="product_type">
-                    Type
-                  </label>
-                  <select
-                    id="product_type"
-                    className="product-form-select"
-                    value={form.product_type}
-                    onChange={(e) => update("product_type", e.target.value)}
-                  >
-                    <option value="collection">Collection</option>
-                    <option value="bundle">Bundle</option>
-                  </select>
-                  <small className="text-xs text-[var(--text-muted)]">Both types will appear under 'Bundle Deals' category</small>
-                </div>
-                <div className="space-y-1">
                   <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
                     Status
                   </label>
@@ -650,6 +636,9 @@ export default function BundleNew() {
                     <option value="archived">Archived</option>
                   </select>
                 </div>
+              </div>
+              <div className="mt-4">
+                {renderArrayField("badges", "Badges", "e.g. Best Value", "Add badge")}
               </div>
             </section>
 
