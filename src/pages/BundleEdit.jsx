@@ -502,7 +502,7 @@ export default function BundleEdit() {
       name: form.name.trim(),
       slug: form.slug.trim(),
       sku: form.sku.trim(),
-      category: form.product_type === 'bundle' ? 'Bundle Deals' : 'Collections',
+      category: 'Bundle Deals',
       product_type: form.product_type === 'bundle' ? 'bundle' : 'collection',
       status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
@@ -1157,10 +1157,10 @@ export default function BundleEdit() {
                   value={form.product_type}
                   onChange={(e) => update("product_type", e.target.value)}
                 >
-                  <option value="collection">Collection (Collections)</option>
-                  <option value="bundle">Bundle (Bundle Deals, e.g. Prep &amp; Primer)</option>
+                  <option value="collection">Collection</option>
+                  <option value="bundle">Bundle</option>
                 </select>
-                <small className="text-xs text-[var(--text-muted)]">{form.product_type === 'bundle' ? 'Shows under Bundle Deals' : 'Shows under Collections'}</small>
+                <small className="text-xs text-[var(--text-muted)]">Both types will appear under 'Bundle Deals' category</small>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">

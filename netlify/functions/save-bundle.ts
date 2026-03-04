@@ -65,10 +65,13 @@ export const handler: Handler = async (event) => {
     const compareAtPriceCents = payload.compare_at_price_cents ??
       (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
-    // product_type: 'collection' (default, category=Collections) or 'bundle' (category=Bundle Deals, e.g. Prep & Primer)
+    // product_type: 'collection' or 'bundle'
+    // As per user request, ALL bundles/collections must be categorized as 'Bundle Deals'
     const rawType = String(payload.product_type || '').toLowerCase();
     const productType = (rawType === 'bundle' || rawType === 'bundle deals') ? 'bundle' : 'collection';
-    const category = productType === 'bundle' ? 'Bundle Deals' : 'Collections';
+    
+    // FORCE 'Bundle Deals' category regardless of type
+    const category = 'Bundle Deals';
 
     // Build bundle data for the bundles table
     const bundleData: any = {
