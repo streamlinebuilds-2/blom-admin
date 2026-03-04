@@ -470,9 +470,10 @@ export default function BundleEdit() {
       nextErrors.price = "Price must be greater than 0";
     }
 
-    if (images.length === 0) {
-      nextErrors.images = "Add at least one product image";
-    }
+    // Images are now optional
+    // if (images.length === 0) {
+    //   nextErrors.images = "Add at least one product image";
+    // }
 
     if (form.bundle_products.length === 0 || !form.bundle_products.some(bp => bp.product_id)) {
       nextErrors.bundle_products = "Add at least one product to the bundle";

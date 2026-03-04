@@ -284,9 +284,10 @@ export default function BundleNew() {
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
       nextErrors.price = "Price must be greater than 0";
     }
-    if (images.length === 0) {
-      nextErrors.images = "Add at least one product image";
-    }
+    // Images are optional
+    // if (images.length === 0) {
+    //   nextErrors.images = "Add at least one product image";
+    // }
     if (form.bundle_products.length === 0 || !form.bundle_products.some(bp => bp.product_id)) {
       nextErrors.bundle_products = "Add at least one product to the bundle";
     }
@@ -304,13 +305,22 @@ export default function BundleNew() {
       return;
     }
 
+    // Generate Slug if not exists (although we don't have a slug field in UI yet, we should add one or generate it)
+    const slug = slugify(form.name);
+    const sku = `BUN-${Date.now().toString().slice(-6)}`;
+
     const payload = {
       name: form.name.trim(),
+      slug: slug, // Added generated slug
+      sku: sku, // Added generated SKU
+      category: form.product_type === 'bundle' ? 'Bundle Deals' : 'Collections',
       product_type: form.product_type === 'bundle' ? 'bundle' : 'collection',
+      status: form.status,
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
       short_description: form.short_description,
       overview: form.overview,
+      description: form.overview,
       thumbnail_url: form.thumbnail_url?.trim() || "",
       hover_url: form.hover_url?.trim() || "",
       gallery_urls: [],
@@ -848,7 +858,7 @@ export default function BundleNew() {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-[var(--text)]" htmlFor="thumbnail_url">
-                    Main Product Image URL <span className="text-red-500">*</span>
+                    Main Product Image URL
                   </label>
                   <div className="flex gap-2">
                     <input
