@@ -243,7 +243,17 @@ export default function Products() {
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+    
+    // Default "all" view should HIDE archived/trash items unless searched for
+    if (statusFilter === 'all') {
+      const isArchived = p.status === 'archived' || p.name?.toLowerCase().includes('z_trash');
+      // Show archived only if searching, otherwise hide them
+      if (isArchived && !searchTerm) return false;
+      return matchesSearch;
+    }
+    
+    // Strict status filtering
+    const matchesStatus = p.status === statusFilter;
     return matchesSearch && matchesStatus;
   }).sort((a, b) => {
     // When viewing all status, prioritize active products over archived ones
@@ -970,8 +980,8 @@ export default function Products() {
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="all">All Status</option>
+            <option value="active">Active (Only)</option>
             <option value="draft">Draft</option>
-            <option value="active">Active</option>
             <option value="archived">Archived</option>
           </select>
           <Link to={createPageUrl("ProductNew")} className="btn-primary">
