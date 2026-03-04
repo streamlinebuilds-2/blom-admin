@@ -800,10 +800,14 @@ export default function ProductEdit() {
 
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
+    // Only include hover image if it's different from primary
     const hover = form.hover_url?.trim();
-    const list = [primary, hover].filter(Boolean);
+    
+    // We only want the main image in the gallery as requested
+    // If you ever want hover back, add it to this list
+    const list = [primary].filter(Boolean);
     return list;
-  }, [form.thumbnail_url, form.hover_url]);
+  }, [form.thumbnail_url]);
 
   const previewImages = useMemo(
     () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
@@ -1796,7 +1800,8 @@ export default function ProductEdit() {
                               uploadLock,
                               isUploading
                             });
-                            const newState = { ...prev, thumbnail_url: original };
+                            // Also clear hover URL as we are moving to single image
+                            const newState = { ...prev, thumbnail_url: original, hover_url: '' };
                             console.log('🔄 New main image state:', {
                               thumbnail_url: newState.thumbnail_url,
                               hover_url: newState.hover_url
@@ -1842,109 +1847,7 @@ export default function ProductEdit() {
                 <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
                 {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
-                  Hover Image URL (optional)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="hover_url"
-                    type="url"
-                    className="product-form-input flex-1"
-                    value={form.hover_url}
-                    onChange={(event) => update("hover_url", event.target.value)}
-                    placeholder="https://example.com/hover.jpg"
-                  />
-                  <label className="product-btn-secondary cursor-pointer">
-                    Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        console.log('🖼️ Hover image file selected:', {
-                          name: file?.name,
-                          size: file?.size,
-                          type: file?.type,
-                          hasFile: !!file
-                        });
-                        
-                        if (!file) {
-                          console.log('❌ No file selected for hover image');
-                          return;
-                        }
-                        
-                        console.log('🔄 Current hover image state:', {
-                          thumbnail_url: form.thumbnail_url,
-                          hover_url: form.hover_url
-                        });
-                        
-                        // Apply comprehensive upload lock
-                        setIsUploading(true);
-                        setUploadLock(true);
-                        console.log('🔒 Applying comprehensive upload lock for hover image');
-                        
-                        try {
-                          showToast('info', 'Uploading hover image to Cloudinary...');
-                          console.log('📤 Starting hover image upload for file:', file.name, file.size);
-                          const { original } = await uploadToCloudinary(file);
-                          console.log('✅ Hover image upload successful, URL:', original);
-                          console.log('🔄 Updating hover image state with URL:', original);
-                          
-                          // Force state update with explicit setForm
-                          setForm(prev => {
-                            console.log('🔄 setForm called for hover image update:', {
-                              oldHover: prev.hover_url,
-                              newHover: original,
-                              uploadLock,
-                              isUploading
-                            });
-                            const newState = { ...prev, hover_url: original };
-                            console.log('🔄 New hover image state:', {
-                              thumbnail_url: newState.thumbnail_url,
-                              hover_url: newState.hover_url
-                            });
-                            return newState;
-                          });
-                          
-                          // Mark that images were just uploaded to prevent reload overwrite
-                          setLastImageUpload(Date.now());
-                          setFormDataVersion(prev => prev + 1);
-                          
-                          console.log('✅ Hover image state update complete');
-                          // Clear the file input to allow re-upload of same file
-                          e.target.value = '';
-                          showToast('success', 'Hover image uploaded to Cloudinary');
-                        } catch (err) {
-                          console.error('❌ Hover image upload error:', err);
-                          showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
-                          // Clear the file input on error
-                          e.target.value = '';
-                        } finally {
-                          // Release upload lock after a brief delay to ensure all state updates are processed
-                          setTimeout(() => {
-                            setIsUploading(false);
-                            setUploadLock(false);
-                            console.log('🔓 Hover image upload lock released, re-enabling product reload');
-                          }, 100);
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                {form.hover_url && (
-                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                    {isCloudinaryImage(form.hover_url) ? (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded">☁️ Cloudinary</span>
-                    ) : (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">🔗 External</span>
-                    )}
-                    <span>Image URL: {form.hover_url.substring(0, 60)}{form.hover_url.length > 60 ? '...' : ''}</span>
-                  </div>
-                )}
-                <small className="text-xs text-[var(--text-muted)]">Shows when customer hovers over product</small>
-              </div>
+              {/* Hover image section removed as requested */}
             </div>
           </section>
 

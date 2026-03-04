@@ -500,10 +500,14 @@ export default function ProductNew() {
 
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
+    // Only include hover image if it's different from primary
     const hover = form.hover_url?.trim();
-    const list = [primary, hover].filter(Boolean);
+    
+    // We only want the main image in the gallery as requested
+    // If you ever want hover back, add it to this list
+    const list = [primary].filter(Boolean);
     return list;
-  }, [form.thumbnail_url, form.hover_url]);
+  }, [form.thumbnail_url]);
 
   const previewImages = useMemo(
     () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
@@ -1359,6 +1363,7 @@ export default function ProductNew() {
                           showToast('info', 'Uploading to Cloudinary...');
                           const { original } = await uploadToCloudinary(file);
                           update("thumbnail_url", original);
+                          update("hover_url", ""); // Clear hover URL when main image changes
                           showToast('success', 'Image uploaded to Cloudinary');
                         } catch (err) {
                           showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
@@ -1380,52 +1385,7 @@ export default function ProductNew() {
                 <small className="text-xs text-[var(--text-muted)]">Direct link to product image</small>
                 {errors.images ? <p className="text-xs text-red-500">{errors.images}</p> : null}
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="hover_url">
-                  Hover Image URL (optional)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="hover_url"
-                    type="url"
-                    className="product-form-input flex-1"
-                    value={form.hover_url}
-                    onChange={(event) => update("hover_url", event.target.value)}
-                    placeholder="https://example.com/hover.jpg"
-                  />
-                  <label className="product-btn-secondary cursor-pointer">
-                    Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        try {
-                          showToast('info', 'Uploading to Cloudinary...');
-                          const { original } = await uploadToCloudinary(file);
-                          update("hover_url", original);
-                          showToast('success', 'Image uploaded to Cloudinary');
-                        } catch (err) {
-                          showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                {form.hover_url && (
-                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                    {isCloudinaryImage(form.hover_url) ? (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded">☁️ Cloudinary</span>
-                    ) : (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">🔗 External</span>
-                    )}
-                    <span>Image URL: {form.hover_url.substring(0, 60)}{form.hover_url.length > 60 ? '...' : ''}</span>
-                  </div>
-                )}
-                <small className="text-xs text-[var(--text-muted)]">Shows when customer hovers over product</small>
-              </div>
+              {/* Hover image section removed as requested */}
             </div>
           </section>
 
