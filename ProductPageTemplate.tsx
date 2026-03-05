@@ -107,12 +107,14 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
 
   // Set page title and meta description
   useEffect(() => {
+    if (!product) return;
+    
     document.title = product.seo.title;
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute('content', product.seo.description);
     }
-  }, [product]);
+  }, [product.seo.title, product.seo.description]); // Use primitive dependencies to avoid infinite loops on object reference changes
 
   const handleAddToCart = () => {
     const priceValue = parseFloat(product.price.replace('R', ''));

@@ -11,6 +11,9 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     async function fetchProduct() {
+      // Don't fetch if slug is missing or matches the previously loaded product
+      if (!slug || (product && product.slug === slug)) return;
+      
       try {
         setLoading(true);
         setError(null);
@@ -70,10 +73,8 @@ export default function ProductDetailPage() {
       }
     }
     
-    if (slug) {
-      fetchProduct();
-    }
-  }, [slug]);
+    fetchProduct();
+  }, [slug]); // Keep dependency strictly on slug
 
   if (loading) {
     return (

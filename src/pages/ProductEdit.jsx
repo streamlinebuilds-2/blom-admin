@@ -904,6 +904,7 @@ export default function ProductEdit() {
       form.short_description,
       form.size,
       form.shelf_life,
+      form.slug,
       howToUse,
       inciIngredients,
       keyIngredients,
