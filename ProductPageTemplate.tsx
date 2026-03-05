@@ -84,13 +84,13 @@ interface ProductPageTemplateProps {
 }
 
 export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ product, isPreview = false }) => {
-  // Normalize variants to consistent format using useMemo to prevent array reference instability
-  const normalizedVariants: Variant[] = React.useMemo(() => product.variants.map(v => {
+  // Normalize variants to consistent format
+  const normalizedVariants: Variant[] = product.variants.map(v => {
     if (typeof v === 'string') {
       return { name: v };
     }
     return v;
-  }), [product.variants]);
+  });
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(normalizedVariants[0] || null);
@@ -98,11 +98,6 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
   const [activeTab, setActiveTab] = useState<'overview' | 'features' | 'how-to-use' | 'ingredients' | 'details'>('overview');
   const [expandedAccordion, setExpandedAccordion] = useState<string | null>('overview');
   const [isWishlisted, setIsWishlisted] = useState(false);
-
-  // Reset selected variant when product variants change
-  useEffect(() => {
-    setSelectedVariant(normalizedVariants[0] || null);
-  }, [normalizedVariants]);
 
   // Current display image: use variant image if selected and available, otherwise use gallery
   const currentMainImage = selectedVariant?.image || product.images[selectedImage] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop';
@@ -167,7 +162,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
     }
   };
 
-  const relatedProducts = React.useMemo(() => [
+  const relatedProducts = [
     {
       id: '1',
       name: 'Snow White Acrylic',
@@ -189,13 +184,13 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
       image: 'https://images.pexels.com/photos/3997990/pexels-photo-3997990.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop',
       rating: 4.7
     }
-  ], []);
+  ];
 
-  const handleReviewSubmit = React.useCallback((reviewData: any) => {
+  const handleReviewSubmit = (reviewData: any) => {
     // In a real app, this would submit to your backend
     console.log('New review submitted:', reviewData);
     showNotification('Thank you for your review! It will be published after moderation.');
-  }, []);
+  };
 
   return (
     <div className="min-h-screen bg-white">

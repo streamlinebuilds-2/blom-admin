@@ -95,5 +95,5 @@ export default function ProductDetailPage() {
     );
   }
 
-  return <ProductPageTemplate product={product} />;
+  return <ProductPageTemplate key={product.slug} product={product} />;
 }
