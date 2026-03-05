@@ -154,7 +154,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   const handleCardClick = () => {
-    window.location.href = `/products/${slug}`;
+    window.location.href = `/product/${slug}`;
   };
 
   const formatPrice = (price: number) => `R${price.toFixed(2)}`;

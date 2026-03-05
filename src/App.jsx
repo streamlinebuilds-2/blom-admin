@@ -80,6 +80,7 @@ import Specials from '@/pages/Specials'
 import Featured from '@/pages/Featured'
 import FixImages from '@/pages/FixImages'
 import SeedNotifications from '@/pages/SeedNotifications'
+import ProductDetailPage from '@/pages/ProductDetailPage'
 
 // Initialize Supabase adapter for real database access, with fallback to mock
 function initializeAdapter() {
@@ -178,6 +179,8 @@ const AuthenticatedApp = () => {
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/new" element={<ProductNew />} />
         <Route path="/products/:id" element={<ProductEdit />} />
+        {/* Public Product Page - Uses slug */}
+        <Route path="/product/:slug" element={<ProductDetailPage />} />
 
         {/* Bundles - Canonical Routes */}
         <Route path="/bundles" element={<BundlesPage />} />

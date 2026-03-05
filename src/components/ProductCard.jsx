@@ -141,7 +141,7 @@ export default function ProductCard({ product, onClick }) {
 
       <div
         className="product-card"
-        onClick={onClick}
+        onClick={onClick || (() => window.location.href = `/product/${product.slug}`)}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
