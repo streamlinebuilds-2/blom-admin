@@ -74,34 +74,55 @@ export const handler: Handler = async (event) => {
     // FORCE 'Bundle Deals' category regardless of type
     const category = 'Bundle Deals';
 
-    // Build bundle data for the bundles table
-    const bundleData: any = {
-      name: payload.name,
-      slug: payload.slug || slugify(payload.name),
-      sku: payload.sku || (productType === 'bundle' ? `BND-${Date.now()}` : `COL-${Date.now()}`),
-      product_type: productType,
-      category,
-      status: 'active',
-      is_active: true, 
-      
-      price_cents: priceCents,
-      compare_at_price_cents: compareAtPriceCents,
-      stock: 0, // Bundles don't hold stock
-      track_inventory: false,
-      
-      pricing_mode: payload.pricing_mode || 'manual',
-      discount_value: payload.discount_value || null,
-      
-      short_desc: payload.short_description || payload.short_desc || '',
-      long_desc: payload.overview || payload.long_desc || '',
-      images: payload.images || payload.gallery_urls || [],
-      gallery_urls: payload.gallery_urls || payload.images || [],
-      thumbnail_url: payload.thumbnail_url || '',
-      hover_image: payload.hover_url || payload.hover_image || null,
-      
-      badges: payload.badges || [],
+    // Ensure images/gallery has content
+      const gallery = payload.gallery_urls || payload.images || [];
+      if (gallery.length === 0 && payload.thumbnail_url) {
+        gallery.push(payload.thumbnail_url);
+      }
 
-      // The components - saved as JSONB array in bundles table as well for easier access
+      // Create a default variant for the bundle so frontend product templates don't crash
+      const defaultVariant = {
+        id: `var_${Date.now()}`,
+        name: 'Default Title',
+        price: priceCents / 100,
+        price_cents: priceCents,
+        sku: payload.sku,
+        inventory_quantity: 100, // Bundles are virtual, assume stock
+        inventory_management: 'manual',
+        option1: 'Default Title'
+      };
+
+      // Build bundle data for the bundles table
+      const bundleData: any = {
+        name: payload.name,
+        slug: payload.slug || slugify(payload.name),
+        sku: payload.sku || (productType === 'bundle' ? `BND-${Date.now()}` : `COL-${Date.now()}`),
+        product_type: productType,
+        category,
+        status: 'active',
+        is_active: true, 
+        
+        price_cents: priceCents,
+        compare_at_price_cents: compareAtPriceCents,
+        stock: 0, // Bundles don't hold stock
+        track_inventory: false,
+        
+        pricing_mode: payload.pricing_mode || 'manual',
+        discount_value: payload.discount_value || null,
+        
+        short_desc: payload.short_description || payload.short_desc || '',
+        long_desc: payload.overview || payload.long_desc || '',
+        images: gallery,
+        gallery_urls: gallery,
+        thumbnail_url: payload.thumbnail_url || '',
+        hover_image: payload.hover_url || payload.hover_image || null,
+        
+        badges: payload.badges || [],
+        
+        // Polyfill variants for frontend compatibility
+        variants: [defaultVariant],
+
+        // The components - saved as JSONB array in bundles table as well for easier access
       bundle_products: payload.bundle_products || [],
       
       updated_at: new Date().toISOString(),
