@@ -209,7 +209,16 @@ export const handler: Handler = async (event) => {
 
       updateData.variants = rawVariants;
       updateData.gallery_urls = gallery;
-      updateData.images = gallery; // Sync legacy images column
+      
+      // Only set 'images' column if it exists in schema (legacy support)
+      // Since 'images' column might be removed or not in cache, we should rely on gallery_urls
+      // But for compatibility with older code reading 'images', we keep it if possible.
+      // If DB error occurs about missing column, we should probably remove this line or handle it.
+      // For now, let's keep it but be aware. 
+      // UPDATE: User reported "Could not find the 'images' column". 
+      // We should remove this sync or wrap it.
+      // Better yet, just don't send it if we suspect it's gone.
+      // updateData.images = gallery; 
 
       if (body.size !== undefined) updateData.size = body.size;
       if (body.shelf_life !== undefined) updateData.shelf_life = body.shelf_life;
@@ -335,7 +344,7 @@ export const handler: Handler = async (event) => {
       badges: Array.isArray(body.badges) ? body.badges : [],
       
       // Ensure images column is populated (legacy support)
-      images: gallery,
+      // images: gallery,
 
       // Details
       size: body.size ?? null,
