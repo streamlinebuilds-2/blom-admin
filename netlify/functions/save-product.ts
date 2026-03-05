@@ -211,8 +211,6 @@ export const handler: Handler = async (event) => {
       updateData.gallery_urls = gallery;
       updateData.images = gallery; // Sync legacy images column
 
-
-      // Details
       if (body.size !== undefined) updateData.size = body.size;
       if (body.shelf_life !== undefined) updateData.shelf_life = body.shelf_life;
       if (body.weight !== undefined) updateData.weight = body.weight;
@@ -274,6 +272,41 @@ export const handler: Handler = async (event) => {
     const validStatuses = ['draft', 'active', 'published', 'archived'];
     const status = validStatuses.includes(body.status) ? body.status : 'active';
 
+      // Product details arrays
+      const rawVariants = Array.isArray(body.variants) ? body.variants : [];
+      // Ensure at least one variant exists if price is set
+      if (rawVariants.length === 0 && Number.isFinite(price)) {
+         rawVariants.push({
+          name: 'Default',
+          price: price,
+          price_cents: Math.round(price * 100),
+          sku: body.sku || slug,
+          inventory_quantity: stock,
+          inventory_management: 'manual',
+          option1: 'Default'
+        });
+      }
+
+      let gallery = Array.isArray(body.gallery_urls) ? body.gallery_urls : [];
+      if (gallery.length === 0 && body.thumbnail_url) {
+        gallery = [body.thumbnail_url];
+      }
+
+      // Product details arrays
+      const rawVariants = Array.isArray(body.variants) ? body.variants : [];
+      // Ensure at least one variant exists if price is set
+      if (rawVariants.length === 0 && Number.isFinite(price)) {
+         rawVariants.push({
+          name: 'Default',
+          price: price,
+          price_cents: Math.round(price * 100),
+          sku: body.sku || slug,
+          inventory_quantity: stock,
+          inventory_management: 'manual',
+          option1: 'Default'
+        });
+      }
+
     // Map to table schema using clean column names
     const row: any = {
       id: body.id ?? undefined,
@@ -305,28 +338,8 @@ export const handler: Handler = async (event) => {
 
       // Images (use modern names)
       thumbnail_url: body.thumbnail_url ?? null,
-      gallery_urls: Array.isArray(body.gallery_urls) ? body.gallery_urls : [],
+      gallery_urls: gallery,
       hover_url: body.hover_url || body.hover_image || null,
-
-      // Product details arrays
-      const rawVariants = Array.isArray(body.variants) ? body.variants : [];
-      // Ensure at least one variant exists if price is set
-      if (rawVariants.length === 0 && Number.isFinite(price)) {
-         rawVariants.push({
-          name: 'Default',
-          price: price,
-          price_cents: Math.round(price * 100),
-          sku: body.sku || slug,
-          inventory_quantity: stock,
-          inventory_management: 'manual',
-          option1: 'Default'
-        });
-      }
-
-      let gallery = Array.isArray(body.gallery_urls) ? body.gallery_urls : [];
-      if (gallery.length === 0 && body.thumbnail_url) {
-        gallery = [body.thumbnail_url];
-      }
 
       features: Array.isArray(body.features) ? body.features : [],
       how_to_use: Array.isArray(body.how_to_use) ? body.how_to_use : [],
