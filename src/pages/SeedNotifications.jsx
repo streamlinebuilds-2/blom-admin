@@ -223,6 +223,26 @@ export default function SeedNotifications() {
     }
   };
 
+  const fixAllData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/.netlify/functions/admin-fix-data', {
+        method: 'POST',
+      });
+      const result = await response.json();
+      if (result.ok) {
+        showToast(`Fixed: ${result.details.productsFixed} products, ${result.details.bundlesFixed} bundles`, 'success');
+      } else {
+        showToast(result.error || 'Failed to fix data', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Error calling fix data function', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Debug & Maintenance Tools</h1>
@@ -312,6 +332,14 @@ export default function SeedNotifications() {
           <p className="text-xs text-gray-400 mb-4">Includes: Red Collection, High Tea, Blossom Sugar Rush, etc.</p>
           <Button onClick={fixBundles} disabled={loading} variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
             {loading ? 'Processing...' : 'Fix Specific Bundles'}
+          </Button>
+        </div>
+
+        <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
+          <h2 className="text-xl font-semibold mb-2">Repair All Data</h2>
+          <p className="text-sm text-gray-500 mb-4">Fixes missing variants and images for ALL products/bundles to prevent "Oops" errors on frontend.</p>
+          <Button onClick={fixAllData} disabled={loading} variant="outline" className="text-green-600 border-green-200 hover:bg-green-50 w-full">
+            {loading ? 'Processing...' : 'Run Data Repair (Save All)'}
           </Button>
         </div>
       </div>
