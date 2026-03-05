@@ -292,21 +292,6 @@ export const handler: Handler = async (event) => {
         gallery = [body.thumbnail_url];
       }
 
-      // Product details arrays
-      const rawVariants = Array.isArray(body.variants) ? body.variants : [];
-      // Ensure at least one variant exists if price is set
-      if (rawVariants.length === 0 && Number.isFinite(price)) {
-         rawVariants.push({
-          name: 'Default',
-          price: price,
-          price_cents: Math.round(price * 100),
-          sku: body.sku || slug,
-          inventory_quantity: stock,
-          inventory_management: 'manual',
-          option1: 'Default'
-        });
-      }
-
     // Map to table schema using clean column names
     const row: any = {
       id: body.id ?? undefined,
@@ -351,7 +336,6 @@ export const handler: Handler = async (event) => {
       
       // Ensure images column is populated (legacy support)
       images: gallery,
-      gallery_urls: gallery,
 
       // Details
       size: body.size ?? null,
