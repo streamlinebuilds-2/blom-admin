@@ -68,6 +68,8 @@ export default function SeedNotifications() {
       // 1. Reset localStorage for Orders and Bookings
       localStorage.setItem('last_checked_orders', '1970-01-01T00:00:00.000Z');
       localStorage.setItem('last_checked_course_bookings', '1970-01-01T00:00:00.000Z');
+      localStorage.setItem('last_checked_messages', '1970-01-01T00:00:00.000Z');
+      localStorage.setItem('last_checked_reviews', '1970-01-01T00:00:00.000Z');
 
       // 2. Insert 1 Course Booking (purchase)
       // Use API function if possible to avoid RLS issues, otherwise try direct insert
