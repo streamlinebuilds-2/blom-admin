@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, RefreshCw, Truck, Package, Archive, Filter, X, FileText } from 'lucide-react';
+import { Eye, RefreshCw, Truck, Package, Archive, Filter, X, FileText, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConfirmDialog } from '../components/ui/dialog';
+import { useNotifications } from '../contexts/NotificationContext';
 
 export default function Orders() {
   const navigate = useNavigate();
+  const { markAsRead } = useNotifications();
 
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
@@ -861,9 +863,14 @@ export default function Orders() {
             </button>
           )}
         </div>
-        <button onClick={() => refetch()} className="btn-secondary">
-          <RefreshCw size={16} /> Reload
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={() => markAsRead('orders')} className="btn-secondary">
+            <CheckCircle size={16} /> Mark read
+          </button>
+          <button onClick={() => refetch()} className="btn-secondary">
+            <RefreshCw size={16} /> Reload
+          </button>
+        </div>
       </div>
 
       {/* Filters Section */}
