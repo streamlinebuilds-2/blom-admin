@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 
 const NotificationContext = createContext();
 
@@ -27,34 +26,30 @@ export function NotificationProvider({ children }) {
       const lastMessages = getLastChecked('messages');
       const lastReviews = getLastChecked('reviews');
 
-      console.log('🔔 Checking notifications since:', { lastOrders, lastBookings, lastMessages, lastReviews });
+      const qs = new URLSearchParams({
+        last_orders: lastOrders,
+        last_course_bookings: lastBookings,
+        last_messages: lastMessages,
+        last_reviews: lastReviews,
+      });
 
-      // Fetch counts in parallel
-      const [
-        { count: ordersCount, error: ordersError },
-        { count: bookingsCount, error: bookingsError },
-        { count: messagesCount, error: messagesError },
-        { count: reviewsCount, error: reviewsError }
-      ] = await Promise.all([
-        supabase.from('orders').select('*', { count: 'exact', head: true }).gt('placed_at', lastOrders),
-        supabase.from('course_purchases').select('*', { count: 'exact', head: true }).gt('created_at', lastBookings),
-        supabase.from('messages').select('*', { count: 'exact', head: true }).gt('created_at', lastMessages),
-        supabase.from('reviews').select('*', { count: 'exact', head: true }).gt('created_at', lastReviews)
-      ]);
+      const res = await fetch(`/.netlify/functions/admin-notification-counts?${qs.toString()}`);
+      if (!res.ok) {
+        throw new Error(`Counts HTTP ${res.status}: ${res.statusText}`);
+      }
 
-      if (ordersError) console.error('Orders count error:', ordersError);
-      if (bookingsError) console.error('Bookings count error:', bookingsError);
-      if (messagesError) console.error('Messages count error:', messagesError);
-      if (reviewsError) console.error('Reviews count error:', reviewsError);
+      const json = await res.json();
+      if (!json?.ok) {
+        throw new Error(json?.error || 'Failed to load notification counts');
+      }
 
       const newCounts = {
-        orders: ordersCount || 0,
-        course_bookings: bookingsCount || 0,
-        messages: messagesCount || 0,
-        reviews: reviewsCount || 0
+        orders: json.counts?.orders || 0,
+        course_bookings: json.counts?.course_bookings || 0,
+        messages: json.counts?.messages || 0,
+        reviews: json.counts?.reviews || 0,
       };
 
-      console.log('🔔 New notification counts:', newCounts);
       setCounts(newCounts);
     } catch (err) {
       console.error('Error fetching notification counts:', err);
