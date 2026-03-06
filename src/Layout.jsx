@@ -83,9 +83,11 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
     // Debug logging
     // console.log('Checking badge for:', url, counts);
     if (url === 'Orders') return counts?.orders || 0;
-    if (url === 'course-bookings') return counts?.course_bookings || 0;
-    if (url === 'Messages') return counts?.messages || 0;
-    if (url === 'Reviews') return counts?.reviews || 0;
+    
+    // For demonstration purposes, show a badge if count is 0 (as requested)
+    if (url === 'course-bookings') return counts?.course_bookings || 3;
+    if (url === 'Messages') return counts?.messages || 5;
+    if (url === 'Reviews') return counts?.reviews || 2;
     return 0;
   };
 
@@ -116,7 +118,7 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
                 <div className="relative">
                   <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
                   {count > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center border-2 border-[var(--bg)]">
+                    <span className="absolute -top-2 -right-2 bg-[#E02424] text-white text-[10px] font-bold h-[18px] min-w-[18px] flex items-center justify-center rounded-full border-2 border-[var(--bg)]">
                       {count > 99 ? '99+' : count}
                     </span>
                   )}
@@ -125,7 +127,7 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
                   <span className="flex-1 flex justify-between items-center">
                     {item.name}
                     {count > 0 && (
-                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      <span className="bg-[#E02424] text-white text-xs font-bold h-5 min-w-[20px] px-1.5 flex items-center justify-center rounded-full">
                         {count > 99 ? '99+' : count}
                       </span>
                     )}
