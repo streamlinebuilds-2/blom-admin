@@ -159,15 +159,6 @@ export default function Layout({ children, currentPageName }) {
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 
-  const resetBadges = () => {
-    // Debug helper to reset badges
-    localStorage.setItem('last_checked_orders', '1970-01-01T00:00:00.000Z');
-    localStorage.setItem('last_checked_course_bookings', '1970-01-01T00:00:00.000Z');
-    localStorage.setItem('last_checked_messages', '1970-01-01T00:00:00.000Z');
-    localStorage.setItem('last_checked_reviews', '1970-01-01T00:00:00.000Z');
-    window.location.reload();
-  };
-
   return (
     <ToastProvider>
       <style>{`
@@ -549,14 +540,6 @@ export default function Layout({ children, currentPageName }) {
             </div>
 
             <div className="topbar-actions">
-              <button 
-                className="theme-toggle" 
-                onClick={resetBadges}
-                title="Reset Notification Badges (Debug)"
-                style={{ color: '#E02424' }}
-              >
-                <Bell className="w-5 h-5" />
-              </button>
               <Link to="/seed" className="theme-toggle" title="Seed Test Data">
                 <Sparkles className="w-5 h-5" />
               </Link>
