@@ -83,11 +83,9 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
     // Debug logging
     // console.log('Checking badge for:', url, counts);
     if (url === 'Orders') return counts?.orders || 0;
-    
-    // For demonstration purposes, show a badge if count is 0 (as requested)
-    if (url === 'course-bookings') return counts?.course_bookings || 3;
-    if (url === 'Messages') return counts?.messages || 5;
-    if (url === 'Reviews') return counts?.reviews || 2;
+    if (url === 'course-bookings') return counts?.course_bookings || 0;
+    if (url === 'Messages') return counts?.messages || 0;
+    if (url === 'Reviews') return counts?.reviews || 0;
     return 0;
   };
 
