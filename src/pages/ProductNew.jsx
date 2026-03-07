@@ -10,6 +10,8 @@ import { uploadToCloudinary } from "../lib/cloudinary";
 const CATEGORIES = [
   'Bundle Deals',
   'Acrylic System',
+  'Acrylic System - Core Acrylics',
+  'Acrylic System - Coloured Acrylics',
   'Prep & Finish',
   'Gel System',
   'Tools & Essentials',
@@ -125,7 +127,6 @@ export default function ProductNew() {
   const [viewMode, setViewMode] = useState("desktop");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
-  const [subcategorySlugs, setSubcategorySlugs] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   
@@ -702,19 +703,6 @@ export default function ProductNew() {
       const createdId = data?.id || data?.product?.id || null;
 
       if (createdId) {
-        await fetch(`/.netlify/functions/admin-product-tags?product_id=${encodeURIComponent(createdId)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slugs: subcategorySlugs }),
-        }).then(async (r) => {
-          const j = await r.json().catch(() => ({}));
-          if (!r.ok || j?.ok === false) {
-            throw new Error(j?.error || `Failed to save subcategories (${r.status})`);
-          }
-        });
-      }
-
-      if (createdId) {
         navigate(`/products/${createdId}`);
       } else {
         navigate("/products");
@@ -1171,13 +1159,9 @@ export default function ProductNew() {
                     if (event.target.value === '__custom__') {
                       setShowCustomCategory(true);
                       update('category', '');
-                      setSubcategorySlugs([]);
                     } else {
                       setShowCustomCategory(false);
                       update('category', event.target.value);
-                      if ((event.target.value || '').trim() !== 'acrylic-system') {
-                        setSubcategorySlugs([]);
-                      }
                     }
                   }}
                 >
@@ -1197,31 +1181,6 @@ export default function ProductNew() {
                   />
                 )}
                 {errors.category ? <p className="text-xs text-red-500">{errors.category}</p> : null}
-                {form.category.trim() === 'acrylic-system' && (
-                  <div className="mt-3 space-y-2">
-                    <div className="text-sm font-semibold text-[var(--text)]">Subcategories</div>
-                    <div className="flex flex-wrap gap-3">
-                      {[
-                        { slug: 'core-acrylics', label: 'Core Acrylics' },
-                        { slug: 'coloured-acrylics', label: 'Coloured Acrylics' },
-                      ].map((opt) => (
-                        <label key={opt.slug} className="flex items-center gap-2 text-sm text-[var(--text)]">
-                          <input
-                            type="checkbox"
-                            checked={subcategorySlugs.includes(opt.slug)}
-                            onChange={(e) => {
-                              setSubcategorySlugs((prev) => {
-                                if (e.target.checked) return Array.from(new Set([...prev, opt.slug]));
-                                return prev.filter((s) => s !== opt.slug);
-                              });
-                            }}
-                          />
-                          {opt.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
