@@ -7,18 +7,15 @@ import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../components/supabaseClient";
 import { uploadToCloudinary } from "../lib/cloudinary";
 
-const CATEGORIES = [
-  'Bundle Deals',
-  'Acrylic System',
-  'Acrylic System - Core Acrylics',
-  'Acrylic System - Coloured Acrylics',
-  'Prep & Finish',
-  'Gel System',
-  'Tools & Essentials',
-  'Furniture',
-  'Courses',
-  'Workshops',
-  'Coming Soon'
+const CATEGORY_OPTIONS = [
+  { key: 'acrylic-system', category: 'acrylic-system', tags: [], label: 'Acrylic System' },
+  { key: 'acrylic-system|core-acrylics', category: 'acrylic-system', tags: ['core-acrylics'], label: 'Acrylic System - Core Acrylics' },
+  { key: 'acrylic-system|coloured-acrylics', category: 'acrylic-system', tags: ['coloured-acrylics'], label: 'Acrylic System - Coloured Acrylics' },
+  { key: 'bundle-deals', category: 'bundle-deals', tags: [], label: 'Bundle Deals' },
+  { key: 'gel-system', category: 'gel-system', tags: [], label: 'Gel System' },
+  { key: 'prep-finishing', category: 'prep-finishing', tags: [], label: 'Prep & Finishing' },
+  { key: 'tools-essentials', category: 'tools-essentials', tags: [], label: 'Tools & Essentials' },
+  { key: 'furniture', category: 'furniture', tags: [], label: 'Furniture' },
 ];
 
 // Helper function to determine stock type based on category
@@ -54,6 +51,7 @@ const generateBarcode = () => {
 const initialFormState = {
   name: "",
   category: "",
+  tags: [],
   price: "",
   compare_at_price: "",
   cost_price: "",
@@ -365,7 +363,18 @@ export default function ProductEdit() {
           const formData = {
             id: product.id,
             name: product.name || '',
-            category: product.category || '',
+            category: (() => {
+              const c = (product.category || '').trim();
+              if (c === 'Acrylic System - Core Acrylics' || c === 'Acrylic System Core Acrylics') return 'acrylic-system';
+              if (c === 'Acrylic System - Coloured Acrylics' || c === 'Acrylic System Coloured Acrylics') return 'acrylic-system';
+              return c;
+            })(),
+            tags: (() => {
+              const c = (product.category || '').trim();
+              if (c === 'Acrylic System - Core Acrylics' || c === 'Acrylic System Core Acrylics') return ['core-acrylics'];
+              if (c === 'Acrylic System - Coloured Acrylics' || c === 'Acrylic System Coloured Acrylics') return ['coloured-acrylics'];
+              return Array.isArray(product.tags) ? product.tags : [];
+            })(),
             status: product.status || 'active',
             price: product.price?.toString() || (product.price_cents ? (product.price_cents / 100).toString() : ''),
             compare_at_price: product.compare_at_price?.toString() || (product.compare_at_price_cents ? (product.compare_at_price_cents / 100).toString() : ''),
@@ -971,6 +980,7 @@ export default function ProductEdit() {
       slug: slug,
       sku: sku,
       category: form.category.trim(),
+      tags: Array.isArray(form.tags) ? form.tags : [],
       stock_type: stockType,
       status: form.status || 'active',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
@@ -1574,20 +1584,35 @@ export default function ProductEdit() {
                 <select
                   id="category"
                   className="product-form-select"
-                  value={showCustomCategory ? '__custom__' : form.category}
+                  value={(() => {
+                    if (showCustomCategory) return '__custom__';
+                    const cat = (form.category || '').trim();
+                    const tags = Array.isArray(form.tags) ? form.tags : [];
+                    if (cat === 'acrylic-system' && tags.includes('core-acrylics')) return 'acrylic-system|core-acrylics';
+                    if (cat === 'acrylic-system' && tags.includes('coloured-acrylics')) return 'acrylic-system|coloured-acrylics';
+                    return cat;
+                  })()}
                   onChange={(event) => {
                     if (event.target.value === '__custom__') {
                       setShowCustomCategory(true);
                       update('category', '');
+                      update('tags', []);
                     } else {
                       setShowCustomCategory(false);
-                      update('category', event.target.value);
+                      const opt = CATEGORY_OPTIONS.find(o => o.key === event.target.value) || null;
+                      if (opt) {
+                        update('category', opt.category);
+                        update('tags', opt.tags);
+                      } else {
+                        update('category', event.target.value);
+                        update('tags', []);
+                      }
                     }
                   }}
                 >
                   <option value="">Select category...</option>
-                  {CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <option key={opt.key} value={opt.key}>{opt.label}</option>
                   ))}
                   <option value="__custom__">+ Add New Category</option>
                 </select>

@@ -310,6 +310,7 @@ export const handler: Handler = async (event) => {
       slug,
       sku: body.sku ?? null,
       category: body.category ?? null,
+      tags: Array.isArray(body.tags) ? body.tags : [],
       status: status,
 
       // Pricing - save BOTH price and price_cents columns for compatibility
@@ -375,8 +376,22 @@ export const handler: Handler = async (event) => {
         .eq('id', row.id)
         .select('*')
         .single();
-      data = updated;
-      error = updateError;
+
+      if (updateError && String(updateError.message || '').includes('column \"tags\"')) {
+        const retryRow = { ...row };
+        delete retryRow.tags;
+        const { data: retryUpdated, error: retryError } = await admin
+          .from('products')
+          .update(retryRow)
+          .eq('id', row.id)
+          .select('*')
+          .single();
+        data = retryUpdated;
+        error = retryError;
+      } else {
+        data = updated;
+        error = updateError;
+      }
     } else {
       // Check if product with this slug exists
       const { data: existing } = await admin
@@ -393,8 +408,22 @@ export const handler: Handler = async (event) => {
           .eq('id', existing.id)
           .select('*')
           .single();
-        data = updated;
-        error = updateError;
+
+        if (updateError && String(updateError.message || '').includes('column \"tags\"')) {
+          const retryRow = { ...row };
+          delete retryRow.tags;
+          const { data: retryUpdated, error: retryError } = await admin
+            .from('products')
+            .update(retryRow)
+            .eq('id', existing.id)
+            .select('*')
+            .single();
+          data = retryUpdated;
+          error = retryError;
+        } else {
+          data = updated;
+          error = updateError;
+        }
       } else {
         // Insert new product
         delete row.id; // Remove undefined id
@@ -403,8 +432,21 @@ export const handler: Handler = async (event) => {
           .insert(row)
           .select('*')
           .single();
-        data = inserted;
-        error = insertError;
+
+        if (insertError && String(insertError.message || '').includes('column \"tags\"')) {
+          const retryRow = { ...row };
+          delete retryRow.tags;
+          const { data: retryInserted, error: retryError } = await admin
+            .from('products')
+            .insert(retryRow)
+            .select('*')
+            .single();
+          data = retryInserted;
+          error = retryError;
+        } else {
+          data = inserted;
+          error = insertError;
+        }
       }
     }
 
