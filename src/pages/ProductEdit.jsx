@@ -126,6 +126,7 @@ export default function ProductEdit() {
   const [viewMode, setViewMode] = useState("desktop");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [subcategorySlugs, setSubcategorySlugs] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -424,6 +425,21 @@ export default function ProductEdit() {
 
     loadProduct();
   }, [id, navigate, showToast, isUploading, isInitialLoad, form.id, form.thumbnail_url, form.hover_url, lastImageUpload, formDataVersion]);
+
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/.netlify/functions/admin-product-tags?product_id=${encodeURIComponent(id)}`)
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j?.ok === false) {
+          throw new Error(j?.error || `Failed to load subcategories (${r.status})`);
+        }
+        setSubcategorySlugs(Array.isArray(j.slugs) ? j.slugs : []);
+      })
+      .catch(() => {
+        setSubcategorySlugs([]);
+      });
+  }, [id]);
 
   const update = (field, value) => {
     // Skip updates during upload locks to prevent interference
@@ -1021,6 +1037,16 @@ export default function ProductEdit() {
       }
 
       showToast("success", "Product updated successfully");
+      await fetch(`/.netlify/functions/admin-product-tags?product_id=${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slugs: subcategorySlugs }),
+      }).then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j?.ok === false) {
+          throw new Error(j?.error || `Failed to save subcategories (${r.status})`);
+        }
+      });
       navigate(`/products/${id}`);
     } catch (error) {
       const message = error?.message || "Failed to update product";
@@ -1577,9 +1603,13 @@ export default function ProductEdit() {
                     if (event.target.value === '__custom__') {
                       setShowCustomCategory(true);
                       update('category', '');
+                      setSubcategorySlugs([]);
                     } else {
                       setShowCustomCategory(false);
                       update('category', event.target.value);
+                      if ((event.target.value || '').trim() !== 'acrylic-system') {
+                        setSubcategorySlugs([]);
+                      }
                     }
                   }}
                 >
@@ -1599,6 +1629,31 @@ export default function ProductEdit() {
                   />
                 )}
                 {errors.category ? <p className="text-xs text-red-500">{errors.category}</p> : null}
+                {form.category.trim() === 'acrylic-system' && (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-sm font-semibold text-[var(--text)]">Subcategories</div>
+                    <div className="flex flex-wrap gap-3">
+                      {[
+                        { slug: 'core-acrylics', label: 'Core Acrylics' },
+                        { slug: 'coloured-acrylics', label: 'Coloured Acrylics' },
+                      ].map((opt) => (
+                        <label key={opt.slug} className="flex items-center gap-2 text-sm text-[var(--text)]">
+                          <input
+                            type="checkbox"
+                            checked={subcategorySlugs.includes(opt.slug)}
+                            onChange={(e) => {
+                              setSubcategorySlugs((prev) => {
+                                if (e.target.checked) return Array.from(new Set([...prev, opt.slug]));
+                                return prev.filter((s) => s !== opt.slug);
+                              });
+                            }}
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Slug and SKU hidden */}
