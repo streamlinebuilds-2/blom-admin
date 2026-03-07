@@ -245,6 +245,27 @@ export default function SeedNotifications() {
     }
   };
 
+  const normalizeProductCategories = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/.netlify/functions/admin-normalize-product-categories', {
+        method: 'POST',
+      });
+      const result = await response.json().catch(() => ({}));
+      if (result.ok) {
+        showToast(`Normalized ${result.updated || 0} products`, 'success');
+        fetchCategories();
+      } else {
+        showToast(result.error || 'Failed to normalize products', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Error normalizing products', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Debug & Maintenance Tools</h1>
@@ -311,6 +332,14 @@ export default function SeedNotifications() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <h3 className="font-semibold text-sm mb-2">Normalize Categories</h3>
+          <p className="text-sm text-gray-500 mb-4">Converts legacy category names (e.g. "Acrylic System - Core Acrylics") into slug categories used by the Shop.</p>
+          <Button onClick={normalizeProductCategories} disabled={loading} variant="outline" className="w-full md:w-auto">
+            {loading ? 'Processing...' : 'Normalize Product Categories'}
+          </Button>
         </div>
       </div>
 
