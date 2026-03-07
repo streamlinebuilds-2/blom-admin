@@ -11,10 +11,13 @@ const CATEGORY_OPTIONS = [
   { key: 'acrylic-system|core-acrylics', category: 'acrylic-system', tags: ['core-acrylics'], label: 'Acrylic System - Core Acrylics' },
   { key: 'acrylic-system|coloured-acrylics', category: 'acrylic-system', tags: ['coloured-acrylics'], label: 'Acrylic System - Coloured Acrylics' },
   { key: 'bundle-deals', category: 'bundle-deals', tags: [], label: 'Bundle Deals' },
+  { key: 'prep-finishing', category: 'prep-finishing', tags: [], label: 'Prep & Finish' },
   { key: 'gel-system', category: 'gel-system', tags: [], label: 'Gel System' },
-  { key: 'prep-finishing', category: 'prep-finishing', tags: [], label: 'Prep & Finishing' },
   { key: 'tools-essentials', category: 'tools-essentials', tags: [], label: 'Tools & Essentials' },
   { key: 'furniture', category: 'furniture', tags: [], label: 'Furniture' },
+  { key: 'courses', category: 'courses', tags: [], label: 'Courses' },
+  { key: 'workshops', category: 'workshops', tags: [], label: 'Workshops' },
+  { key: 'coming-soon', category: 'coming-soon', tags: [], label: 'Coming Soon' },
 ];
 
 // Helper function to determine stock type based on category

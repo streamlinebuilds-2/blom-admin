@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import ProductCard from "../components/ProductCard";
@@ -11,10 +11,13 @@ const CATEGORY_OPTIONS = [
   { key: 'acrylic-system|core-acrylics', category: 'acrylic-system', tags: ['core-acrylics'], label: 'Acrylic System - Core Acrylics' },
   { key: 'acrylic-system|coloured-acrylics', category: 'acrylic-system', tags: ['coloured-acrylics'], label: 'Acrylic System - Coloured Acrylics' },
   { key: 'bundle-deals', category: 'bundle-deals', tags: [], label: 'Bundle Deals' },
+  { key: 'prep-finishing', category: 'prep-finishing', tags: [], label: 'Prep & Finish' },
   { key: 'gel-system', category: 'gel-system', tags: [], label: 'Gel System' },
-  { key: 'prep-finishing', category: 'prep-finishing', tags: [], label: 'Prep & Finishing' },
   { key: 'tools-essentials', category: 'tools-essentials', tags: [], label: 'Tools & Essentials' },
   { key: 'furniture', category: 'furniture', tags: [], label: 'Furniture' },
+  { key: 'courses', category: 'courses', tags: [], label: 'Courses' },
+  { key: 'workshops', category: 'workshops', tags: [], label: 'Workshops' },
+  { key: 'coming-soon', category: 'coming-soon', tags: [], label: 'Coming Soon' },
 ];
 
 // Helper function to determine stock type based on category
@@ -116,6 +119,8 @@ export default function ProductEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+
+  const loadErrorShownRef = useRef(false);
 
   const [form, setForm] = useState(initialFormState);
   const [errors, setErrors] = useState({});
@@ -259,6 +264,7 @@ export default function ProductEdit() {
     async function loadProduct() {
       console.log('🚀 Starting to load product with ID:', id);
       console.log('🚫 Upload status:', { isUploading, isInitialLoad, lastImageUpload, uploadLock });
+      loadErrorShownRef.current = false;
       
       if (!id) {
         console.log('❌ No product ID provided, navigating to products');
@@ -315,7 +321,10 @@ export default function ProductEdit() {
 
         if (error) {
           console.error('❌ Failed to load product:', error);
-          showToast('error', 'Failed to load product');
+          if (!loadErrorShownRef.current) {
+            loadErrorShownRef.current = true;
+            showToast('error', 'Failed to load product');
+          }
           setLoading(false);
           return;
         }
@@ -324,7 +333,7 @@ export default function ProductEdit() {
           console.log('🔄 Processing product data for form...');
           
           // Check if category is custom (not in predefined list)
-          const isCustomCategory = product.category && !CATEGORIES.includes(product.category);
+          const isCustomCategory = product.category && !CATEGORY_OPTIONS.some(opt => opt.category === product.category);
           setShowCustomCategory(isCustomCategory);
           console.log('🔄 Custom category:', isCustomCategory);
 
@@ -425,13 +434,16 @@ export default function ProductEdit() {
         console.log('✅ Product loading complete');
       } catch (err) {
         console.error('❌ Error loading product:', err);
-        showToast('error', 'Error loading product');
+        if (!loadErrorShownRef.current) {
+          loadErrorShownRef.current = true;
+          showToast('error', 'Error loading product');
+        }
         setLoading(false);
       }
     }
 
     loadProduct();
-  }, [id, navigate, showToast, isUploading, isInitialLoad, form.id, form.thumbnail_url, form.hover_url, lastImageUpload, formDataVersion]);
+  }, [id, navigate, showToast, isUploading, uploadLock, lastImageUpload]);
 
   const update = (field, value) => {
     // Skip updates during upload locks to prevent interference
