@@ -8,7 +8,6 @@ import { supabase } from "../components/supabaseClient";
 import { uploadToCloudinary } from "../lib/cloudinary";
 
 const CATEGORY_OPTIONS = [
-  { key: 'acrylic-system', category: 'acrylic-system', tags: [], label: 'Acrylic System' },
   { key: 'acrylic-system|core-acrylics', category: 'acrylic-system', tags: ['core-acrylics'], label: 'Acrylic System - Core Acrylics' },
   { key: 'acrylic-system|coloured-acrylics', category: 'acrylic-system', tags: ['coloured-acrylics'], label: 'Acrylic System - Coloured Acrylics' },
   { key: 'bundle-deals', category: 'bundle-deals', tags: [], label: 'Bundle Deals' },
@@ -55,8 +54,7 @@ const initialFormState = {
   price: "",
   compare_at_price: "",
   cost_price: "",
-  inventory_quantity: "0",
-  track_inventory: true,
+  inventory_quantity: "100",
   weight: "",
   short_description: "",
   overview: "",
@@ -380,7 +378,6 @@ export default function ProductEdit() {
             compare_at_price: product.compare_at_price?.toString() || (product.compare_at_price_cents ? (product.compare_at_price_cents / 100).toString() : ''),
             cost_price: product.cost_price_cents ? (product.cost_price_cents / 100).toFixed(2) : '',
             inventory_quantity: (product.inventory_quantity || product.stock || product.stock_on_hand || product.stock_qty || 0).toString(),
-            track_inventory: product.track_inventory ?? true,
             weight: product.weight?.toString() || '',
             short_description: product.short_description || product.short_desc || '',
             overview: product.overview || product.long_description || product.description || '',
@@ -753,8 +750,9 @@ export default function ProductEdit() {
   }, [form.compare_at_price]);
 
   const inventoryQuantityNumber = useMemo(() => {
+    if (form.inventory_quantity === "" || form.inventory_quantity === null || form.inventory_quantity === undefined) return null;
     const parsed = Number(form.inventory_quantity);
-    return Number.isFinite(parsed) ? parsed : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : null;
   }, [form.inventory_quantity]);
 
   const weightNumber = useMemo(() => {
@@ -944,7 +942,7 @@ export default function ProductEdit() {
       nextErrors.price = "Price must be greater than 0";
     }
 
-    if (!Number.isFinite(inventoryQuantityNumber) || inventoryQuantityNumber < 0) {
+    if (inventoryQuantityNumber != null && inventoryQuantityNumber < 0) {
       nextErrors.inventory_quantity = "Inventory must be zero or greater";
     }
 
@@ -986,8 +984,7 @@ export default function ProductEdit() {
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
       cost_price_cents: form.cost_price ? Math.round(parseFloat(form.cost_price) * 100) : 0,
-      inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
-      track_inventory: Boolean(form.track_inventory),
+      inventory_quantity: inventoryQuantityNumber != null ? inventoryQuantityNumber : 100,
       weight: weightNumber,
       barcode: barcode,
       short_description: form.short_description,
@@ -1590,6 +1587,7 @@ export default function ProductEdit() {
                     const tags = Array.isArray(form.tags) ? form.tags : [];
                     if (cat === 'acrylic-system' && tags.includes('core-acrylics')) return 'acrylic-system|core-acrylics';
                     if (cat === 'acrylic-system' && tags.includes('coloured-acrylics')) return 'acrylic-system|coloured-acrylics';
+                    if (cat === 'acrylic-system') return 'acrylic-system|core-acrylics';
                     return cat;
                   })()}
                   onChange={(event) => {
@@ -1708,7 +1706,7 @@ export default function ProductEdit() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="inventory_quantity">
-                  Inventory Quantity <span className="text-red-500">*</span>
+                  Inventory Quantity
                 </label>
                 <input
                   id="inventory_quantity"
@@ -1723,18 +1721,6 @@ export default function ProductEdit() {
                 {errors.inventory_quantity ? (
                   <p className="text-xs text-red-500">{errors.inventory_quantity}</p>
                 ) : null}
-              </div>
-              <div className="flex items-center gap-3 pt-6">
-                <input
-                  id="track_inventory"
-                  type="checkbox"
-                  checked={form.track_inventory}
-                  onChange={(event) => update("track_inventory", event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--card)]"
-                />
-                <label className="text-sm font-medium text-[var(--text)]" htmlFor="track_inventory">
-                  Track inventory automatically
-                </label>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="weight">

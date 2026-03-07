@@ -256,7 +256,8 @@ export const handler: Handler = async (event) => {
     const name = String(body.name || '').trim();
     const slug = String(body.slug || '').trim();
     const price = Number(body.price);
-    const stock = Number(body.stock ?? body.inventory_quantity ?? 0);
+    const stockRaw = body.stock ?? body.inventory_quantity;
+    const stock = (stockRaw === undefined || stockRaw === null || stockRaw === "") ? 100 : Number(stockRaw);
 
     if (!name || !slug) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing required fields (name, slug)' }) };
