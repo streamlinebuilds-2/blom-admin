@@ -378,7 +378,9 @@ export const handler: Handler = async (event) => {
         .select('*')
         .single();
 
-      if (updateError && String(updateError.message || '').includes('column \"tags\"')) {
+      const updateMsg = String(updateError?.message || '');
+      const tagsMissing = updateMsg.includes('column \"tags\"') || updateMsg.includes("'tags'") || updateMsg.toLowerCase().includes('schema cache');
+      if (updateError && tagsMissing) {
         const retryRow = { ...row };
         delete retryRow.tags;
         const { data: retryUpdated, error: retryError } = await admin
@@ -410,7 +412,9 @@ export const handler: Handler = async (event) => {
           .select('*')
           .single();
 
-        if (updateError && String(updateError.message || '').includes('column \"tags\"')) {
+        const updateMsg = String(updateError?.message || '');
+        const tagsMissing = updateMsg.includes('column \"tags\"') || updateMsg.includes("'tags'") || updateMsg.toLowerCase().includes('schema cache');
+        if (updateError && tagsMissing) {
           const retryRow = { ...row };
           delete retryRow.tags;
           const { data: retryUpdated, error: retryError } = await admin
@@ -434,7 +438,9 @@ export const handler: Handler = async (event) => {
           .select('*')
           .single();
 
-        if (insertError && String(insertError.message || '').includes('column \"tags\"')) {
+        const insertMsg = String(insertError?.message || '');
+        const tagsMissing = insertMsg.includes('column \"tags\"') || insertMsg.includes("'tags'") || insertMsg.toLowerCase().includes('schema cache');
+        if (insertError && tagsMissing) {
           const retryRow = { ...row };
           delete retryRow.tags;
           const { data: retryInserted, error: retryError } = await admin

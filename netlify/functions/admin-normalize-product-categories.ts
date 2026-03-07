@@ -75,7 +75,9 @@ export const handler: Handler = async (event) => {
 
       const { error: updateError } = await admin.from("products").update(patch).eq("id", (p as any).id);
       if (updateError) {
-        if (String(updateError.message || "").includes('column \"tags\"')) {
+        const msg = String(updateError.message || "");
+        const tagsMissing = msg.includes('column \"tags\"') || msg.includes("'tags'") || msg.toLowerCase().includes('schema cache');
+        if (tagsMissing) {
           tagColumnMissing = true;
           const retryPatch = { ...patch };
           delete (retryPatch as any).tags;
