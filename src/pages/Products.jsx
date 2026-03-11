@@ -45,7 +45,8 @@ export default function Products() {
         !p.is_variant && 
         p.is_variant !== true &&
         !p.variant_name && // Also exclude products with variant names
-        p.status !== 'deleted' // Exclude soft-deleted products
+        p.status !== 'deleted' && // Exclude soft-deleted products
+        !p.name?.startsWith('[DELETED]') // Exclude products marked as deleted via fallback
       );
       console.log(`📊 Filtered ${allProducts.length} products to ${mainProducts.length} main products (excluded variants)`);
       return mainProducts;

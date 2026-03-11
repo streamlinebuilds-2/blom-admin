@@ -68,6 +68,7 @@ export default function Bundles() {
 
   const filteredBundles = bundles.filter(b => {
     if (b.status === 'deleted') return false; // Always exclude deleted
+    if (b.name?.startsWith('[DELETED]')) return false; // Always exclude fallback-deleted
     const matchesSearch = b.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
     return matchesSearch && matchesStatus;
