@@ -30,24 +30,34 @@ DECLARE
     s TEXT;
 BEGIN
     FOREACH s IN ARRAY p_skus LOOP
-        -- Try to hard delete first
-        DELETE FROM products WHERE sku = s;
-        
-        -- If hard delete failed (due to FK), soft delete
-        IF FOUND THEN
-            RAISE NOTICE 'Permanently deleted product with SKU: %', s;
-        ELSE
-            UPDATE products SET status = 'deleted', is_active = false WHERE sku = s;
+        -- Attempt to hard delete first, but handle foreign key exceptions
+        BEGIN
+            DELETE FROM products WHERE sku = s;
+            
             IF FOUND THEN
-                RAISE NOTICE 'Soft deleted product with SKU: %', s;
+                RAISE NOTICE 'Permanently deleted product with SKU: %', s;
+            ELSE
+                -- If not found, try to soft delete (in case it already exists)
+                UPDATE products SET status = 'deleted', is_active = false WHERE sku = s;
+                IF FOUND THEN
+                    RAISE NOTICE 'Soft deleted product with SKU: % (already existed but not hard deletable)', s;
+                END IF;
             END IF;
-        END IF;
+        EXCEPTION WHEN foreign_key_violation THEN
+            -- If hard delete fails due to orders, perform soft delete instead
+            UPDATE products SET status = 'deleted', is_active = false WHERE sku = s;
+            RAISE NOTICE 'Soft deleted product with SKU: % (due to foreign key dependencies)', s;
+        END;
         
         -- Also check bundles just in case some SKUs refer to bundles
-        DELETE FROM bundles WHERE sku = s;
-        IF NOT FOUND THEN
-             UPDATE bundles SET status = 'deleted', is_active = false WHERE sku = s;
-        END IF;
+        BEGIN
+            DELETE FROM bundles WHERE sku = s;
+            IF NOT FOUND THEN
+                 UPDATE bundles SET status = 'deleted', is_active = false WHERE sku = s;
+            END IF;
+        EXCEPTION WHEN foreign_key_violation THEN
+            UPDATE bundles SET status = 'deleted', is_active = false WHERE sku = s;
+        END;
     END LOOP;
 END $$;
 
