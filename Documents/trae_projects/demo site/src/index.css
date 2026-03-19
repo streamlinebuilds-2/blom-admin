@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0f172a] text-[#f8fafc] font-inter antialiased;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-[#020617];
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-[#1e293b] border-2 border-[#020617] rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-[#22c55e]/50;
+}
+
+/* Custom classes */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
