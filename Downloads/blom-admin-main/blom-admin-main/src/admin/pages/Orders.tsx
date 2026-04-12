@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/components/supabaseClient';
 import { adminPaths } from '@/utils';
 
 type OrderRow = {
@@ -69,11 +69,10 @@ export default function Orders() {
 
   if (loading) {
     return (
-      <div className="page-container">
+      <div className="page-container bg-gray-900 min-h-screen p-6">
         <div className="flex items-center justify-center py-12">
           <div
-            className="w-8 h-8 border-4 rounded-full animate-spin"
-            style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}
+            className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin"
           ></div>
         </div>
       </div>
@@ -82,13 +81,13 @@ export default function Orders() {
 
   if (error) {
     return (
-      <div className="page-container">
-        <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
+      <div className="page-container bg-gray-900 min-h-screen p-6">
+        <div className="bg-red-900 border border-red-700 rounded p-4 text-red-300">
           <p className="font-semibold">Error loading orders</p>
           <p className="text-sm mt-1">{error}</p>
           <button
             onClick={load}
-            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="mt-3 px-4 py-2 bg-red-700 text-white rounded hover:bg-red-800"
           >
             Retry
           </button>
@@ -98,16 +97,15 @@ export default function Orders() {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container bg-gray-900 text-gray-100 p-6">
       <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+        <h1 className="text-2xl font-bold text-white">
           Orders
         </h1>
         <div className="flex gap-3 flex-wrap">
           <div className="relative w-60">
             <svg
-              className="absolute left-4 top-1/2 transform -translate-y-1/2"
-              style={{ color: 'var(--text-muted)' }}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -122,65 +120,60 @@ export default function Orders() {
             </svg>
             <input
               type="text"
-              className="input pl-10"
+              className="w-full p-2 pl-10 rounded-md bg-gray-700 text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Search orders..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className="btn-primary" onClick={load}>Reload</button>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={load}>Reload</button>
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-title">
+        <div className="text-center py-12 bg-gray-800 rounded-lg shadow-lg">
+          <div className="text-xl font-bold text-white">
             {rows.length === 0 ? "No orders yet" : "No orders match your search"}
           </div>
         </div>
       ) : (
         <div
-          style={{
-            background: 'var(--card)',
-            borderRadius: 20,
-            boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
-            overflow: 'hidden',
-          }}
+          className="bg-gray-800 rounded-lg shadow-lg overflow-hidden"
         >
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-700">
                 <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>ID</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Payment/Order #</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Fulfillment</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Total</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Created</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Paid</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}></th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ID</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Payment/Order #</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Fulfillment</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Total</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Created</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Paid</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-gray-800 divide-y divide-gray-700">
                 {filtered.map((r) => (
-                  <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{r.id}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{r.m_payment_id || r.order_number || '-'}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{getFulfillmentType(r)}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text)' }}>{formatTotal(r)}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span className={`status-badge status-${r.status || 'active'}`}>
+                  <tr key={r.id} className="hover:bg-gray-700 transition-colors duration-200">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{r.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{r.m_payment_id || r.order_number || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{getFulfillmentType(r)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-white">{formatTotal(r)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`status-badge ${r.status === 'paid' ? 'bg-green-600' : 'bg-yellow-600'} text-white px-2 py-1 rounded-full text-xs font-medium`}>
                         {r.status || 'active'}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                       {r.created_at ? new Date(r.created_at).toLocaleString() : '-'}
                     </td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                       {r.paid_at ? new Date(r.paid_at).toLocaleString() : '-'}
                     </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      <button className="btn-primary" onClick={() => navigate(adminPaths.orders + '/' + r.id)}>View</button>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button className="text-blue-500 hover:text-blue-400 font-bold py-1 px-3 rounded bg-blue-900 bg-opacity-30" onClick={() => navigate(adminPaths.orders + '/' + r.id)}>View</button>
                     </td>
                   </tr>
                 ))}

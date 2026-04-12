@@ -15,13 +15,13 @@ import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
 import AppLayout from '@/layout/AppLayout'
 
 // Admin pages
-import ProductsPage from '@/admin/pages/Products'
-import ProductEdit from '@/admin/pages/ProductEdit'
-import BundlesPage from '@/admin/pages/Bundles'
-import BundleEdit from '@/admin/pages/BundleEdit'
-import Reviews from '@/admin/pages/Reviews'
-import ContactsPage from '@/admin/pages/Contacts'
-import ContactDetail from '@/admin/pages/ContactDetail'
+import ProductsPage from '@/pages/Products'
+import ProductEdit from '@/pages/ProductEdit'
+import BundlesPage from '@/pages/Bundles'
+import BundleEdit from '@/pages/BundleEdit'
+import Reviews from '@/pages/Reviews'
+import ContactsPage from '@/pages/Contacts'
+import ContactDetail from '@/pages/ContactDetail'
 import Stock from '@/admin/pages/Stock'
 import Finance from '@/admin/pages/Finance'
 import Orders from '@/admin/pages/Orders'
@@ -53,11 +53,8 @@ const LayoutWrapper = ({ children, currentPageName }) => {
      .some(p => window.location.pathname.startsWith(p))
  );
 
- if (isAdminRoute) {
-   return <AppLayout>{children}</AppLayout>;
- }
-
- return Layout ? <Layout currentPageName={currentPageName}>{children}</Layout> : <>{children}</>;
+ // Always use AppLayout for consistent theming across all routes
+ return <AppLayout>{children}</AppLayout>;
 };
 
 // Wrapper for ProductEdit to handle ?id= query param
