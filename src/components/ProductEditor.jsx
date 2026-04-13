@@ -1056,17 +1056,43 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
               </div>
 
               <div className="form-section">
-                <h3 className="section-title">Inventory</h3>
-                
+                <h3 className="section-title">Stock Status</h3>
+
                 <div className="form-group">
-                  <label className="form-label">Stock Quantity</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={formData.stock}
-                    onChange={(e) => updateField('stock', parseInt(e.target.value) || 0)}
-                    min="0"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => updateField('out_of_stock', !formData.out_of_stock)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 20px',
+                      borderRadius: '10px',
+                      border: `2px solid ${formData.out_of_stock ? '#ef4444' : '#10b981'}`,
+                      background: formData.out_of_stock ? '#fef2f2' : '#f0fdf4',
+                      cursor: 'pointer',
+                      width: '100%',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      background: formData.out_of_stock ? '#ef4444' : '#10b981',
+                      flexShrink: 0,
+                    }} />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '14px', color: formData.out_of_stock ? '#dc2626' : '#059669' }}>
+                        {formData.out_of_stock ? 'Out of Stock' : 'In Stock'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                        {formData.out_of_stock
+                          ? 'Add to Cart is disabled on the website. Click to mark as In Stock.'
+                          : 'Customers can add this product to cart. Click to mark as Out of Stock.'}
+                      </div>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>

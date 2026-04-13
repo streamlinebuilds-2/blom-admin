@@ -42,6 +42,7 @@ export const handler: Handler = async (event) => {
     const slug = String(body.slug || '').trim();
     const price = Number(body.price);
     const stock = Number(body.stock ?? 0);
+    const out_of_stock = body.out_of_stock === true;
 
     if (!name || !slug) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing required fields (name, slug)' }) };
@@ -72,10 +73,11 @@ export const handler: Handler = async (event) => {
       price_cents: Math.round(price * 100),
       compare_at_price: compareAt,
       compare_at_price_cents: compareAt == null ? null : Math.round(compareAt * 100),
-      // sync stock fields commonly present in your schema
-      stock: stock,
-      stock_on_hand: stock,
-      stock_qty: stock,
+      // sync stock fields
+      out_of_stock: out_of_stock,
+      stock: out_of_stock ? 0 : stock,
+      stock_on_hand: out_of_stock ? 0 : stock,
+      stock_qty: out_of_stock ? 0 : stock,
       // descriptions
       short_description: body.short_description ?? null,
       short_desc: body.short_description ?? null,
