@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 // import { Header } from '../layout/Header'; // Removed for build stability
-import { Footer } from '@/components/product-page/Footer';
-import { Container } from '@/components/product-page/Container';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ReviewSection } from '@/components/product-page/ReviewSection';
-import { PaymentMethods } from '@/components/product-page/PaymentMethods';
-import { StickyCart } from '@/components/product-page/StickyCart';
-import { cartStore, showNotification } from '@/lib/cart';
-import { ShareButton } from '@/components/product-page/ShareButton';
+import { Footer } from '../layout/Footer';
+import { Container } from '../layout/Container';
+import { Card, CardContent } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { ReviewSection } from '../review/ReviewSection';
+import { PaymentMethods } from '../payment/PaymentMethods';
+import { StickyCart } from '../cart/StickyCart';
+import { cartStore, showNotification } from '../../lib/cart';
+import { ShareButton } from '../ui/ShareButton';
 import { 
   Star, 
   Heart, 
@@ -50,6 +50,7 @@ interface ProductData {
   price: string;
   compareAtPrice?: string;
   stock: string;
+  out_of_stock?: boolean;
   images: string[];
   features: string[];
   howToUse: string[];
@@ -165,14 +166,14 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
   ];
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-white">
       {/* <Header showMobileMenu={true} /> */} {/* Header removed for build stability */}
 
       <main>
         {/* Breadcrumb */}
         <section className="py-4 border-b">
           <Container>
-            <nav className="text-sm text-gray-300">
+            <nav className="text-sm text-gray-500">
               <a href="/" className="hover:text-pink-400">Home</a>
               <span className="mx-2">/</span>
               <a href="/shop" className="hover:text-pink-400">Shop</a>
@@ -181,7 +182,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 {product.category}
               </a>
               <span className="mx-2">/</span>
-              <span className="text-white">{product.name}</span>
+              <span className="text-gray-900">{product.name}</span>
             </nav>
           </Container>
         </section>
@@ -193,7 +194,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
               {/* Product Media */}
               <div>
                 {/* Main Image */}
-                <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-800 shadow-md">
+                <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 shadow-md">
                   <img
                     src={product.images[selectedImage] || 'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'}
                     alt={product.name}
@@ -205,13 +206,13 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                     <>
                       <button
                         onClick={prevImage}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-gray-700 bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all"
                       >
                         <ChevronLeft className="h-5 w-5" />
                       </button>
                       <button
                         onClick={nextImage}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-gray-700 bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all"
                       >
                         <ChevronRight className="h-5 w-5" />
                       </button>
@@ -234,7 +235,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                         key={index}
                         onClick={() => setSelectedImage(index)}
                         className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${
-                          selectedImage === index ? 'border-pink-400' : 'border-gray-700'
+                          selectedImage === index ? 'border-pink-400' : 'border-gray-200'
                         }`}
                       >
                         <img
@@ -251,8 +252,8 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
               {/* Product Buy Box */}
               <div>
                 <div className="mb-6">
-                  <h1 className="text-4xl font-bold text-white mb-3">{product.name}</h1>
-                  <p className="text-lg text-gray-300 mb-6 leading-relaxed">{product.shortDescription}</p>
+                  <h1 className="text-4xl font-bold text-gray-900 mb-3">{product.name}</h1>
+                  <p className="text-lg text-gray-600 mb-6 leading-relaxed">{product.shortDescription}</p>
                   
                   {/* Rating */}
                   <div className="flex items-center gap-2 mb-6">
@@ -263,33 +264,40 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                           className={`h-5 w-5 ${
                             i < Math.floor(product.rating || 4.8)
                               ? 'fill-current text-yellow-400'
-                              : 'text-gray-600'
+                              : 'text-gray-300'
                           }`}
                         />
                       ))}
                     </div>
-                    <span className="text-gray-300 text-sm">({product.reviewCount || 124} reviews)</span>
+                    <span className="text-gray-600 text-sm">({product.reviewCount || 124} reviews)</span>
                   </div>
 
                   {/* Price */}
                   <div className="flex items-baseline gap-3 mb-2">
-                    <span className="text-4xl font-bold text-white">{product.price}</span>
+                    <span className="text-4xl font-bold text-gray-900">{product.price}</span>
                     {product.compareAtPrice && (
-                      <span className="text-xl text-gray-500 line-through">{product.compareAtPrice}</span>
+                      <span className="text-xl text-gray-400 line-through">{product.compareAtPrice}</span>
                     )}
                   </div>
 
                   {/* Stock Status */}
-                  <div className="inline-flex items-center gap-2 bg-green-900 bg-opacity-20 px-3 py-1.5 rounded-full mb-8">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span className="text-green-400 font-medium text-sm">{product.stock}</span>
-                  </div>
+                  {product.out_of_stock ? (
+                    <div className="inline-flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-full mb-8">
+                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                      <span className="text-red-700 font-medium text-sm">Out of Stock</span>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full mb-8">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      <span className="text-green-700 font-medium text-sm">{product.stock || 'In Stock'}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Variants */}
                 {product.variants.length > 1 && (
                   <div className="mb-8">
-                    <h3 className="text-lg font-semibold text-white mb-4">Scent</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Scent</h3>
                     <div className="flex flex-wrap gap-3">
                       {product.variants.map((variant) => (
                         <button
@@ -298,7 +306,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                           className={`px-6 py-3 rounded-full font-medium text-sm transition-all duration-200 ${
                             selectedVariant === variant
                               ? 'bg-pink-400 text-white border-2 border-pink-400 shadow-md'
-                              : 'bg-gray-800 text-gray-200 border-2 border-gray-700 hover:border-gray-600'
+                              : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-gray-400'
                           }`}
                         >
                           {variant}
@@ -310,22 +318,22 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
 
                 {/* Quantity */}
                 <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-white mb-4">Quantity</h3>
-                  <div className="flex items-center border-2 border-gray-700 rounded-full bg-gray-800 inline-flex">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Quantity</h3>
+                  <div className="flex items-center border-2 border-gray-200 rounded-full bg-white inline-flex">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="p-3 hover:bg-gray-700 transition-colors rounded-l-full"
+                      className="p-3 hover:bg-gray-50 transition-colors rounded-l-full"
                       aria-label="Decrease quantity"
                     >
-                      <Minus className="h-5 w-5 text-gray-300" />
+                      <Minus className="h-5 w-5 text-gray-600" />
                     </button>
-                    <span className="px-8 py-3 font-bold text-lg text-white min-w-[60px] text-center select-none">{quantity}</span>
+                    <span className="px-8 py-3 font-bold text-lg text-gray-900 min-w-[60px] text-center select-none">{quantity}</span>
                     <button
                       onClick={() => setQuantity(quantity + 1)}
-                      className="p-3 hover:bg-gray-700 transition-colors rounded-r-full"
+                      className="p-3 hover:bg-gray-50 transition-colors rounded-r-full"
                       aria-label="Increase quantity"
                     >
-                      <Plus className="h-5 w-5 text-gray-300" />
+                      <Plus className="h-5 w-5 text-gray-600" />
                     </button>
                   </div>
                 </div>
@@ -334,50 +342,57 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 <div className="space-y-3 mb-8">
                   <button
                     onClick={handleAddToCart}
-                    className="w-full bg-pink-400 text-white rounded-full py-3 md:py-4 px-6 md:px-8 font-bold text-sm md:text-lg uppercase tracking-wide hover:bg-transparent hover:text-pink-400 hover:border-2 hover:border-pink-400 transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95"
+                    disabled={product.out_of_stock}
+                    className={`w-full rounded-full py-3 md:py-4 px-6 md:px-8 font-bold text-sm md:text-lg uppercase tracking-wide transition-all duration-200 shadow-lg active:scale-95 ${
+                      product.out_of_stock
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                        : 'bg-pink-400 text-white hover:bg-transparent hover:text-black hover:border-2 hover:border-black hover:shadow-xl'
+                    }`}
                   >
-                    ADD TO CART
+                    {product.out_of_stock ? 'OUT OF STOCK' : 'ADD TO CART'}
                   </button>
+                  {!product.out_of_stock && (
                   <button
                     onClick={handleBuyNow}
-                    className="w-full bg-gray-800 text-white border-2 border-gray-700 rounded-full py-3 md:py-4 px-6 md:px-8 font-bold text-sm md:text-lg uppercase tracking-wide hover:bg-blue-900 hover:border-blue-900 hover:text-blue-400 transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                    className="w-full bg-white text-black border-2 border-black rounded-full py-3 md:py-4 px-6 md:px-8 font-bold text-sm md:text-lg uppercase tracking-wide hover:bg-blue-200 hover:border-blue-200 transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
                   >
                     BUY NOW
                   </button>
+                  )}
                   <div className="flex gap-3 pt-2">
                     <button
                       onClick={() => setIsWishlisted(!isWishlisted)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-full border-2 border-gray-700 hover:border-pink-400 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-full border-2 border-gray-300 hover:border-pink-400 transition-colors"
                     >
-                      <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current text-pink-400' : 'text-gray-300'}`} />
+                      <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current text-pink-400' : 'text-gray-600'}`} />
                     </button>
                     <ShareButton
                       url={window.location.href}
-                      title={product.name}
-                      description={product.shortDescription}
+                      title={productData.name}
+                      description={productData.shortDescription}
                       className="flex-1"
                     />
                   </div>
                 </div>
 
                 {/* Trust Badges */}
-                <div className="space-y-3 py-6 border-t border-gray-700">
+                <div className="space-y-3 py-6 border-t border-gray-200">
                   <div className="flex items-center gap-3">
-                    <Truck className="h-5 w-5 text-gray-300 flex-shrink-0" />
-                    <span className="text-sm text-gray-200">Free shipping on orders over R1500</span>
+                    <Truck className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">Free shipping on orders over R1500</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-gray-300 flex-shrink-0" />
-                    <span className="text-sm text-gray-200">100% Authentic products</span>
+                    <Shield className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">100% Authentic products</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <RotateCcw className="h-5 w-5 text-gray-300 flex-shrink-0" />
-                    <span className="text-sm text-gray-200">30-day hassle-free returns</span>
+                    <RotateCcw className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">30-day hassle-free returns</span>
                   </div>
                 </div>
 
                 {/* Payment Methods */}
-                <div className="pt-6 border-t border-gray-700">
+                <div className="pt-6 border-t border-gray-200">
                   <PaymentMethods />
                 </div>
               </div>
@@ -386,17 +401,17 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
         </section>
 
         {/* Product Information Accordions */}
-        <section className="section-padding bg-gray-800">
+        <section className="section-padding bg-pink-50">
           <Container>
             <div className="max-w-4xl mx-auto">
-              <h2 className="text-3xl font-bold text-center mb-12 text-white">Product Information</h2>
-
+              <h2 className="text-3xl font-bold text-center mb-12">Product Information</h2>
+              
               <div className="space-y-4">
                 {/* Overview */}
                 <Card>
                   <button
                     onClick={() => toggleAccordion('overview')}
-                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-700 transition-colors"
+                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                   >
                     <h3 className="font-semibold text-lg">Overview</h3>
                     {expandedAccordion === 'overview' ? (
@@ -407,7 +422,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                   </button>
                   {expandedAccordion === 'overview' && (
                     <div className="px-6 pb-6">
-                      <p className="text-gray-300 leading-relaxed">{product.overview}</p>
+                      <p className="text-gray-600 leading-relaxed">{product.overview}</p>
                     </div>
                   )}
                 </Card>
@@ -416,7 +431,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 <Card>
                   <button
                     onClick={() => toggleAccordion('features')}
-                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-700 transition-colors"
+                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                   >
                     <h3 className="font-semibold text-lg">Features & Benefits</h3>
                     {expandedAccordion === 'features' ? (
@@ -431,7 +446,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                         {product.features.map((feature, index) => (
                           <li key={index} className="flex items-start gap-3">
                             <Check className="h-5 w-5 text-pink-400 flex-shrink-0 mt-0.5" />
-                            <span className="text-gray-200">{feature}</span>
+                            <span className="text-gray-700">{feature}</span>
                           </li>
                         ))}
                       </ul>
@@ -443,7 +458,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 <Card>
                   <button
                     onClick={() => toggleAccordion('how-to-use')}
-                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-700 transition-colors"
+                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                   >
                     <h3 className="font-semibold text-lg">How to Use</h3>
                     {expandedAccordion === 'how-to-use' ? (
@@ -472,7 +487,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 <Card>
                   <button
                     onClick={() => toggleAccordion('ingredients')}
-                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-700 transition-colors"
+                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                   >
                     <h3 className="font-semibold text-lg">Ingredients</h3>
                     {expandedAccordion === 'ingredients' ? (
@@ -499,7 +514,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                           <h4 className="font-medium mb-3">Key Ingredients:</h4>
                           <ul className="space-y-2">
                             {product.ingredients.key.map((ingredient, index) => (
-                              <li key={index} className="text-sm text-gray-300">
+                              <li key={index} className="text-sm text-gray-600">
                                 {ingredient}
                               </li>
                             ))}
@@ -514,7 +529,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 <Card>
                   <button
                     onClick={() => toggleAccordion('details')}
-                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-700 transition-colors"
+                    className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                   >
                     <h3 className="font-semibold text-lg">Product Details</h3>
                     {expandedAccordion === 'details' ? (
@@ -569,7 +584,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                           className={`h-4 w-4 ${
                             i < Math.floor(relatedProduct.rating)
                               ? 'fill-current'
-                              : 'text-gray-600'
+                              : 'text-gray-300'
                           }`}
                           style={{ color: i < Math.floor(relatedProduct.rating) ? '#F59E0B' : undefined }}
                         />
@@ -588,20 +603,20 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
         </section>
 
         {/* Need Help Section */}
-        <section className="section-padding bg-gradient-to-r from-gray-800 to-gray-900">
+        <section className="section-padding bg-gradient-to-r from-pink-50 to-blue-50">
           <Container>
             <div className="text-center max-w-2xl mx-auto">
               <MessageCircle className="h-12 w-12 text-pink-400 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold mb-4 text-white">Need Help?</h2>
-              <p className="text-gray-300 mb-6">
+              <h2 className="text-3xl font-bold mb-4">Need Help?</h2>
+              <p className="text-gray-600 mb-6">
                 Have questions about this product? Our nail experts are here to help you choose the perfect products for your needs.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" className="bg-pink-400 hover:bg-transparent text-white hover:text-pink-400 font-bold py-3 px-8 rounded-full transition-all duration-300 border-2 border-transparent hover:border-pink-400 w-full sm:w-auto">
+                <Button size="lg" className="bg-pink-400 hover:bg-transparent text-white hover:text-black font-bold py-3 px-8 rounded-full transition-all duration-300 border-2 border-transparent hover:border-black w-full sm:w-auto">
                   <span className="text-sm sm:text-base">WhatsApp Support</span>
                   <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
                 </Button>
-                <Button size="lg" className="bg-transparent hover:bg-blue-900 text-white hover:text-blue-400 font-bold py-3 px-8 rounded-full transition-all duration-300 border-2 border-gray-700 hover:border-blue-900 w-full sm:w-auto">
+                <Button size="lg" className="bg-transparent hover:bg-blue-100 text-black hover:text-black font-bold py-3 px-8 rounded-full transition-all duration-300 border-2 border-black hover:border-blue-100 w-full sm:w-auto">
                   <span className="text-sm sm:text-base">Call Us</span>
                   <Phone className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
                 </Button>
@@ -642,3 +657,4 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
     </div>
   );
 };
+

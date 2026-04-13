@@ -71,6 +71,7 @@ export const handler: Handler = async (event) => {
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
     const compareAt = product.compare_at_price == null ? null : Number(product.compare_at_price);
+    const out_of_stock = product.out_of_stock === true;
     
     // Build images array: [thumbnail, hover?, ...gallery]
     const images = [
@@ -92,11 +93,12 @@ export const handler: Handler = async (event) => {
       price_cents: Math.round(price * 100),
       compare_at_price: compareAt,
       compare_at_price_cents: compareAt == null ? null : Math.round(compareAt * 100),
-      // Stock (map inventory_quantity to all stock fields)
-      inventory_quantity: inventory_quantity,
-      stock: inventory_quantity,
-      stock_on_hand: inventory_quantity,
-      stock_qty: inventory_quantity,
+      // Stock
+      out_of_stock: out_of_stock,
+      stock: out_of_stock ? 0 : inventory_quantity,
+      stock_on_hand: out_of_stock ? 0 : inventory_quantity,
+      stock_qty: out_of_stock ? 0 : inventory_quantity,
+      inventory_quantity: out_of_stock ? 0 : inventory_quantity,
       track_inventory: product.track_inventory !== false,
       // Images
       thumbnail_url: thumbnail_url,
