@@ -16,9 +16,7 @@ export function toCardPreview(form: any): any {
     slug: form.slug || '',
     price: typeof form.price === 'number' ? form.price : parseFloat(form.price || '0'),
     images: images,
-    inStock: form.status === 'archived' 
-      ? false 
-      : (form.track_inventory === false || (form.inventory_quantity || 0) > 0),
+    inStock: form.status === 'archived' ? false : !form.out_of_stock,
     badges: form.badges || [],
     shortDescription: form.short_description || ''
   };
@@ -34,13 +32,8 @@ export function toPagePreview(form: any): any {
     ...(form.gallery_urls || [])
   ].filter(Boolean);
 
-  // Stock status mapping
-  let stock = 'In Stock';
-  if (form.status === 'archived') {
-    stock = 'Archived';
-  } else if (form.track_inventory && (form.inventory_quantity || 0) <= 0) {
-    stock = 'Out of Stock';
-  }
+  const out_of_stock = form.status === 'archived' ? true : !!form.out_of_stock;
+  const stock = out_of_stock ? 'Out of Stock' : 'In Stock';
 
   return {
     name: form.name || '',
@@ -49,7 +42,8 @@ export function toPagePreview(form: any): any {
     shortDescription: form.short_description || '',
     overview: form.overview || form.description || '',
     price: formatZAR(form.price),
-    stock: stock,
+    stock,
+    out_of_stock,
     images: images,
     features: form.features || [],
     howToUse: form.how_to_use || [],

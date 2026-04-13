@@ -54,9 +54,9 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-6 bg-gray-900 min-h-screen">
         <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+          <div className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin"></div>
         </div>
       </div>
     );
@@ -64,13 +64,13 @@ export default function ProductsPage() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
+      <div className="p-6 bg-gray-900 min-h-screen">
+        <div className="bg-red-900 border border-red-700 rounded p-4 text-red-300">
           <p className="font-semibold">Error loading products</p>
           <p className="text-sm mt-1">{error}</p>
           <button
             onClick={loadProducts}
-            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="mt-3 px-4 py-2 bg-red-700 text-white rounded hover:bg-red-800"
           >
             Retry
           </button>
@@ -80,16 +80,15 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container bg-gray-900 text-gray-100 p-6">
       <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+        <h1 className="text-2xl font-bold text-white">
           Products
         </h1>
         <div className="flex gap-3 flex-wrap">
           <div className="relative w-60">
             <svg
-              className="absolute left-4 top-1/2 transform -translate-y-1/2"
-              style={{ color: 'var(--text-muted)' }}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -104,15 +103,14 @@ export default function ProductsPage() {
             </svg>
             <input
               type="text"
-              className="input pl-10"
+              className="w-full p-2 pl-10 rounded-md bg-gray-700 text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select
-            className="select"
-            style={{ minWidth: '140px' }}
+            className="p-2 rounded-md bg-gray-700 text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -123,7 +121,7 @@ export default function ProductsPage() {
           </select>
           <Link
             to={adminPaths.productNew}
-            className="btn-primary flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2"
           >
             <svg
               width="20"
@@ -143,54 +141,47 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {filteredProducts.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-title">
+        <div className="text-center py-12 bg-gray-800 rounded-lg shadow-lg">
+          <div className="text-xl font-bold text-white">
             {products.length === 0 ? "No products yet" : "No products match your filters"}
           </div>
         </div>
       ) : (
         <div
-          style={{
-            background: 'var(--card)',
-            borderRadius: 20,
-            boxShadow: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
-            overflow: 'hidden',
-          }}
+          className="bg-gray-800 rounded-lg shadow-lg overflow-hidden"
         >
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-700">
                 <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Name</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Slug</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Price</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Stock</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>Updated</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}></th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Name</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Slug</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Price</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Stock</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Updated</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-gray-800 divide-y divide-gray-700">
                 {filteredProducts.map((product: any) => (
-                  <tr key={product.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{product.name || '-'}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'monospace' }}>{product.slug || '-'}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text)' }} className="price-cell">{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text)' }}>{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span className={`status-badge status-${product.status || 'active'}`}>
+                  <tr key={product.id} className="hover:bg-gray-700 transition-colors duration-200">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{product.name || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">{product.slug || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-white price-cell">{formatPrice(product.price || product.price_cents ? (product.price_cents / 100) : 0)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-white">{product.stock_on_hand ?? product.stock_qty ?? product.stock ?? 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`status-badge ${product.status === 'active' ? 'bg-green-600' : product.status === 'draft' ? 'bg-blue-600' : 'bg-gray-600'} text-white px-2 py-1 rounded-full text-xs font-medium`}>
                         {product.status || 'active'}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                       {product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}
                     </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        className="link"
+                        className="text-blue-500 hover:text-blue-400 underline cursor-pointer bg-transparent border-none p-0"
                         onClick={() => navigate(adminPaths.productEdit(product.id))}
-                        style={{ color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
                       >
                         Edit
                       </button>

@@ -17,8 +17,7 @@ type ProductForm = {
   // Section 2: Pricing & Stock
   price: number;
   compare_at_price: number | null;
-  inventory_quantity: number;
-  track_inventory: boolean;
+  out_of_stock: boolean;
   // Section 3: Images
   thumbnail_url: string;
   hover_image_url: string;
@@ -72,8 +71,7 @@ const emptyForm = (): ProductForm => ({
   category: '',
   price: 0,
   compare_at_price: null,
-  inventory_quantity: 0,
-  track_inventory: true,
+  out_of_stock: false,
   thumbnail_url: '',
   hover_image_url: '',
   gallery_urls: [],
@@ -204,8 +202,7 @@ export default function ProductEdit() {
           category: p.category || '',
           price: p.price || (p.price_cents ? p.price_cents / 100 : 0),
           compare_at_price: p.compare_at_price || (p.compare_at_price_cents ? p.compare_at_price_cents / 100 : null),
-          inventory_quantity: p.inventory_quantity ?? p.stock_on_hand ?? p.stock_qty ?? 0,
-          track_inventory: p.track_inventory !== false,
+          out_of_stock: p.out_of_stock === true,
           thumbnail_url: p.thumbnail_url || p.image_url || '',
           hover_image_url: p.hover_image_url || '',
           gallery_urls: Array.isArray(p.gallery_urls) ? p.gallery_urls : (Array.isArray(p.gallery) ? p.gallery : []),
@@ -422,14 +419,14 @@ export default function ProductEdit() {
               <div className="form-grid">
                 <div>
                   <div className="label">Price (ZAR) *</div>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="input"
-                  value={form.price}
-                  onChange={e => updateForm({ price: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input"
+                    value={form.price}
+                    onChange={e => updateForm({ price: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
                 <div>
                   <div className="label">Compare At Price</div>
                   <input
@@ -440,27 +437,47 @@ export default function ProductEdit() {
                     onChange={e => updateForm({ compare_at_price: e.target.value ? parseFloat(e.target.value) : null })}
                   />
                 </div>
-                <div>
-                  <div className="label">Inventory Quantity *</div>
-                  <input
-                    type="number"
-                    className="input"
-                    value={form.inventory_quantity}
-                    onChange={e => updateForm({ inventory_quantity: parseInt(e.target.value) || 0 })}
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <div className="label">Track Inventory</div>
-                  <select
-                    className="select"
-                    value={form.track_inventory ? '1' : '0'}
-                    onChange={e => updateForm({ track_inventory: e.target.value === '1' })}
-                  >
-                    <option value="1">Yes</option>
-                    <option value="0">No</option>
-                  </select>
-                </div>
+              </div>
+              <div style={{ marginTop: '16px' }}>
+                <div className="label" style={{ marginBottom: '8px' }}>Stock Status</div>
+                <button
+                  type="button"
+                  onClick={() => updateForm({ out_of_stock: !form.out_of_stock })}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 20px',
+                    borderRadius: '12px',
+                    border: `2px solid ${form.out_of_stock ? '#ef4444' : '#10b981'}`,
+                    background: form.out_of_stock ? '#fef2f2' : '#f0fdf4',
+                    cursor: 'pointer',
+                    width: '100%',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '50%',
+                    background: form.out_of_stock ? '#ef4444' : '#10b981',
+                    flexShrink: 0,
+                  }} />
+                  <div>
+                    <div style={{
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      color: form.out_of_stock ? '#dc2626' : '#059669',
+                    }}>
+                      {form.out_of_stock ? 'Out of Stock' : 'In Stock'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {form.out_of_stock
+                        ? 'Add to Cart is disabled on the website. Click to mark as In Stock.'
+                        : 'Customers can add this product to cart. Click to mark as Out of Stock.'}
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
 

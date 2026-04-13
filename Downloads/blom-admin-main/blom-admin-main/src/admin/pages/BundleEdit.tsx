@@ -7,6 +7,13 @@ import { WebhookStatus } from "@/components/WebhookStatus";
 
 const FLOW_C_URL = 'https://dockerfile-1n82.onrender.com/webhook/bundles-intake';
 
+type BundleProduct = {
+  id: string;
+  name: string;
+  price: number;
+  thumbnail_url?: string;
+};
+
 export default function BundleEdit() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -23,15 +30,37 @@ export default function BundleEdit() {
     long_description: '',
     images: [] as string[],
     hover_image: '',
+    bundle_products: [] as BundleProduct[],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fireFlow, setFireFlow] = useState(true);
   const [lastWebhookStatus, setLastWebhookStatus] = useState<string>('');
 
+  // Product search state
+  const [allProducts, setAllProducts] = useState<BundleProduct[]>([]);
+  const [productSearch, setProductSearch] = useState('');
+
+  // Load all products for the selector
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const { data } = await supabase
+          .from('products')
+          .select('id, name, price, thumbnail_url')
+          .in('status', ['active', 'published'])
+          .order('name');
+        if (data) setAllProducts(data as BundleProduct[]);
+      } catch (e) {
+        console.warn('Failed to load products for bundle selector', e);
+      }
+    }
+    loadProducts();
+  }, []);
+
   useEffect(() => {
     if (isNew || !id) return;
-    
+
     const loadBundle = async () => {
       try {
         setLoading(true);
@@ -41,21 +70,22 @@ export default function BundleEdit() {
           .select('*')
           .eq('id', id)
           .single();
-        
+
         if (fetchError) throw fetchError;
         if (!data) throw new Error('Bundle not found');
-        
+
         setForm({
           id: data.id,
           name: data.name || '',
           slug: data.slug || '',
           status: data.status || 'active',
-          price: (data.price_cents || data.price || 0) / 100,
+          price: (data.price_cents || 0) / 100,
           compare_at_price: data.compare_at_price_cents ? (data.compare_at_price_cents / 100) : null,
           short_description: data.short_desc || data.short_description || '',
           long_description: data.long_desc || data.long_description || '',
           images: data.images || [],
           hover_image: data.hover_image || '',
+          bundle_products: Array.isArray(data.bundle_products) ? data.bundle_products : [],
         });
       } catch (err: any) {
         console.error("Failed to load bundle:", err);
@@ -64,15 +94,36 @@ export default function BundleEdit() {
         setLoading(false);
       }
     };
-    
+
     loadBundle();
   }, [id, isNew]);
+
+  function addProductToBundle(product: BundleProduct) {
+    if (form.bundle_products.some(p => p.id === product.id)) return;
+    setForm(prev => ({
+      ...prev,
+      bundle_products: [...prev.bundle_products, product],
+    }));
+    setProductSearch('');
+  }
+
+  function removeProductFromBundle(productId: string) {
+    setForm(prev => ({
+      ...prev,
+      bundle_products: prev.bundle_products.filter(p => p.id !== productId),
+    }));
+  }
+
+  const filteredProducts = allProducts.filter(p =>
+    !form.bundle_products.some(bp => bp.id === p.id) &&
+    p.name.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   async function onSave() {
     console.log('[SAVE→fn]', form);
     setLoading(true);
     setError("");
-    
+
     try {
       const payload = {
         id: form.id || undefined,
@@ -85,6 +136,7 @@ export default function BundleEdit() {
         long_description: form.long_description,
         images: form.images,
         hover_image: form.hover_image,
+        bundle_products: form.bundle_products,
       };
 
       const res = await fetch('/.netlify/functions/save-bundle', {
@@ -92,7 +144,7 @@ export default function BundleEdit() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      
+
       const saved = await res.json();
       console.log('[SAVE OK]', saved);
 
@@ -118,6 +170,7 @@ export default function BundleEdit() {
             short_description: form.short_description,
             long_description: form.long_description,
             images: form.images,
+            bundle_products: form.bundle_products,
           },
         };
 
@@ -146,16 +199,16 @@ export default function BundleEdit() {
         setForm(prev => ({ ...prev, id: saved.bundle.id }));
       }
 
-      toast({ 
-        title: "Bundle Saved", 
-        description: `Saved ${form.name} (${form.slug})` 
+      toast({
+        title: "Bundle Saved",
+        description: `Saved ${form.name} (${form.slug})`
       });
-      
+
     } catch (err: any) {
       console.error('[SAVE ERROR]', err);
       setError(err?.message || "Save failed");
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: err?.message || "Failed to save bundle",
         variant: "destructive"
       });
@@ -230,7 +283,7 @@ export default function BundleEdit() {
                   />
                 </div>
                 <div>
-                  <div className="label">Price *</div>
+                  <div className="label">Price (ZAR) *</div>
                   <input
                     type="number"
                     step="0.01"
@@ -238,6 +291,16 @@ export default function BundleEdit() {
                     className="input"
                     value={form.price}
                     onChange={(e) => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <div className="label">Compare At Price</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input"
+                    value={form.compare_at_price ?? ''}
+                    onChange={(e) => setForm(prev => ({ ...prev, compare_at_price: e.target.value ? Number(e.target.value) : null }))}
                   />
                 </div>
                 <div>
@@ -252,6 +315,146 @@ export default function BundleEdit() {
                   </select>
                 </div>
               </div>
+            </div>
+
+            {/* Bundle Products */}
+            <div className="section-card">
+              <div className="label">Bundle Products</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '12px' }}>
+                Add the products that are included in this bundle.
+              </div>
+
+              {/* Search + add */}
+              <div style={{ position: 'relative', marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Search products to add..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                />
+                {productSearch && filteredProducts.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                    zIndex: 50,
+                    maxHeight: '240px',
+                    overflowY: 'auto',
+                  }}>
+                    {filteredProducts.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addProductToBundle(p)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          width: '100%',
+                          padding: '10px 14px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                      >
+                        {p.thumbnail_url && (
+                          <img
+                            src={p.thumbnail_url}
+                            alt={p.name}
+                            style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
+                          />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>R {Number(p.price).toFixed(2)}</div>
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 600 }}>+ Add</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {productSearch && filteredProducts.length === 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    color: 'var(--text-muted)',
+                    fontSize: '13px',
+                    zIndex: 50,
+                  }}>
+                    No active products found
+                  </div>
+                )}
+              </div>
+
+              {/* Selected products list */}
+              {form.bundle_products.length === 0 ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', background: 'var(--bg)', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                  No products added yet. Search above to add products.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {form.bundle_products.map((p, i) => (
+                    <div key={p.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px 14px',
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                    }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '12px', minWidth: '20px' }}>{i + 1}.</span>
+                      {p.thumbnail_url && (
+                        <img
+                          src={p.thumbnail_url}
+                          alt={p.name}
+                          style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
+                        />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>R {Number(p.price).toFixed(2)}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeProductFromBundle(p.id)}
+                        style={{
+                          background: '#fee2e2',
+                          color: '#dc2626',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    {form.bundle_products.length} product{form.bundle_products.length !== 1 ? 's' : ''} in bundle
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="section-card">
@@ -279,6 +482,32 @@ export default function BundleEdit() {
             </div>
 
             <div className="section-card">
+              <div className="label">Images</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div className="label">Bundle Images (one URL per line)</div>
+                  <textarea
+                    className="textarea"
+                    rows={4}
+                    value={form.images.join('\n')}
+                    onChange={(e) => setForm(prev => ({ ...prev, images: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) }))}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <div className="label">Hover Image URL</div>
+                  <input
+                    type="text"
+                    className="input"
+                    value={form.hover_image}
+                    onChange={(e) => setForm(prev => ({ ...prev, hover_image: e.target.value }))}
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="section-card">
               <div className="label">Settings</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text)' }}>
@@ -300,7 +529,7 @@ export default function BundleEdit() {
                 disabled={loading}
                 className="btn-primary"
               >
-                {loading ? "Saving..." : "Save"}
+                {loading ? "Saving..." : "Save Bundle"}
               </button>
               <button
                 type="button"
@@ -317,4 +546,3 @@ export default function BundleEdit() {
     </>
   );
 }
-

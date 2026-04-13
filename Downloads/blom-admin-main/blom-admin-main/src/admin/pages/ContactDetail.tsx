@@ -99,12 +99,12 @@ export default function ContactDetail() {
   if (loading) {
     return (
       <>
-        <div className="topbar">
+        <div className="topbar bg-gray-800 text-white p-4 flex justify-between items-center">
           <div className="font-bold">Contact Message</div>
         </div>
-        <div className="content-area">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
-            <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}></div>
+        <div className="content-area bg-gray-900 min-h-screen p-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin"></div>
           </div>
         </div>
       </>
@@ -114,20 +114,19 @@ export default function ContactDetail() {
   if (error || !contact) {
     return (
       <>
-        <div className="topbar">
+        <div className="topbar bg-gray-800 text-white p-4 flex justify-between items-center">
           <div className="font-bold">Contact Message</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="flex gap-2">
             <button
               onClick={() => navigate('/messages')}
-              className="btn-primary"
-              style={{ background: 'var(--accent-2)' }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             >
               Back to Messages
             </button>
           </div>
         </div>
-        <div className="content-area">
-          <div className="section-card error-message">
+        <div className="content-area bg-gray-900 min-h-screen p-6">
+          <div className="bg-red-900 border border-red-700 rounded p-4 text-red-300">
             {error || 'Contact message not found'}
           </div>
         </div>
@@ -137,41 +136,40 @@ export default function ContactDetail() {
 
   return (
     <>
-      <div className="topbar">
+      <div className="topbar bg-gray-800 text-white p-4 flex justify-between items-center">
         <div className="font-bold">Contact Message</div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="flex gap-2">
           <button
             onClick={() => navigate('/messages')}
-            className="btn-primary"
-            style={{ background: 'var(--accent-2)' }}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           >
             Back to Messages
           </button>
         </div>
       </div>
 
-      <div className="content-area">
+      <div className="content-area bg-gray-900 min-h-screen p-6 text-gray-100">
         {error && (
-          <div className="section-card error-message">
+          <div className="bg-red-900 border border-red-700 rounded p-4 text-red-300">
             {error}
           </div>
         )}
 
-        <div className="form-col">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Contact Info */}
-          <div className="section-card">
-            <h3 className="section-title">Contact Information</h3>
-            <div className="form-grid">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 className="text-xl font-bold mb-4">Contact Information</h3>
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <div className="label">Name</div>
-                <div style={{ padding: '10px 12px', background: 'var(--card)', borderRadius: '12px', color: 'var(--text)' }}>
+                <div className="text-sm font-medium text-gray-400 mb-1">Name</div>
+                <div className="p-3 bg-gray-700 rounded-lg text-white">
                   {contact.name}
                 </div>
               </div>
               <div>
-                <div className="label">Status</div>
+                <div className="text-sm font-medium text-gray-400 mb-1">Status</div>
                 <select
-                  className="select"
+                  className="w-full p-3 bg-gray-700 rounded-lg text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
                   value={contact.status}
                   onChange={(e) => updateStatus(e.target.value as 'new' | 'responded' | 'archived')}
                   disabled={saving}
@@ -183,14 +181,13 @@ export default function ContactDetail() {
               </div>
             </div>
 
-            <div style={{ marginTop: '16px' }}>
-              <div className="label">Contact Actions</div>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <div className="mt-4">
+              <div className="text-sm font-medium text-gray-400 mb-1">Contact Actions</div>
+              <div className="flex gap-2 mt-2">
                 {contact.phone && (
                   <button
                     onClick={openWhatsApp}
-                    className="btn-primary"
-                    style={{ background: '#25D366', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2"
                   >
                     📱 WhatsApp
                   </button>
@@ -198,8 +195,7 @@ export default function ContactDetail() {
                 {contact.email && (
                   <button
                     onClick={openEmail}
-                    className="btn-primary"
-                    style={{ background: '#EA4335', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2"
                   >
                     ✉️ Email
                   </button>
@@ -209,45 +205,40 @@ export default function ContactDetail() {
           </div>
 
           {/* Message Content */}
-          <div className="section-card">
-            <h3 className="section-title">Message</h3>
-            <div style={{ whiteSpace: 'pre-wrap', padding: '12px', background: 'var(--card)', borderRadius: '12px', color: 'var(--text)' }}>
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6 lg:col-span-2">
+            <h3 className="text-xl font-bold mb-4">Message</h3>
+            <div className="whitespace-pre-wrap p-3 bg-gray-700 rounded-lg text-white">
               {contact.message}
             </div>
           </div>
 
           {/* Attached Image */}
           {contact.image_url && (
-            <div className="section-card">
-              <h3 className="section-title">Attached Image</h3>
-              <div style={{ textAlign: 'center' }}>
+            <div className="bg-gray-800 rounded-lg shadow-lg p-6 lg:col-span-3">
+              <h3 className="text-xl font-bold mb-4">Attached Image</h3>
+              <div className="text-center">
                 <img
                   src={contact.image_url}
                   alt="Contact attachment"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '400px',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-                  }}
+                  className="max-w-full max-h-96 rounded-lg shadow-md mx-auto"
                 />
               </div>
             </div>
           )}
 
           {/* Metadata */}
-          <div className="section-card">
-            <h3 className="section-title">Message Details</h3>
-            <div className="form-grid">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6 lg:col-span-3">
+            <h3 className="text-xl font-bold mb-4">Message Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <div className="label">Received</div>
-                <div style={{ padding: '10px 12px', background: 'var(--card)', borderRadius: '12px', color: 'var(--text)' }}>
+                <div className="text-sm font-medium text-gray-400 mb-1">Received</div>
+                <div className="p-3 bg-gray-700 rounded-lg text-white">
                   {new Date(contact.created_at).toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="label">Last Updated</div>
-                <div style={{ padding: '10px 12px', background: 'var(--card)', borderRadius: '12px', color: 'var(--text)' }}>
+                <div className="text-sm font-medium text-gray-400 mb-1">Last Updated</div>
+                <div className="p-3 bg-gray-700 rounded-lg text-white">
                   {new Date(contact.updated_at).toLocaleString()}
                 </div>
               </div>
@@ -255,21 +246,19 @@ export default function ContactDetail() {
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+          <div className="flex gap-2 mt-4 lg:col-span-3">
             {contact.status !== 'responded' && (
               <button
                 onClick={() => updateStatus('responded')}
                 disabled={saving}
-                className="btn-primary"
-                style={{ background: '#10B981' }}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
               >
                 {saving ? 'Updating...' : 'Mark as Responded'}
               </button>
             )}
             <button
               onClick={() => navigate('/messages')}
-              className="btn-primary"
-              style={{ background: 'var(--accent-2)' }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             >
               Back to Messages
             </button>

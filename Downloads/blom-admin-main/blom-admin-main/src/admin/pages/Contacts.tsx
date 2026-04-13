@@ -85,12 +85,12 @@ export default function ContactsPage() {
   if (loading) {
     return (
       <>
-        <div className="topbar">
+        <div className="topbar bg-gray-800 text-white p-4 flex justify-between items-center">
           <div className="font-bold">Contact Messages</div>
         </div>
-        <div className="content-area">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
-            <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}></div>
+        <div className="content-area bg-gray-900 min-h-screen p-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin"></div>
           </div>
         </div>
       </>
@@ -99,14 +99,13 @@ export default function ContactsPage() {
 
   return (
     <>
-      <div className="topbar">
+      <div className="topbar bg-gray-800 text-white p-4 flex justify-between items-center">
         <div className="font-bold">Contact Messages</div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="flex gap-2 items-center">
           <select
-            className="select"
+            className="p-2 rounded-md bg-gray-700 text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
             value={filter}
             onChange={(e) => setFilter(e.target.value as 'all' | 'new' | 'responded' | 'archived')}
-            style={{ marginRight: '8px' }}
           >
             <option value="all">All Messages</option>
             <option value="new">New</option>
@@ -116,69 +115,52 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="content-area">
+      <div className="content-area bg-gray-900 min-h-screen p-6 text-gray-100">
         {error && (
-          <div className="section-card error-message">
+          <div className="bg-red-900 border border-red-700 rounded p-4 text-red-300 mb-4">
             {error}
           </div>
         )}
 
         {contacts.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-title">
+          <div className="text-center py-12 bg-gray-800 rounded-lg shadow-lg">
+            <div className="text-xl font-bold text-white">
               {filter === 'all' ? 'No contact messages yet' : `No ${filter} messages`}
             </div>
-            <p>Messages from your contact form will appear here.</p>
+            <p className="text-gray-400 mt-2">Messages from your contact form will appear here.</p>
           </div>
         ) : (
-          <div className="section-card">
-            <table>
-              <thead>
+          <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-700">
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Message</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Name</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Email</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Phone</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Message</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-gray-800 divide-y divide-gray-700">
                 {contacts.map((contact) => (
-                  <tr key={contact.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/messages/${contact.id}`)}>
-                    <td style={{ fontWeight: '600' }}>{contact.name}</td>
-                    <td>{contact.email}</td>
-                    <td>{contact.phone || '-'}</td>
-                    <td>{truncateMessage(contact.message)}</td>
-                    <td>{getStatusBadge(contact.status)}</td>
-                    <td>{new Date(contact.created_at).toLocaleDateString()}</td>
-                    <td>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/messages/${contact.id}`);
-                        }}
-                        className="btn-primary"
-                        style={{ fontSize: '12px', padding: '6px 12px' }}
-                      >
-                        View
-                      </button>
+                  <tr key={contact.id} className="hover:bg-gray-700 transition-colors duration-200" onClick={() => navigate(`/messages/${contact.id}`)}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{contact.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{contact.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{contact.phone || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{truncateMessage(contact.message)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {getStatusBadge(contact.status)}
                     </td>
-                    <td style={{ fontWeight: '600' }}>{contact.name}</td>
-                    <td>{contact.email}</td>
-                    <td>{contact.phone || '-'}</td>
-                    <td>{truncateMessage(contact.message)}</td>
-                    <td>{getStatusBadge(contact.status)}</td>
-                    <td>{new Date(contact.created_at).toLocaleDateString()}</td>
-                    <td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{new Date(contact.created_at).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/messages/${contact.id}`);
                         }}
-                        className="btn-primary"
-                        style={{ fontSize: '12px', padding: '6px 12px' }}
+                        className="text-blue-500 hover:text-blue-400 font-bold py-1 px-3 rounded bg-blue-900 bg-opacity-30"
                       >
                         View
                       </button>
