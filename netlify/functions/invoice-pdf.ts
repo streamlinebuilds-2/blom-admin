@@ -99,6 +99,17 @@ export const handler = async (event: any) => {
     if (itemsErr) return { statusCode: 500, body: itemsErr.message }
     const items = rawItems || []
 
+    // For course orders, look up the instructor from course_purchases
+    let courseInstructor: string | null = null
+    if (order.order_kind === "course") {
+      const { data: purchase } = await supabase
+        .from("course_purchases")
+        .select("instructor")
+        .eq("order_id", order.id)
+        .maybeSingle()
+      courseInstructor = purchase?.instructor || null
+    }
+
     const unitFromItem = (it: any) => {
       const cents = it.unit_price_cents != null ? toNumberLoose(it.unit_price_cents) : Number.NaN
       if (Number.isFinite(cents) && cents > 0) return cents / 100
@@ -249,27 +260,41 @@ export const handler = async (event: any) => {
     const buyerPhone = order.contact_phone || order.buyer_phone || order.customer_phone || ""
     const fulfillment = order.fulfillment_method || order.delivery_method || order.fulfillment_type || order.shipping_method || "-"
     drawText(buyerName, left, y, 11)
-    drawText(String(fulfillment || "-").toUpperCase(), right - 200, y, 11)
-    y += 16
-    drawText(buyerEmail, left, y, 10, false, rgb(0.4, 0.45, 0.52))
-    if (order.collection_location) drawText(String(order.collection_location), right - 200, y, 10, false, rgb(0.4, 0.45, 0.52))
-    y += 16
-    drawText(buyerPhone, left, y, 10, false, rgb(0.4, 0.45, 0.52))
-    
-    const addrRaw = order.shipping_address ?? order.delivery_address ?? order.delivery_address_json
-    const addrObj = safeParseJson(addrRaw) || addrRaw
-    if (addrObj && String(fulfillment).toLowerCase().includes("delivery")) {
-      const addr = addrObj
-      const addrLines = [
-        addr.line1 || addr.street_address,
-        [addr.city, addr.postal_code || addr.code].filter(Boolean).join(' '),
-        [addr.province, addr.country].filter(Boolean).join(', ')
-      ].filter(Boolean)
-      let addrY = y
-      addrLines.forEach((line: string) => {
-        drawText(line, right - 200, addrY, 9, false, rgb(0.4, 0.45, 0.52)); addrY += 13
-      })
-      y = Math.max(y, addrY + 4)
+
+    if (courseInstructor) {
+      // In-person course: split "Name - Address" into two lines
+      const dashIdx = courseInstructor.indexOf(" - ")
+      const instructorName = dashIdx !== -1 ? courseInstructor.slice(0, dashIdx) : courseInstructor
+      const instructorAddr = dashIdx !== -1 ? courseInstructor.slice(dashIdx + 3) : ""
+      drawText(instructorName, right - 200, y, 11, true)
+      y += 16
+      drawText(buyerEmail, left, y, 10, false, rgb(0.4, 0.45, 0.52))
+      if (instructorAddr) drawText(instructorAddr, right - 200, y, 10, false, rgb(0.4, 0.45, 0.52))
+      y += 16
+      drawText(buyerPhone, left, y, 10, false, rgb(0.4, 0.45, 0.52))
+    } else {
+      drawText(String(fulfillment || "-").toUpperCase(), right - 200, y, 11)
+      y += 16
+      drawText(buyerEmail, left, y, 10, false, rgb(0.4, 0.45, 0.52))
+      if (order.collection_location) drawText(String(order.collection_location), right - 200, y, 10, false, rgb(0.4, 0.45, 0.52))
+      y += 16
+      drawText(buyerPhone, left, y, 10, false, rgb(0.4, 0.45, 0.52))
+
+      const addrRaw = order.shipping_address ?? order.delivery_address ?? order.delivery_address_json
+      const addrObj = safeParseJson(addrRaw) || addrRaw
+      if (addrObj && String(fulfillment).toLowerCase().includes("delivery")) {
+        const addr = addrObj
+        const addrLines = [
+          addr.line1 || addr.street_address,
+          [addr.city, addr.postal_code || addr.code].filter(Boolean).join(' '),
+          [addr.province, addr.country].filter(Boolean).join(', ')
+        ].filter(Boolean)
+        let addrY = y
+        addrLines.forEach((line: string) => {
+          drawText(line, right - 200, addrY, 9, false, rgb(0.4, 0.45, 0.52)); addrY += 13
+        })
+        y = Math.max(y, addrY + 4)
+      }
     }
     
     y += 16
