@@ -311,6 +311,12 @@ export default function CourseBookingDetail() {
                     <div className="info-label">Selected Date</div>
                     <div className="info-value">{booking.selected_date || '-'}</div>
                   </div>
+                  {booking.course_type === 'in-person' && (
+                    <div className="info-item">
+                      <div className="info-label">Instructor / Location</div>
+                      <div className="info-value">{booking.instructor || '-'}</div>
+                    </div>
+                  )}
                 </div>
               </div>
 

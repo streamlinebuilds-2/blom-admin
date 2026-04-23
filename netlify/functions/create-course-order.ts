@@ -34,6 +34,7 @@ export const handler: Handler = async (event) => {
     const course_type = String(body.course_type || "").trim();
     const selected_package = body.selected_package == null ? null : String(body.selected_package).trim();
     const selected_date = body.selected_date == null ? null : String(body.selected_date).trim();
+    const instructor = body.instructor == null ? null : String(body.instructor).trim() || null;
 
     const payment_kind = String(body.payment_kind || "full").trim();
     const full_price_cents = Number(body.full_price_cents ?? body.course_price_cents ?? body.price_cents);
@@ -132,6 +133,7 @@ export const handler: Handler = async (event) => {
       course_type,
       selected_package,
       selected_date,
+      instructor,
       amount_paid_cents: 0,
       payment_kind,
       details: {

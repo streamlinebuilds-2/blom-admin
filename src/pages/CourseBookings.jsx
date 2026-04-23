@@ -196,6 +196,11 @@ export default function CourseBookings() {
                     <td>
                       <div>{booking.selected_package}</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{booking.selected_date}</div>
+                      {booking.instructor && (
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {booking.instructor}
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontWeight: 600 }}>
                       {booking.amount_paid_cents ? `R${(booking.amount_paid_cents / 100).toFixed(2)}` : '-'}
