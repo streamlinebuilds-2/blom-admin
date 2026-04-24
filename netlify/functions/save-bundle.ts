@@ -104,7 +104,8 @@ export const handler: Handler = async (event) => {
         
         price_cents: priceCents,
         compare_at_price_cents: compareAtPriceCents,
-        stock: 0, // Bundles don't hold stock
+        stock: 100, // Bundles are virtual — always in stock unless explicitly archived
+        stock_label: 'In Stock',
         track_inventory: false,
         
         pricing_mode: payload.pricing_mode || 'manual',
