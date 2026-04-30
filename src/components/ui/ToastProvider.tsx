@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
 
 type ToastType = "success" | "error" | "info" | "warning";
@@ -18,13 +18,13 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showToast = (type: ToastType, message: string) => {
+  const showToast = useCallback((type: ToastType, message: string) => {
     const id = Math.random().toString(36).substr(2, 9);
     setToasts(prev => [...prev, { id, type, message }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
-  };
+  }, []);
 
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));

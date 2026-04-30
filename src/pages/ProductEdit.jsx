@@ -130,6 +130,7 @@ export default function ProductEdit() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
+  const [dynamicCategories, setDynamicCategories] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -254,6 +255,21 @@ export default function ProductEdit() {
     loadProducts();
   }, []);
 
+  // Load custom categories saved in the DB that aren't in the hardcoded list
+  useEffect(() => {
+    async function loadCategories() {
+      const { data } = await supabase
+        .from('products')
+        .select('category')
+        .not('category', 'is', null);
+      const known = new Set(CATEGORY_OPTIONS.map(o => o.category));
+      const custom = [...new Set((data || []).map(p => p.category).filter(Boolean))]
+        .filter(cat => !known.has(cat));
+      setDynamicCategories(custom);
+    }
+    loadCategories();
+  }, []);
+
   // Track if this is the initial load and track image upload timestamps
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lastImageUpload, setLastImageUpload] = useState(null);
@@ -296,8 +312,8 @@ export default function ProductEdit() {
       }
 
       // Only reload from database if this is the initial load or if we don't have form data yet
-      if (!isInitialLoad && form.id === id && form.thumbnail_url && form.hover_url && (timeSinceUpload === null || timeSinceUpload >= 3000)) {
-        console.log('🚫 Skipping reload - form already has data for this product, timeSinceUpload:', timeSinceUpload);
+      if (!isInitialLoad && form.id === id && form.name) {
+        console.log('🚫 Skipping reload - form already has data for this product');
         setLoading(false);
         return;
       }
@@ -1623,6 +1639,9 @@ export default function ProductEdit() {
                   <option value="">Select category...</option>
                   {CATEGORY_OPTIONS.map(opt => (
                     <option key={opt.key} value={opt.key}>{opt.label}</option>
+                  ))}
+                  {dynamicCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                   <option value="__custom__">+ Add New Category</option>
                 </select>

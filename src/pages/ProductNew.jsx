@@ -127,6 +127,7 @@ export default function ProductNew() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
+  const [dynamicCategories, setDynamicCategories] = useState([]);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   
   // Track which variants are being edited
@@ -160,6 +161,20 @@ export default function ProductNew() {
       setAllProducts(data || []);
     }
     loadProducts();
+  }, []);
+
+  useEffect(() => {
+    async function loadCategories() {
+      const { data } = await supabase
+        .from('products')
+        .select('category')
+        .not('category', 'is', null);
+      const known = new Set(CATEGORY_OPTIONS.map(o => o.category));
+      const custom = [...new Set((data || []).map(p => p.category).filter(Boolean))]
+        .filter(cat => !known.has(cat));
+      setDynamicCategories(custom);
+    }
+    loadCategories();
   }, []);
 
   const update = (field, value) => {
@@ -1183,6 +1198,9 @@ export default function ProductNew() {
                   <option value="">Select category...</option>
                   {CATEGORY_OPTIONS.map(opt => (
                     <option key={opt.key} value={opt.key}>{opt.label}</option>
+                  ))}
+                  {dynamicCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                   <option value="__custom__">+ Add New Category</option>
                 </select>
