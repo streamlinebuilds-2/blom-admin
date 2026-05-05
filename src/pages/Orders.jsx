@@ -226,6 +226,14 @@ export default function Orders() {
     }
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.dateFrom, filters.dateTo, filters.fulfillmentType, filters.status, filters.search]);
+
   // Clear filters
   const clearFilters = () => {
     setFilters({
@@ -236,6 +244,11 @@ export default function Orders() {
       search: ''
     });
   };
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedOrders = filteredOrders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Get unique statuses and fulfillment types for filter options
   const uniqueStatuses = [...new Set(orders.map(order => order.status).filter(Boolean))];
@@ -838,6 +851,45 @@ export default function Orders() {
           color: var(--text-muted);
           margin-bottom: 16px;
         }
+
+        .pagination {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin-top: 24px;
+          padding: 8px 0;
+        }
+
+        .pagination-btn {
+          padding: 10px 20px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          transition: all 0.2s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .pagination-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .pagination-info {
+          font-size: 14px;
+          color: var(--text-muted);
+          font-weight: 600;
+          min-width: 120px;
+          text-align: center;
+        }
       `}</style>
 
       <div className="orders-header">
@@ -1027,7 +1079,7 @@ export default function Orders() {
                   {orders.length === 0 ? 'No orders found.' : 'No orders match your current filters.'}
                 </td></tr>
               ) : (
-                filteredOrders.map((order) => (
+                paginatedOrders.map((order) => (
                   <tr key={order.id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>
                       {order.order_number || order.short_code || order.m_payment_id?.slice(0, 12)}
@@ -1117,6 +1169,26 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="pagination">
+        <button
+          className="pagination-btn"
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          disabled={safePage <= 1}
+        >
+          ← Previous
+        </button>
+        <span className="pagination-info">
+          Page {safePage} of {totalPages}
+        </span>
+        <button
+          className="pagination-btn"
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          disabled={safePage >= totalPages}
+        >
+          Next →
+        </button>
       </div>
 
       <ConfirmDialog

@@ -256,8 +256,8 @@ export const handler: Handler = async (event) => {
     const name = String(body.name || '').trim();
     const slug = String(body.slug || '').trim();
     const price = Number(body.price);
-    const stockRaw = body.stock ?? body.inventory_quantity;
-    const stock = (stockRaw === undefined || stockRaw === null || stockRaw === "") ? 100 : Number(stockRaw);
+    const stock = Number(body.stock ?? 0);
+    const out_of_stock = body.out_of_stock === true;
 
     if (!name || !slug) {
       return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing required fields (name, slug)' }) };
@@ -318,17 +318,13 @@ export const handler: Handler = async (event) => {
       price: price,
       price_cents: Math.round(price * 100),
       compare_at_price: compareAt,
-      compare_at_price_cents: compareAt != null ? Math.round(compareAt * 100) : null,
-
-      // Stock (use 'stock' as primary, sync others for compatibility)
-      // DON'T set stock_available - it's computed from stock_on_hand - stock_reserved
-      stock: stock,
-      stock_on_hand: stock,
-      stock_qty: stock,
-      stock_quantity: stock,
-      stock_reserved: 0,
-
-      // Descriptions (use modern names)
+      compare_at_price_cents: compareAt == null ? null : Math.round(compareAt * 100),
+      // sync stock fields
+      out_of_stock: out_of_stock,
+      stock: out_of_stock ? 0 : stock,
+      stock_on_hand: out_of_stock ? 0 : stock,
+      stock_qty: out_of_stock ? 0 : stock,
+      // descriptions
       short_description: body.short_description ?? null,
       overview: body.overview ?? null,
 
