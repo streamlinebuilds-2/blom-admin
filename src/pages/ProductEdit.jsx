@@ -13,7 +13,7 @@ const CATEGORY_OPTIONS = [
   { key: 'bundle-deals', category: 'bundle-deals', tags: [], label: 'Bundle Deals' },
   { key: 'prep-finishing', category: 'prep-finishing', tags: [], label: 'Prep & Finish' },
   { key: 'gel-system', category: 'gel-system', tags: [], label: 'Gel System' },
-  { key: 'tools-essentials', category: 'tools-essentials', tags: [], label: 'Tools & Essentials' },
+  { key: 'tools-accessories', category: 'tools-accessories', tags: [], label: 'Tools & Accessories' },
   { key: 'furniture', category: 'furniture', tags: [], label: 'Furniture' },
   { key: 'courses', category: 'courses', tags: [], label: 'Courses' },
   { key: 'workshops', category: 'workshops', tags: [], label: 'Workshops' },
