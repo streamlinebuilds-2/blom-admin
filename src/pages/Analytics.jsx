@@ -1,73 +1,64 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Users, Package } from "lucide-react";
+import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Users, Package, Loader2 } from "lucide-react";
 import { moneyZAR } from "../components/formatUtils";
-import { Banner } from "../components/ui/Banner";
-import { api } from "@/components/data/api";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line
+} from "recharts";
+
+function MetricCard({ title, value, subtitle, icon: Icon, loading }) {
+  return (
+    <div className="metric-card">
+      <div className="metric-header">
+        <div className="metric-icon">
+          <Icon className="w-6 h-6" />
+        </div>
+        <div className="metric-info">
+          <div className="metric-label">{title}</div>
+          <div className="metric-value">
+            {loading ? <Loader2 className="w-6 h-6 animate-spin text-gray-300" /> : value}
+          </div>
+        </div>
+      </div>
+      <div className="metric-subtitle">{subtitle}</div>
+    </div>
+  );
+}
 
 export default function Analytics() {
-  const { data: ordersData = [] } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => api?.listOrders() || [],
-    enabled: !!api,
+  // Fetch Advanced Analytics directly from Backend Function
+  const { data: analytics, isLoading } = useQuery({
+    queryKey: ['admin-analytics-advanced', '30'],
+    queryFn: async () => {
+      const res = await fetch('/.netlify/functions/admin-analytics-advanced?period=30');
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+      return json.data;
+    }
   });
 
-  const { data: productsData = [] } = useQuery({
-    queryKey: ['products'],
-    queryFn: () => api?.listProducts() || [],
-    enabled: !!api,
-  });
-
-  // Ensure arrays
-  const orders = Array.isArray(ordersData) ? ordersData : [];
-  const products = Array.isArray(productsData) ? productsData : [];
-  const contacts = []; // Contacts not yet implemented in adapter
-
-  const metrics = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => {
-      const total = o.total_cents ? o.total_cents / 100 : (o.total || 0);
-      return sum + total;
-    }, 0);
-    const totalOrders = orders.length;
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-    
-    const now = new Date();
-    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const ordersLast30 = orders.filter(o => {
-      const orderDate = o.placed_at || o.created_at || o.created_date;
-      if (!orderDate) return false;
-      return new Date(orderDate) >= last30Days;
-    });
-    const revenueLast30 = ordersLast30.reduce((sum, o) => {
-      const total = o.total_cents ? o.total_cents / 100 : (o.total || 0);
-      return sum + total;
-    }, 0);
-    
-    const activeProducts = products.filter(p => p.status === 'active').length;
-    const lowStockProducts = products.filter(p => {
-      const stock = p.stock_qty || p.stock || 0;
-      return stock < 5;
-    }).length;
-
-    return {
-      totalRevenue,
-      totalOrders,
-      avgOrderValue,
-      revenueLast30,
-      ordersLast30: ordersLast30.length,
-      activeProducts,
-      lowStockProducts,
-      totalContacts: contacts.length
-    };
-  }, [orders, products, contacts]);
+  const stats = analytics?.summary || {};
+  const trends = analytics?.trends || [];
+  const topProducts = analytics?.topProducts || [];
+  const inventory = analytics?.inventory || {};
 
   return (
     <>
       <style>{`
+        .analytics-container {
+          padding-bottom: 40px;
+        }
         .analytics-header {
           margin-bottom: 32px;
         }
-
         .header-title {
           font-size: 28px;
           font-weight: 700;
@@ -75,22 +66,43 @@ export default function Analytics() {
           display: flex;
           align-items: center;
           gap: 12px;
+          margin-bottom: 8px;
+        }
+
+        .header-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
         }
 
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
           gap: 24px;
           margin-bottom: 32px;
         }
-
         .metric-card {
           background: var(--card);
           border-radius: 16px;
           padding: 24px;
-          box-shadow: 6px  زیست6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           position: relative;
           overflow: hidden;
+        }
+
+        .metric-card.revenue::before {
+          background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        .metric-card.orders::before {
+          background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+
+        .metric-card.value::before {
+          background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+        }
+
+        .metric-card.inventory::before {
+          background: linear-gradient(90deg, #f59e0b, #fbbf24);
         }
 
         .metric-card::before {
@@ -100,7 +112,6 @@ export default function Analytics() {
           left: 0;
           right: 0;
           height: 4px;
-          background: linear-gradient(90deg, var(--accent), var(--accent-2));
         }
 
         .metric-header {
@@ -109,187 +120,247 @@ export default function Analytics() {
           gap: 16px;
           margin-bottom: 16px;
         }
-
         .metric-icon {
           width: 48px;
           height: 48px;
           border-radius: 12px;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          background: var(--card);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          color: var(--accent);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
-
-        .metric-info {
-          flex: 1;
-        }
-
+        .metric-info { flex: 1; }
         .metric-label {
           font-size: 14px;
           color: var(--text-muted);
           font-weight: 500;
           margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
-
         .metric-value {
-          font-size: 32px;
+          font-size: 28px;
           font-weight: 700;
           color: var(--text);
         }
-
         .metric-subtitle {
-          font-size: 14px;
+          font-size: 13px;
           color: var(--text-muted);
-          margin-top: 8px;
         }
-
-        .insights-section {
-          background君主: var(--card);
+        .charts-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 24px;
+          margin-bottom: 32px;
+        }
+        @media (min-width: 1024px) {
+          .charts-grid { grid-template-columns: 1fr 1fr; }
+        }
+        .chart-card {
+          background: var(--card);
           border-radius: 16px;
           padding: 24px;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          min-height: 400px;
+          overflow: hidden;
         }
-
-        .section-title {
+        .chart-title {
           font-size: 18px;
           font-weight: 700;
           color: var(--text);
           margin-bottom: 20px;
         }
 
-        .insight-row {
-          padding: 16px;
-          border-radius: 10px;
-          background: var(--bg);
-          margin-bottom: 12px;
+        .top-products-list {
           display: flex;
-          justify-content: space-between;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .product-rank-item {
+          display: flex;
           align-items: center;
+          justify-content: space-between;
+          padding: 16px;
+          background: var(--bg);
+          border-radius: 12px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          transition: all 0.2s ease;
         }
 
-        .insight-label {
+        .product-rank-item:hover {
+          background: var(--card);
+          transform: translateY(-1px);
+        }
+
+        .product-rank-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .product-rank-number {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: var(--card);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--accent);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .product-rank-details {
+          flex: 1;
+        }
+
+        .product-rank-name {
+          font-size: 14px;
+          font-weight: 600;
           color: var(--text);
-          font-weight: 500;
+          margin-bottom: 2px;
         }
 
-        .insight-value {
+        .product-rank-stats {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+
+        .product-rank-value {
+          text-align: right;
+        }
+
+        .product-rank-revenue {
+          font-size: 16px;
           font-weight: 700;
           color: var(--text);
+          margin-bottom: 2px;
+        }
+
+        .product-rank-orders {
+          font-size: 12px;
+          color: #16a34a;
+        }
+
+        .empty-state {
+          padding: 40px 20px;
+          text-align: center;
+          color: var(--text-muted);
+        }
+
+        .empty-state-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--text);
+          margin-bottom: 8px;
         }
       `}</style>
 
-      <div className="analytics-header">
-        <h1 className="header-title">
-          <BarChart3 className="w-8 h-8" />
-          Analytics
-        </h1>
-      </div>
-
-      <div className="metrics-grid">
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-icon">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div className="metric-info">
-              <div className="metric-label">Total Revenue</div>
-              <div className="metric-value">{moneyZAR(metrics.totalRevenue)}</div>
-            </div>
-          </div>
-          <div className="metric-subtitle">All time</div>
+      <div className="analytics-container">
+        <div className="analytics-header">
+          <h1 className="header-title">
+            <BarChart3 className="w-8 h-8 text-blue-500" />
+            Performance Analytics
+          </h1>
+          <p className="header-subtitle">Detailed insights into your business performance</p>
         </div>
 
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-icon">
-              <ShoppingCart className="w-6 h-6" />
-            </div>
-            <div className="metric-info">
-              <div className="metric-label">Total Orders</div>
-              <div className="metric-value">{metrics.totalOrders}</div>
-            </div>
+        <div className="metrics-grid">
+          <div className="metric-card revenue">
+            <MetricCard
+              title="Total Revenue"
+              value={moneyZAR(stats.totalRevenueCents || 0)}
+              subtitle="Last 30 Days"
+              icon={DollarSign}
+              loading={isLoading}
+            />
           </div>
-          <div className="metric-subtitle">All time</div>
-        </div>
-
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-icon">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div className="metric-info">
-              <div className="metric-label">Avg Order Value</div>
-              <div className="metric-value">{moneyZAR(metrics.avgOrderValue)}</div>
-            </div>
+          <div className="metric-card orders">
+            <MetricCard
+              title="Total Orders"
+              value={stats.totalOrders || 0}
+              subtitle="Last 30 Days"
+              icon={ShoppingCart}
+              loading={isLoading}
+            />
           </div>
-          <div className="metric-subtitle">Per transaction</div>
-        </div>
-
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-icon">
-              <Package className="w-6 h-6" />
-            </div>
-            <div className="metric-info">
-              <div className="metric-label">Active Products</div>
-              <div className="metric-value">{metrics.activeProducts}</div>
-            </div>
+          <div className="metric-card value">
+            <MetricCard
+              title="Avg Order Value"
+              value={moneyZAR(stats.avgOrderValue || 0)}
+              subtitle="Per Transaction"
+              icon={TrendingUp}
+              loading={isLoading}
+            />
           </div>
-          <div className="metric-subtitle">
-            {metrics.lowStockProducts > 0 && `${metrics.lowStockProducts} low stock`}
+          <div className="metric-card inventory">
+            <MetricCard
+              title="Inventory Value"
+              value={moneyZAR(inventory.totalInventoryValue || 0)}
+              subtitle={`${inventory.activeProducts || 0} Active Products`}
+              icon={Package}
+              loading={isLoading}
+            />
           </div>
         </div>
 
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-icon">
-              <Users className="w-6 h-6" />
-            </div>
-            <div className="metric-info">
-              <div className="metric-label">Contacts</div>
-              <div className="metric-value">{metrics.totalContacts}</div>
+        <div className="charts-grid">
+          <div className="chart-card">
+            <h3 className="chart-title">Revenue Trend (30 Days)</h3>
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trends}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#9ca3af" 
+                    tickFormatter={(value) => new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                  />
+                  <YAxis stroke="#9ca3af" />
+                  <Tooltip 
+                    formatter={(value) => [`R${(value/100).toFixed(2)}`, 'Revenue']}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                  />
+                  <Bar dataKey="revenueCents" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Revenue" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
-          <div className="metric-subtitleлю">Total subscribers</div>
-        </div>
 
-        <div className="metric-card">
-          <div className="metric-header">
-            <div className="metric-icon">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div className="metric-info">
-              <div className="metric-label">Last 30 Days</div>
-              <div className="metric-value">{moneyZAR(metrics.revenueLast30)}</div>
+          <div className="chart-card">
+            <h3 className="chart-title">Top Selling Products</h3>
+            <div className="top-products-list">
+              {topProducts.length === 0 && !isLoading && (
+                <div className="empty-state">
+                  <div className="empty-state-title">No sales data available yet.</div>
+                  <div>Start making sales to see your top products here.</div>
+                </div>
+              )}
+              {topProducts.map((product, i) => (
+                <div key={product.id} className="product-rank-item">
+                  <div className="product-rank-info">
+                    <div className="product-rank-number">
+                      {i + 1}
+                    </div>
+                    <div className="product-rank-details">
+                      <div className="product-rank-name">{product.name}</div>
+                      <div className="product-rank-stats">{product.totalUnitsSold} units sold</div>
+                    </div>
+                  </div>
+                  <div className="product-rank-value">
+                    <div className="product-rank-revenue">{moneyZAR(product.totalRevenueCents)}</div>
+                    <div className="product-rank-orders">{product.totalOrders} orders</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="metric-subtitle">{metrics.ordersLast30} orders</div>
-        </div>
-      </div>
-
-      PAS <div className="insights-section">
-        <h2 className="section-title">Quick Insights</h2>
-        <div className="insight-row">
-          <span className="insight-label">Conversion Rate</span>
-          <span className="insight-value">
-            {metrics.totalContacts > 0
-              ? ((metrics.totalOrders / metrics.totalContacts) * 100).toFixed(1)
-              : 0}%
-          </span>
-        </div>
-        <div className="insight-row">
-          <span className="insight-label">Revenue per Contact</span>
-          <span className="insight-value">
-            {moneyZAR(metrics.totalContacts > 0 ? metrics.totalRevenue / metrics.totalContacts : 0)}
-          </span>
-        </div>
-        <div className="insight-row">
-          <span className="insight-label">Products per Order</span>
-          <span className="insight-value">
-            {metrics.totalOrders > 0 ? (metrics.totalOrders / metrics.activeProducts).toFixed(1) : 0}
-          </span>
         </div>
       </div>
     </>

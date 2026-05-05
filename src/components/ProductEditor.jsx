@@ -9,12 +9,37 @@ import { useWebhookSender } from "./webhooks/useWebhookSender";
 import { ImageUploader } from "@/components/ImageUploader";
 
 export default function ProductEditor({ product, onSave, onCancel, isSaving, title }) {
-  const [formData, setFormData] = useState(product);
+  // Initialize state with product data, ensuring arrays exist
+  const [formData, setFormData] = useState({
+    ...product,
+    gallery_urls: product.gallery_urls || product.gallery || [], // Handle legacy 'gallery' field name
+    hover_image: product.hover_image || product.hover_url || null // Handle legacy field names
+  });
   const [previewTab, setPreviewTab] = useState("card");
   const [viewMode, setViewMode] = useState("desktop");
 
   const { getDisplayPriceCents } = useActiveSpecials();
 
+  // Helper function to clean rich text content
+  const cleanRichText = (content) => {
+    if (!content) return null;
+    
+    // If it's an array, check if it has any real content
+    if (Array.isArray(content)) {
+      return content.length > 0 ? content : null;
+    }
+    
+    // If it's a string, strip HTML tags and check for real content
+    if (typeof content === 'string') {
+      const stripped = content.replace(/<[^>]*>?/gm, '').trim();
+      return stripped.length > 0 ? content : null;
+    }
+    
+    // For other types, return as-is
+    return content;
+  };
+
+  // Webhook logic
   const webhookData = formData.name ? {
     id: formData.id || formData.slug,
     name: formData.name,
@@ -24,13 +49,14 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
     compare_at_price_cents: formData.compare_at_price,
     stock_qty: formData.stock,
     short_description: formData.short_description,
-    long_description: formData.long_description,
+    long_description: formData.long_description, // Note: DB usually maps this to 'overview'
+    overview: formData.overview,
     features: formData.features,
     how_to_use: formData.how_to_use,
-    ingredients_inci: formData.ingredients_inci,
+    ingredients_inci: formData.ingredients_inci || formData.inci_ingredients,
     key_ingredients: formData.key_ingredients,
     claims: formData.claims,
-    images: formData.gallery || [],
+    images: formData.gallery_urls || [],
     hover_image: formData.hover_image,
     variants: formData.variants || [],
     display_price_cents: getDisplayPriceCents('product', formData.id, formData.price)
@@ -67,7 +93,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const addVariant = () => {
     const current = formData.variants || [];
-    updateField('variants', [...current, { name: "", image_url: "" }]);
+    updateField('variants', [...current, { name: "", image: "" }]);
   };
 
   const updateVariant = (index, field, value) => {
@@ -83,13 +109,39 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
   };
 
   const addGalleryImage = () => {
-    const current = formData.gallery || [];
-    updateField('gallery', [...current, ""]);
+    const current = formData.gallery_urls || [];
+    updateField('gallery_urls', [...current, ""]);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+     
+    // Clean the data before sending to Supabase
+    const productData = {
+      ...formData,
+      
+      // 1. Clean up "Ghost Data" so empty fields become real NULLs
+      description: cleanRichText(formData.description),
+      how_to_use: cleanRichText(formData.how_to_use),
+      shelf_life: cleanRichText(formData.shelf_life),
+      storage: cleanRichText(formData.storage),
+      
+      // 2. Ensure Ingredients is ALWAYS saved as a proper List (Array)
+      ingredients: {
+        inci: typeof formData.ingredients === 'string'
+          ? formData.ingredients.split(',').map(i => i.trim()).filter(Boolean)
+          : (formData.ingredients?.inci || [])
+      }
+    };
+ 
+    // Ensure ingredients.inci is always an array
+    if (!Array.isArray(productData.ingredients.inci)) {
+      productData.ingredients.inci = [];
+    }
+ 
+    // await supabase.from('products').upsert(productData)...
+    // Ensure we pass consistent field names back to parent
+    onSave(productData);
   };
 
   const baseCents = formData.price || 0;
@@ -101,9 +153,10 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
   const containerWidth = viewMode === "mobile" ? "375px" : "100%";
 
+  // Helper handlers for array buttons
   const handleAddFeatures = () => addToArray('features');
   const handleAddHowToUse = () => addToArray('how_to_use');
-  const handleAddIngredients = () => addToArray('ingredients_inci');
+  const handleAddIngredients = () => addToArray('inci_ingredients'); // Mapped to DB column usually
   const handleAddKeyIngredients = () => addToArray('key_ingredients');
   const handleAddClaims = () => addToArray('claims');
 
@@ -629,9 +682,13 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
 
         .variant-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr auto;
-          gap: 12px;
+          grid-template-columns: 2fr 1.2fr auto;
+          gap: 16px;
           align-items: start;
+        }
+
+        .variant-name-input {
+          min-width: 200px;
         }
       `}</style>
 
@@ -650,24 +707,24 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
         <form onSubmit={handleSubmit}>
           <div className="editor-grid">
             <div className="form-panel">
+              
+              {/* CORE INFO */}
               <div className="form-section">
-                <h3 className="section-title">Core</h3>
-                
+                <h3 className="section-title">Core Details</h3>
                 <div className="form-group">
-                  <label className="form-label">Product Name *</label>
+                  <label className="form-label">Product Name</label>
                   <input
                     type="text"
                     className="form-input"
                     value={formData.name}
                     onChange={(e) => updateField('name', e.target.value)}
                     onBlur={handleNameBlur}
-                    required
                   />
                 </div>
 
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">SKU / BN</label>
+                    <label className="form-label">SKU</label>
                     <input
                       type="text"
                       className="form-input"
@@ -702,40 +759,40 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                 </div>
               </div>
 
+              {/* PRICING */}
               <div className="form-section">
                 <h3 className="section-title">Pricing</h3>
-                
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Price (cents) *</label>
+                    <label className="form-label">Price (R)</label>
                     <input
                       type="number"
                       className="form-input"
                       value={formData.price}
-                      onChange={(e) => updateField('price', parseInt(e.target.value) || 0)}
-                      required
-                      min="1"
+                      onChange={(e) => updateField('price', parseFloat(e.target.value) || 0)}
                     />
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                      {moneyZAR(formData.price)}
-                    </div>
                   </div>
-
                   <div className="form-group">
-                    <label className="form-label">Compare At (cents)</label>
+                    <label className="form-label">Cost Price (R)</label>
                     <input
                       type="number"
                       className="form-input"
-                      value={formData.compare_at_price || ''}
-                      onChange={(e) => updateField('compare_at_price', e.target.value ? parseInt(e.target.value) : null)}
-                      min="1"
+                      value={formData.cost_price_cents ? (formData.cost_price_cents / 100).toFixed(2) : ''}
+                      onChange={(e) => updateField('cost_price_cents', e.target.value ? Math.round(parseFloat(e.target.value) * 100) : 0)}
+                      placeholder="0.00"
+                      step="0.01"
                     />
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                      {formData.compare_at_price ? moneyZAR(formData.compare_at_price) : 'No comparison'}
-                    </div>
                   </div>
                 </div>
-
+                <div className="form-group">
+                  <label className="form-label">Compare At (R)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.compare_at_price || ''}
+                    onChange={(e) => updateField('compare_at_price', e.target.value ? parseFloat(e.target.value) : null)}
+                  />
+                </div>
                 <PriceDropdown
                   currentPrice={formData.price}
                   comparePrice={formData.compare_at_price}
@@ -743,154 +800,172 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                 />
               </div>
 
+              {/* MEDIA - WITH HOVER IMAGE UPLOADER */}
               <div className="form-section">
-                <h3 className="section-title">Classification</h3>
+                <h3 className="section-title">Media</h3>
                 
+                <div className="form-grid">
+                  {/* MAIN IMAGE */}
+                  <div className="form-group">
+                    <label className="form-label">Main Image</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <ImageUploader
+                        slug={formData.slug || 'temp'}
+                        label="Upload Main"
+                        onAdd={(img) => updateField('thumbnail_url', img.url)} // Using 'url' from Cloudinary response which is secure_url
+                      />
+                      {formData.thumbnail_url && (
+                        <div className="image-preview">
+                          <img src={formData.thumbnail_url} alt="Main" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* HOVER IMAGE */}
+                  <div className="form-group">
+                    <label className="form-label">Hover / Flip Image</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <ImageUploader
+                        slug={formData.slug || 'temp'}
+                        label="Upload Hover"
+                        onAdd={(img) => updateField('hover_image', img.url)}
+                      />
+                      {formData.hover_image ? (
+                        <div className="image-preview">
+                          <img src={formData.hover_image} alt="Hover" />
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          No hover image
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* GALLERY */}
                 <div className="form-group">
-                  <label className="form-label">Category</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.category || ''}
-                    onChange={(e) => updateField('category', e.target.value)}
-                    placeholder="e.g., Skincare, Haircare"
-                  />
+                  <label className="form-label">Gallery Images</label>
+                  <div className="array-list">
+                    {(formData.gallery_urls || []).map((url, idx) => (
+                      <div key={idx} className="array-item">
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={url}
+                          onChange={(e) => updateArrayItem('gallery_urls', idx, e.target.value)}
+                          placeholder="Image URL..."
+                        />
+                        <button
+                          type="button"
+                          className="btn-icon-small"
+                          onClick={() => removeFromArray('gallery_urls', idx)}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                    <button type="button" className="btn-add" onClick={addGalleryImage}>
+                      <Plus size={14} /> Add URL Manually
+                    </button>
+                    <ImageUploader
+                      slug={formData.slug || 'temp'}
+                      label="Upload to Gallery"
+                      onAdd={(img) => updateField('gallery_urls', [...(formData.gallery_urls || []), img.url])}
+                    />
+                  </div>
+                  
+                  {formData.gallery_urls && formData.gallery_urls.length > 0 && (
+                    <div className="gallery-grid">
+                      {formData.gallery_urls.filter(url => url).map((url, idx) => (
+                        <div key={idx} className="image-preview">
+                          <img src={url} alt={`Gallery ${idx + 1}`} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* CONTENT */}
               <div className="form-section">
-                <h3 className="section-title">Content</h3>
-                
+                <h3 className="section-title">Details</h3>
                 <div className="form-group">
                   <label className="form-label">Short Description</label>
                   <textarea
                     className="form-textarea"
                     value={formData.short_description || ''}
                     onChange={(e) => updateField('short_description', e.target.value)}
-                    rows="3"
+                    rows="2"
                   />
                 </div>
-
                 <div className="form-group">
-                  <label className="form-label">Overview</label>
+                  <label className="form-label">Overview / Long Description</label>
                   <textarea
                     className="form-textarea"
-                    value={formData.long_description || ''}
-                    onChange={(e) => updateField('long_description', e.target.value)}
-                    rows="5"
+                    value={formData.overview || formData.long_description || ''}
+                    onChange={(e) => updateField('overview', e.target.value)}
+                    rows="4"
                   />
                 </div>
-
+                
+                {/* Arrays */}
                 <div className="form-group">
                   <label className="form-label">Features</label>
-                  <div className="array-list">
-                    {(formData.features || []).map((item, idx) => (
-                      <div key={idx} className="array-item">
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={item}
-                          onChange={(e) => updateArrayItem('features', idx, e.target.value)}
-                          placeholder="Feature..."
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon-small"
-                          onClick={() => removeFromArray('features', idx)}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button type="button" className="btn-add" onClick={handleAddFeatures}>
-                    <Plus className="w-4 h-4" />
-                    Add Feature
-                  </button>
+                  {(formData.features || []).map((f, i) => (
+                    <div key={i} className="array-item">
+                      <input className="form-input" value={f} onChange={e => updateArrayItem('features', i, e.target.value)} />
+                      <button type="button" className="btn-icon-small" onClick={() => removeFromArray('features', i)}><X size={14} /></button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-add" onClick={handleAddFeatures}><Plus size={14}/> Add Feature</button>
                 </div>
-
+                
                 <div className="form-group">
                   <label className="form-label">How To Use</label>
-                  <div className="array-list">
-                    {(formData.how_to_use || []).map((item, idx) => (
-                      <div key={idx} className="array-item">
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={item}
-                          onChange={(e) => updateArrayItem('how_to_use', idx, e.target.value)}
-                          placeholder="Step..."
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon-small"
-                          onClick={() => removeFromArray('how_to_use', idx)}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button type="button" className="btn-add" onClick={handleAddHowToUse}>
-                    <Plus className="w-4 h-4" />
-                    Add Step
-                  </button>
+                  {(formData.how_to_use || []).map((f, i) => (
+                    <div key={i} className="array-item">
+                      <input className="form-input" value={f} onChange={e => updateArrayItem('how_to_use', i, e.target.value)} />
+                      <button type="button" className="btn-icon-small" onClick={() => removeFromArray('how_to_use', i)}><X size={14} /></button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-add" onClick={handleAddHowToUse}><Plus size={14}/> Add Step</button>
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">Ingredients (INCI)</label>
-                  <div className="array-list">
-                    {(formData.ingredients_inci || []).map((item, idx) => (
-                      <div key={idx} className="array-item">
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={item}
-                          onChange={(e) => updateArrayItem('ingredients_inci', idx, e.target.value)}
-                          placeholder="Ingredient..."
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon-small"
-                          onClick={() => removeFromArray('ingredients_inci', idx)}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button type="button" className="btn-add" onClick={handleAddIngredients}>
-                    <Plus className="w-4 h-4" />
-                    Add Ingredient
-                  </button>
+                  {(formData.ingredients_inci || formData.inci_ingredients || []).map((f, i) => (
+                    <div key={i} className="array-item">
+                      <input className="form-input" value={f} onChange={e => updateArrayItem('inci_ingredients', i, e.target.value)} />
+                      <button type="button" className="btn-icon-small" onClick={() => removeFromArray('inci_ingredients', i)}><X size={14} /></button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-add" onClick={handleAddIngredients}><Plus size={14}/> Add Ingredient</button>
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">Key Ingredients</label>
-                  <div className="array-list">
-                    {(formData.key_ingredients || []).map((item, idx) => (
-                      <div key={idx} className="array-item">
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={item}
-                          onChange={(e) => updateArrayItem('key_ingredients', idx, e.target.value)}
-                          placeholder="Key ingredient..."
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon-small"
-                          onClick={() => removeFromArray('key_ingredients', idx)}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button type="button" className="btn-add" onClick={handleAddKeyIngredients}>
-                    <Plus className="w-4 h-4" />
-                    Add Key Ingredient
-                  </button>
+                  {(formData.key_ingredients || []).map((f, i) => (
+                    <div key={i} className="array-item">
+                      <input className="form-input" value={f} onChange={e => updateArrayItem('key_ingredients', i, e.target.value)} />
+                      <button type="button" className="btn-icon-small" onClick={() => removeFromArray('key_ingredients', i)}><X size={14} /></button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-add" onClick={handleAddKeyIngredients}><Plus size={14}/> Add Key Ingredient</button>
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Claims</label>
+                  {(formData.claims || []).map((f, i) => (
+                    <div key={i} className="array-item">
+                      <input className="form-input" value={f} onChange={e => updateArrayItem('claims', i, e.target.value)} />
+                      <button type="button" className="btn-icon-small" onClick={() => removeFromArray('claims', i)}><X size={14} /></button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-add" onClick={handleAddClaims}><Plus size={14}/> Add Claim</button>
                 </div>
 
                 <div className="form-grid">
@@ -916,36 +991,9 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                     />
                   </div>
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">Claims</label>
-                  <div className="array-list">
-                    {(formData.claims || []).map((item, idx) => (
-                      <div key={idx} className="array-item">
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={item}
-                          onChange={(e) => updateArrayItem('claims', idx, e.target.value)}
-                          placeholder="Claim..."
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon-small"
-                          onClick={() => removeFromArray('claims', idx)}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button type="button" className="btn-add" onClick={handleAddClaims}>
-                    <Plus className="w-4 h-4" />
-                    Add Claim
-                  </button>
-                </div>
               </div>
 
+              {/* VARIANTS */}
               <div className="form-section">
                 <h3 className="section-title">Variants</h3>
                 
@@ -954,7 +1002,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                     <div className="variant-grid">
                       <input
                         type="text"
-                        className="form-input"
+                        className="form-input variant-name-input"
                         value={variant.name}
                         onChange={(e) => updateVariant(idx, 'name', e.target.value)}
                         placeholder="Variant name..."
@@ -962,12 +1010,12 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <ImageUploader
                           slug={formData.slug || 'temp'}
-                          label="Upload variant image"
-                          onAdd={(img) => updateVariant(idx, 'image_url', img.hero)}
+                          label="Image"
+                          onAdd={(img) => updateVariant(idx, 'image', img.url)}
                         />
-                        {variant.image_url && (
+                        {variant.image && (
                           <div className="image-preview" style={{ maxWidth: '64px' }}>
-                            <img src={variant.image_url} alt="Variant" />
+                            <img src={variant.image} alt="Variant" />
                           </div>
                         )}
                       </div>
@@ -976,85 +1024,19 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                         className="btn-icon-small"
                         onClick={() => removeVariant(idx)}
                       >
-                        <X className="w-4 h-4" />
+                        <X size={14} />
                       </button>
                     </div>
                   </div>
                 ))}
                 
                 <button type="button" className="btn-add" onClick={addVariant}>
-                  <Plus className="w-4 h-4" />
+                  <Plus size={14} />
                   Add Variant
                 </button>
               </div>
 
-              <div className="form-section">
-                <h3 className="section-title">Media</h3>
-                
-                <div className="form-group">
-                  <label className="form-label">Thumbnail</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ImageUploader
-                      slug={formData.slug || 'temp'}
-                      label="Upload thumbnail"
-                      onAdd={(img) => updateField('image_url', formData.image_url || img.thumb)}
-                    />
-                    {formData.image_url && (
-                      <div className="image-preview" style={{ maxWidth: '80px' }}>
-                        <img src={formData.image_url} alt="Thumbnail" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Gallery</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <ImageUploader
-                      slug={formData.slug || 'temp'}
-                      label="Upload gallery image"
-                      onAdd={(img) => updateField('gallery', [...(formData.gallery || []), img.hero])}
-                    />
-                    <button type="button" className="btn-add" onClick={addGalleryImage}>
-                      <Plus className="w-4 h-4" />
-                      Add URL
-                    </button>
-                  </div>
-                  {(formData.gallery || []).length > 0 && (
-                    <div className="array-list" style={{ marginTop: '8px' }}>
-                      {(formData.gallery || []).map((url, idx) => (
-                        <div key={idx} className="array-item">
-                          <input
-                            type="url"
-                            className="form-input"
-                            value={url}
-                            onChange={(e) => updateArrayItem('gallery', idx, e.target.value)}
-                            placeholder="Image URL..."
-                          />
-                          <button
-                            type="button"
-                            className="btn-icon-small"
-                            onClick={() => removeFromArray('gallery', idx)}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {formData.gallery && formData.gallery.length > 0 && (
-                    <div className="gallery-grid">
-                      {formData.gallery.filter(url => url).map((url, idx) => (
-                        <div key={idx} className="image-preview">
-                          <img src={url} alt={`Gallery ${idx + 1}`} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
+              {/* INVENTORY */}
               <div className="form-section">
                 <h3 className="section-title">Stock Status</h3>
 
@@ -1097,8 +1079,8 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
               </div>
             </div>
 
+            {/* PREVIEW PANEL */}
             <div className="preview-panel">
-              
               <div className="preview-controls">
                 <div className="preview-tabs">
                   <button
@@ -1140,12 +1122,19 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
               <div className="preview-container">
                 <div className="preview-wrapper">
                   {previewTab === 'card' ? (
-                    <div className="product-card">
-                      {formData.image_url ? (
-                        <img src={formData.image_url} alt={formData.name} className="card-image" />
-                      ) : (
-                        <div className="card-image">No image</div>
-                      )}
+                    <div className="product-card" style={{ width: '100%', maxWidth: 300, margin: '0 auto' }}>
+                      <div style={{ position: 'relative', aspectRatio: '1/1', overflow: 'hidden' }}>
+                        {formData.thumbnail_url ? (
+                          <img src={formData.thumbnail_url} alt={formData.name} className="card-image" style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }} />
+                        ) : (
+                          <div className="card-image">No image</div>
+                        )}
+                        {formData.hover_image && (
+                          <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
+                            Hover Image Set
+                          </div>
+                        )}
+                      </div>
                       <div className="card-content">
                         <h3 className="card-title">{formData.name || 'Product Name'}</h3>
                         {formData.short_description && (
@@ -1158,7 +1147,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                               <div className="card-compare-price">{moneyZAR(originalCents)}</div>
                               {discount && (
                                 <div className="card-badge">
-                                  –{discount.pct}% • save {moneyZAR(discount.amountCents)}
+                                  –{discount.pct}%
                                 </div>
                               )}
                             </>
@@ -1168,18 +1157,18 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                     </div>
                   ) : (
                     <div className="pdp-container">
-                      {formData.gallery && formData.gallery.length > 0 ? (
+                      {formData.gallery_urls && formData.gallery_urls.length > 0 ? (
                         <div className="pdp-gallery">
-                          {formData.gallery.filter(url => url).map((url, idx) => (
+                          {formData.gallery_urls.filter(url => url).map((url, idx) => (
                             <div key={idx} className="pdp-thumb">
                               <img src={url} alt={`${formData.name} ${idx + 1}`} />
                             </div>
                           ))}
                         </div>
-                      ) : formData.image_url ? (
+                      ) : formData.thumbnail_url ? (
                         <div className="pdp-gallery">
                           <div className="pdp-thumb">
-                            <img src={formData.image_url} alt={formData.name} />
+                            <img src={formData.thumbnail_url} alt={formData.name} />
                           </div>
                         </div>
                       ) : (
@@ -1216,10 +1205,10 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
                         <button type="button" className="pdp-tab">Ingredients</button>
                       </div>
 
-                      {formData.long_description && (
+                      {formData.overview && (
                         <div className="pdp-section">
                           <p style={{ color: 'var(--text)', lineHeight: 1.6 }}>
-                            {formData.long_description}
+                            {formData.overview}
                           </p>
                         </div>
                       )}

@@ -1,10 +1,7 @@
-// Placeholder file, this should be overridden by the generated code
-
+// Default dashboard page
+import React from 'react';
+import Dashboard from './Dashboard.jsx';
 
 export default function Home() {
-
-  return (
-    <div>
-    </div>
-  );
+  return <Dashboard />;
 }

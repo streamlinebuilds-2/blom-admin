@@ -22,8 +22,28 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
       
+      // For development without proper backend, set up basic state
+      if (!appParams.token) {
+        console.log('No token found, setting up guest mode');
+        setIsLoadingAuth(false);
+        setIsAuthenticated(false);
+        setAppPublicSettings({ 
+          id: appParams.appId, 
+          public_settings: { 
+            guest_mode: true,
+            allow_guest_access: true 
+          } 
+        });
+        setIsLoadingPublicSettings(false);
+        return;
+      }
+      
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 8000)
+      );
+      
       // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
       const appClient = createAxiosClient({
         baseURL: `${appParams.serverUrl}/api/apps/public`,
         headers: {
@@ -34,7 +54,8 @@ export const AuthProvider = ({ children }) => {
       });
       
       try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        const publicSettingsPromise = appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        const publicSettings = await Promise.race([publicSettingsPromise, timeoutPromise]);
         setAppPublicSettings(publicSettings);
         
         // If we got the app public settings successfully, check if user is authenticated
@@ -48,30 +69,44 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         console.error('App state check failed:', appError);
         
-        // Handle app-level errors
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
-          if (reason === 'auth_required') {
-            setAuthError({
-              type: 'auth_required',
-              message: 'Authentication required'
-            });
-          } else if (reason === 'user_not_registered') {
-            setAuthError({
-              type: 'user_not_registered',
-              message: 'User not registered for this app'
-            });
+        // If it's a timeout or network error, assume guest mode
+        if (appError.message === 'Request timeout' || !appError.status) {
+          console.log('Network issue detected, setting up guest mode');
+          setIsLoadingAuth(false);
+          setIsAuthenticated(false);
+          setAppPublicSettings({ 
+            id: appParams.appId, 
+            public_settings: { 
+              guest_mode: true,
+              allow_guest_access: true 
+            } 
+          });
+        } else {
+          // Handle app-level errors
+          if (appError.status === 403 && appError.data?.extra_data?.reason) {
+            const reason = appError.data.extra_data.reason;
+            if (reason === 'auth_required') {
+              setAuthError({
+                type: 'auth_required',
+                message: 'Authentication required'
+              });
+            } else if (reason === 'user_not_registered') {
+              setAuthError({
+                type: 'user_not_registered',
+                message: 'User not registered for this app'
+              });
+            } else {
+              setAuthError({
+                type: reason,
+                message: appError.message
+              });
+            }
           } else {
             setAuthError({
-              type: reason,
-              message: appError.message
+              type: 'unknown',
+              message: appError.message || 'Failed to load app'
             });
           }
-        } else {
-          setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
-          });
         }
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);

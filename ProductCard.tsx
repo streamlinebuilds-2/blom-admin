@@ -1,8 +1,9 @@
 import React from 'react';
 import { Heart, ShoppingCart, ShoppingBag } from 'lucide-react';
-import { cartStore } from '@/lib/cart';
-import { wishlistStore } from '@/lib/wishlist';
-import { OptimizedImage } from '@/components/seo/OptimizedImage';
+import { cartStore } from './src/lib/cart';
+import { wishlistStore } from './src/lib/wishlist';
+import { OptimizedImage } from './src/components/OptimizedImage';
+import { useActiveSpecials } from './src/components/hooks/useActiveSpecials';
 
 interface ProductCardProps {
   id: string;
@@ -153,7 +154,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   const handleCardClick = () => {
-    window.location.href = `/products/${slug}`;
+    window.location.href = `/product/${slug}`;
   };
 
   const formatPrice = (price: number) => `R${price.toFixed(2)}`;

@@ -7,11 +7,15 @@ function generateId() {
 }
 
 function loadDB() {
-  if (window.__BLM_DB) return window.__BLM_DB;
+  if (window.__BLM_DB) {
+    console.log('🔄 Using cached mock database with', window.__BLM_DB.products?.length || 0, 'products');
+    return window.__BLM_DB;
+  }
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
+      console.log('📁 Loading mock database from localStorage...');
       window.__BLM_DB = JSON.parse(stored);
       // Ensure all dates are correctly parsed if they were serialized as strings
       if (window.__BLM_DB.products) {
@@ -57,13 +61,15 @@ function loadDB() {
           if (r.created_at && typeof r.created_at === 'string') r.created_at = new Date(r.created_at).toISOString();
         });
       }
+      console.log('✅ Loaded from storage:', window.__BLM_DB.products?.length || 0, 'products,', window.__BLM_DB.bundles?.length || 0, 'bundles');
       return window.__BLM_DB;
     }
   } catch (err) {
-    console.warn('Failed to load DB from localStorage:', err);
+    console.warn('❌ Failed to load DB from localStorage:', err);
   }
 
   // Seed initial data
+  console.log('🌱 Seeding fresh mock database with sample data...');
   const seedProducts = [
     {
       id: 'p1',
@@ -204,16 +210,51 @@ function loadDB() {
     }
   ];
 
+  const seedBundles = [
+    {
+      id: 'b1',
+      name: 'Complete Skincare Bundle',
+      slug: 'complete-skincare-bundle',
+      status: 'active',
+      price_cents: 59900,
+      compare_at_price_cents: 77800,
+      items: [
+        { product_id: 'p1', qty: 1 }, // Hydrating Face Cream
+        { product_id: 'p2', qty: 1 }, // Vitamin C Serum
+        { product_id: 'p3', qty: 1 }  // Gentle Cleanser
+      ],
+      short_desc: 'Complete 3-step skincare routine',
+      updated_at: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      id: 'b2',
+      name: 'Anti-Aging Essentials',
+      slug: 'anti-aging-essentials',
+      status: 'active',
+      price_cents: 69900,
+      compare_at_price_cents: 84900,
+      items: [
+        { product_id: 'p1', qty: 1 }, // Hydrating Face Cream
+        { product_id: 'p2', qty: 1 }  // Vitamin C Serum
+      ],
+      short_desc: 'Fight aging with this powerful duo',
+      updated_at: new Date(Date.now() - 172800000).toISOString()
+    }
+  ];
+
   window.__BLM_DB = {
     products: seedProducts,
     stockMovements: [],
     specials: [],
-    bundles: [],
+    bundles: seedBundles,
     orders: seedOrders,
     payments: [],
     messages: seedMessages,
     reviews: seedReviews
   };
+
+  // Clear any existing data and reseed for fresh start
+  localStorage.removeItem(STORAGE_KEY);
 
   saveDB();
   return window.__BLM_DB;
@@ -252,12 +293,30 @@ function suggestBundlePrice(base, mode, value) {
 
 export function createMockAdapter() {
   return {
+    async listCourses() {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return [];
+    },
+
+    async getCourse(id) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return null;
+    },
+
+    async upsertCourse(course) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return { ...course, id: course?.id || generateId() };
+    },
+
     async listProducts() {
       await new Promise(resolve => setTimeout(resolve, 0));
+      console.log('📦 MockAdapter: listProducts() called');
       const db = loadDB();
-      return [...db.products].sort((a, b) => 
+      const products = [...db.products].sort((a, b) => 
         (b.updated_at || '').localeCompare(a.updated_at || '')
       );
+      console.log('📦 MockAdapter: Returning', products.length, 'products:', products.map(p => p.name));
+      return products;
     },
 
     async getProduct(id) {
@@ -314,6 +373,67 @@ export function createMockAdapter() {
       db.products.push(newProduct);
       saveDB();
       return newProduct;
+    },
+
+    // Partial update - only updates specified fields, preserves all others
+    async partialUpdateProduct(p) {
+      if (!p.id) {
+        throw new Error('partialUpdateProduct requires product id');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      const now = new Date().toISOString();
+      const index = db.products.findIndex(prod => prod.id === p.id);
+
+      if (index < 0) {
+        throw new Error(`Product ${p.id} not found`);
+      }
+
+      const oldProduct = db.products[index];
+      const updated = { ...oldProduct, updated_at: now };
+
+      // Only update fields that are explicitly provided (not undefined)
+      if (p.name !== undefined) updated.name = p.name;
+      if (p.slug !== undefined) updated.slug = p.slug;
+      if (p.status !== undefined) updated.status = p.status;
+      if (p.price_cents !== undefined) updated.price_cents = p.price_cents;
+      if (p.compare_at_price_cents !== undefined) updated.compare_at_price_cents = p.compare_at_price_cents;
+      if (p.stock_qty !== undefined) {
+        const delta = p.stock_qty - oldProduct.stock_qty;
+        if (delta !== 0) {
+          const movement = {
+            id: generateId(),
+            product_id: p.id,
+            delta,
+            reason: 'partial edit',
+            created_at: now
+          };
+          db.stockMovements.push(movement);
+        }
+        updated.stock_qty = p.stock_qty;
+      }
+      if (p.short_desc !== undefined) updated.short_desc = p.short_desc;
+      if (p.category_id !== undefined) updated.category_id = p.category_id;
+
+      db.products[index] = updated;
+      saveDB();
+      return updated;
+    },
+
+    async listCoursePurchases(filters) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      console.log('📦 MockAdapter: listCoursePurchases() called with', filters);
+      return { items: [], total: 0, page: 1, pageSize: 20 };
+    },
+
+    async listCoursePurchasesByCourse(course_slug) {
+       return this.listCoursePurchases({ course_slug });
+    },
+
+    async getCoursePurchase(id) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      return null;
     },
 
     async listStockMovements(limit) {
@@ -391,10 +511,13 @@ export function createMockAdapter() {
 
     async listBundles() {
       await new Promise(resolve => setTimeout(resolve, 0));
+      console.log('📦 MockAdapter: listBundles() called');
       const db = loadDB();
-      return [...db.bundles].sort((a, b) => 
+      const bundles = [...db.bundles].sort((a, b) => 
         (b.updated_at || '').localeCompare(a.updated_at || '')
       );
+      console.log('📦 MockAdapter: Returning', bundles.length, 'bundles:', bundles.map(b => b.name));
+      return bundles;
     },
 
     async getBundle(id) {
@@ -660,6 +783,42 @@ export function createMockAdapter() {
           cost_cents: 4900
         }
       ];
+    },
+
+    // Additional methods for API compatibility
+    async listContacts() {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      // Convert messages to contacts format
+      return db.messages.map(msg => ({
+        id: msg.id,
+        full_name: msg.full_name,
+        email: msg.email,
+        phone: msg.phone,
+        inquiry_type: msg.inquiry_type,
+        subject: msg.subject,
+        status: msg.status,
+        created_at: msg.created_at
+      }));
+    },
+
+    async getContactDetail(userId) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const db = loadDB();
+      const contact = db.messages.find(m => m.id === userId);
+      if (!contact) return null;
+      
+      // Return contact detail in expected format
+      return {
+        contact,
+        orders: db.orders.filter(o => o.contact_id === userId || o.email === contact.email),
+        messages: [contact]
+      };
+    },
+
+    // Alias for backward compatibility
+    async getStockMovements() {
+      return this.listStockMovements();
     }
   };
 }

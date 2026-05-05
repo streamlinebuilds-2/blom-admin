@@ -1,124 +1,293 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Search } from "lucide-react";
-import { moneyZAR, dateShort, shortId } from "../components/formatUtils";
-import { api } from "@/components/data/api";
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, RefreshCw, Truck, Package, Archive, Filter, X, FileText, CheckCircle } from 'lucide-react';
+import { format } from 'date-fns';
+import { ConfirmDialog } from '../components/ui/dialog';
+import { useNotifications } from '../contexts/NotificationContext';
 
 export default function Orders() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
+  const navigate = useNavigate();
+  const { markAsRead } = useNotifications();
 
-  const { data: ordersData = [], isLoading, error } = useQuery({
+  const { data: ordersResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
-    queryFn: () => api?.listOrders() || [],
-    enabled: !!api,
+    queryFn: async () => {
+      console.log('🔄 Fetching orders from API...');
+      const res = await fetch('/.netlify/functions/admin-orders');
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      const json = await res.json();
+
+      if (!json.ok) throw new Error(json.error || 'Failed to load orders');
+      console.log('✅ Orders fetched:', json.data?.length || 0, 'orders');
+      return json.data || [];
+    },
+    staleTime: 0, // Always refetch
+    cacheTime: 0, // Don't cache
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
-  const orders = ordersData || []
-
-  const filteredOrders = orders.filter(order => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      !searchTerm ||
-      order.order_number?.toLowerCase().includes(searchLower) ||
-      shortId(order.id).toLowerCase().includes(searchLower) ||
-      order.customer_name?.toLowerCase().includes(searchLower) ||
-      order.customer_email?.toLowerCase().includes(searchLower) ||
-      order.merchant_payment_id?.toLowerCase().includes(searchLower);
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  // Filter state
+  const [filters, setFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    fulfillmentType: '',
+    status: '',
+    search: ''
   });
+  const [showFilters, setShowFilters] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, order: null });
 
-  // Reset page when filters change
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  const [backfill, setBackfill] = useState({
+    payment_id: '',
+    amount: '',
+    buyer_email: '',
+    buyer_name: ''
+  });
+  const [backfilling, setBackfilling] = useState(false);
+  const [regeneratingId, setRegeneratingId] = useState(null);
+  const [invoiceToolsEnabled, setInvoiceToolsEnabled] = useState(() => localStorage.getItem('blom_invoice_tools') === '1');
 
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedOrders = filteredOrders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const orders = ordersResponse || [];
 
-  const getStatusColor = (status) => {
-    const colors = {
-      unpaid: '#f59e0b',
-      paid: '#10b981',
-      packed: '#3b82f6',
-      shipped: '#8b5cf6',
-      delivered: '#10b981',
-      refunded: '#6b7280',
-      cancelled: '#ef4444'
-    };
-    return colors[status] || '#6b7280';
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('tools');
+    if (v === '1') {
+      localStorage.setItem('blom_invoice_tools', '1');
+      setInvoiceToolsEnabled(true);
+    }
+    if (v === '0') {
+      localStorage.removeItem('blom_invoice_tools');
+      setInvoiceToolsEnabled(false);
+    }
+  }, []);
+
+  const regenerateInvoice = async (order) => {
+    const m_payment_id = order?.m_payment_id || order?.merchant_payment_id;
+    if (!order?.id || !m_payment_id) {
+      alert('Missing order id or payment reference');
+      return;
+    }
+
+    const confirmed = window.confirm('Regenerate invoice? This will overwrite the existing invoice link.');
+    if (!confirmed) return;
+
+    setRegeneratingId(order.id);
+    try {
+      const res = await fetch('/.netlify/functions/invoice-pdf?return_url=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: order.id, m_payment_id, return_url: true })
+      });
+
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(detail || `Invoice regeneration failed (${res.status})`);
+      }
+
+      await refetch();
+      alert('Invoice regenerated. Open it again to see the updated PDF.');
+    } catch (err) {
+      alert(err?.message || 'Invoice regeneration failed');
+    } finally {
+      setRegeneratingId(null);
+    }
   };
+
+  const runBackfill = async () => {
+    if (!backfill.payment_id?.trim()) {
+      alert('Please enter the Payment ID / Reference');
+      return;
+    }
+    if (!backfill.amount?.trim()) {
+      alert('Please enter the amount (e.g. 2420.00)');
+      return;
+    }
+
+    setBackfilling(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-backfill-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_id: backfill.payment_id,
+          amount: backfill.amount,
+          buyer_email: backfill.buyer_email,
+          buyer_name: backfill.buyer_name,
+          provider: 'manual'
+        })
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || 'Backfill failed');
+      }
+
+      await refetch();
+      setBackfill({ payment_id: '', amount: '', buyer_email: '', buyer_name: '' });
+
+      if (json.order_id) {
+        navigate(`/orders/${json.order_id}`);
+      }
+    } catch (err) {
+      alert(err?.message || 'Backfill failed');
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
+  // Listen for order updates from other pages
+  useEffect(() => {
+    const handleOrderUpdate = (event) => {
+      console.log('🔄 Order update detected, refetching orders...');
+      refetch();
+    };
+
+    window.addEventListener('orderStatusUpdated', handleOrderUpdate);
+    
+    return () => {
+      window.removeEventListener('orderStatusUpdated', handleOrderUpdate);
+    };
+  }, [refetch]);
+
+  // Filter orders based on current filters
+  const filteredOrders = orders.filter(order => {
+    // Date filter
+    if (filters.dateFrom) {
+      const orderDate = new Date(order.placed_at || order.created_at);
+      const fromDate = new Date(filters.dateFrom);
+      if (orderDate < fromDate) return false;
+    }
+    if (filters.dateTo) {
+      const orderDate = new Date(order.placed_at || order.created_at);
+      const toDate = new Date(filters.dateTo);
+      if (orderDate > toDate) return false;
+    }
+
+    // Fulfillment type filter
+    if (filters.fulfillmentType && order.fulfillment_type !== filters.fulfillmentType) {
+      return false;
+    }
+
+    // Status filter
+    if (filters.status && order.status !== filters.status) {
+      return false;
+    }
+
+    // Search filter (customer name or email or order code)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      const customerName = (order.buyer_name || order.customer_name || '').toLowerCase();
+      const customerEmail = (order.buyer_email || order.customer_email || '').toLowerCase();
+      const orderCode = (order.short_code || order.order_number || order.merchant_payment_id || order.m_payment_id || order.id || '').toLowerCase();
+      
+      if (!customerName.includes(searchLower) && 
+          !customerEmail.includes(searchLower) && 
+          !orderCode.includes(searchLower)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Archive order function
+  const handleArchiveOrder = (orderId) => {
+    setConfirmDialog({
+      isOpen: true,
+      order: { id: orderId }
+    });
+  };
+
+  const confirmArchiveOrder = async () => {
+    if (!confirmDialog.order) return;
+
+    try {
+      const response = await fetch('/.netlify/functions/admin-order', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: confirmDialog.order.id,
+          archived: true
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to archive order');
+
+      // Refetch orders to update the list
+      refetch();
+    } catch (error) {
+      console.error('Error archiving order:', error);
+      alert('Failed to archive order. Please try again.');
+    }
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setFilters({
+      dateFrom: '',
+      dateTo: '',
+      fulfillmentType: '',
+      status: '',
+      search: ''
+    });
+  };
+
+  // Get unique statuses and fulfillment types for filter options
+  const uniqueStatuses = [...new Set(orders.map(order => order.status).filter(Boolean))];
+  const uniqueFulfillmentTypes = [...new Set(orders.map(order => order.fulfillment_type).filter(Boolean))];
 
   return (
     <>
       <style>{`
         .orders-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
           margin-bottom: 32px;
-          flex-wrap: wrap;
-          gap: 16px;
         }
 
         .header-title {
           font-size: 28px;
           font-weight: 700;
           color: var(--text);
-          display: flex;
-          align-items: center;
-          gap: 12px;
+          margin-bottom: 8px;
+        }
+
+        .header-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
         }
 
         .header-actions {
           display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
         }
 
-        .search-box {
-          position: relative;
-          width: 260px;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 12px 16px 12px 44px;
-          border-radius: 12px;
+        .btn-secondary {
+          padding: 10px 20px;
+          border-radius: 10px;
           border: none;
           background: var(--card);
           color: var(--text);
           font-size: 14px;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--text-muted);
-        }
-
-        .filter-select {
-          padding: 12px 16px;
-          border-radius: 12px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
+          font-weight: 600;
           cursor: pointer;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
-          min-width: 140px;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
-        .orders-table {
+        .btn-secondary:hover {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .section-card {
           background: var(--card);
           border-radius: 16px;
           padding: 0;
@@ -133,18 +302,18 @@ export default function Orders() {
 
         th {
           text-align: left;
-          padding: 20px 24px;
+          padding: 16px 24px;
           font-size: 12px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          border-bottom: 2px solid var(--border);
           background: var(--card);
+          border-bottom: 1px solid var(--border);
         }
 
         td {
-          padding: 20px 24px;
+          padding: 16px 24px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
         }
@@ -153,18 +322,29 @@ export default function Orders() {
           border-bottom: none;
         }
 
-        tbody tr {
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
         tbody tr:hover {
           background: rgba(110, 193, 255, 0.05);
         }
 
-        .order-number {
-          font-weight: 700;
-          color: var(--accent);
+        .fulfillment-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .fulfillment-delivery {
+          background: #3b82f620;
+          color: #3b82f6;
+        }
+
+        .fulfillment-collection {
+          background: #8b5cf620;
+          color: #8b5cf6;
         }
 
         .status-badge {
@@ -173,26 +353,490 @@ export default function Orders() {
           border-radius: 10px;
           font-size: 12px;
           font-weight: 600;
-          text-transform: capitalize;
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
-        .total-cell {
-          font-weight: 700;
-          font-size: 15px;
+        .status-paid {
+          background: #16a34a20;
+          color: #16a34a;
         }
 
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-          color: var(--text-muted);
+        .status-packed {
+          background: #dc262620;
+          color: #dc2626;
         }
 
-        .empty-state-title {
-          font-size: 18px;
+        .status-delivered, .status-collected {
+          background: #05966920;
+          color: #059669;
+        }
+
+        .status-out_for_delivery {
+          background: #ea580c20;
+          color: #ea580c;
+        }
+
+        .status-unpaid, .status-created {
+          background: #eab30820;
+          color: #ca8a04;
+        }
+
+        .status-cancelled {
+          background: #991b1b20;
+          color: #991b1b;
+        }
+
+        .btn-view {
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 13px;
           font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+        }
+
+        .btn-view:hover {
+          transform: translateY(-1px);
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+
+        .btn-archive {
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          color: white;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+          margin-left: 8px;
+        }
+
+        .btn-archive:hover {
+          transform: translateY(-1px);
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+
+        .btn-invoice {
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: none;
+          background: var(--card);
           color: var(--text);
-          margin-bottom: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+        }
+
+        .btn-invoice:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+
+        .btn-invoice:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .filters-section {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 20px;
+          margin-bottom: 24px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          display: none;
+        }
+
+        .filters-section.show {
+          display: block;
+        }
+
+        .filters-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+          align-items: end;
+        }
+
+        /* Enhanced mobile responsive styles */
+        @media (max-width: 768px) {
+          .orders-header {
+            margin-bottom: 20px;
+          }
+
+          .header-title {
+            font-size: 24px;
+            margin-bottom: 6px;
+          }
+
+          .header-subtitle {
+            font-size: 13px;
+          }
+
+          .header-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            margin-bottom: 20px;
+          }
+
+          .header-actions > div:first-child {
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+          }
+
+          .header-actions > div:first-child > button {
+            width: 100%;
+            justify-content: center;
+            min-height: 44px;
+          }
+
+          .header-actions > div:last-child {
+            width: 100%;
+          }
+
+          .header-actions > div:last-child > button {
+            width: 100%;
+            justify-content: center;
+            min-height: 44px;
+          }
+
+          /* Enhanced filters section */
+          .filters-section {
+            margin-bottom: 20px;
+            border-radius: 12px;
+            padding: 16px;
+          }
+
+          .filters-grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+
+          .filter-group {
+            width: 100%;
+          }
+
+          .filter-label {
+            font-size: 11px;
+            margin-bottom: 6px;
+          }
+
+          .filter-input,
+          .filter-select {
+            width: 100%;
+            font-size: 16px; /* Prevent iOS zoom */
+            padding: 12px 14px;
+            min-height: 44px;
+          }
+
+          .filter-actions {
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 16px;
+          }
+
+          .filter-actions button {
+            width: 100%;
+            min-height: 44px;
+            font-size: 16px;
+          }
+
+          .btn-filter-primary,
+          .btn-filter-secondary {
+            padding: 12px 20px;
+          }
+
+          .results-count {
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 0;
+          }
+
+          /* Enhanced table styles for mobile */
+          .section-card {
+            border-radius: 12px;
+            margin: 0 -16px;
+          }
+
+          th {
+            padding: 12px 8px;
+            font-size: 10px;
+          }
+
+          td {
+            padding: 12px 8px;
+            font-size: 13px;
+          }
+
+          /* Stack customer info on mobile */
+          td:nth-child(3) {
+            max-width: 120px;
+            overflow: hidden;
+          }
+
+          td:nth-child(3) div:first-child {
+            font-size: 12px;
+            font-weight: 600;
+          }
+
+          td:nth-child(3) div:nth-child(2) {
+            font-size: 11px;
+            color: var(--text-muted);
+          }
+
+          td:nth-child(3) div:nth-child(3) {
+            display: none; /* Hide address on mobile */
+          }
+
+          /* Smaller fulfillment and status badges */
+          .fulfillment-badge,
+          .status-badge {
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 600;
+          }
+
+          .fulfillment-badge svg,
+          .status-badge svg {
+            display: none; /* Hide icons on small screens */
+          }
+
+          /* Enhanced action buttons for mobile */
+          .btn-view {
+            padding: 8px 12px;
+            font-size: 12px;
+            margin-left: 0;
+            margin-bottom: 4px;
+          }
+
+          .btn-archive {
+            padding: 8px 12px;
+            font-size: 12px;
+            margin-left: 4px;
+          }
+
+          /* Stack action buttons vertically on small screens */
+          td:last-child > div {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 4px;
+          }
+
+          /* Better touch targets */
+          .btn-secondary,
+          .btn-view,
+          .btn-archive,
+          .btn-filter-primary,
+          .btn-filter-secondary {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+          }
+
+          .btn-secondary:active,
+          .btn-view:active,
+          .btn-archive:active,
+          .btn-filter-primary:active,
+          .btn-filter-secondary:active {
+            transform: scale(0.98);
+          }
+
+          /* Table scroll indicators */
+          .section-card > div:last-child::after {
+            content: '← Swipe to see more →';
+            display: block;
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 8px;
+            opacity: 0.7;
+          }
+
+          /* Ensure table scrolls horizontally */
+          .section-card > div:last-child {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -16px;
+            padding: 0 16px;
+          }
+
+          table {
+            min-width: 700px; /* Ensure enough width for content */
+          }
+
+          /* Hide less important columns on mobile */
+          th:nth-child(6), /* Items count */
+          td:nth-child(6) {
+            display: none;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .orders-header {
+            margin-bottom: 16px;
+          }
+
+          .header-title {
+            font-size: 22px;
+          }
+
+          .header-subtitle {
+            font-size: 12px;
+          }
+
+          .filters-section {
+            padding: 14px;
+          }
+
+          .filter-input,
+          .filter-select {
+            padding: 10px 12px;
+            font-size: 16px;
+          }
+
+          /* Hide even more columns on very small screens */
+          th:nth-child(2), /* Date */
+          td:nth-child(2),
+          th:nth-child(4), /* Type */
+          td:nth-child(4) {
+            display: none;
+          }
+
+          th {
+            padding: 10px 6px;
+            font-size: 9px;
+          }
+
+          td {
+            padding: 10px 6px;
+            font-size: 12px;
+          }
+
+          /* Hide customer email on very small screens */
+          td:nth-child(3) div:nth-child(2) {
+            display: none;
+          }
+
+          table {
+            min-width: 500px;
+          }
+        }
+
+        /* Enhanced scrolling styles */
+        .section-card > div:last-child::-webkit-scrollbar {
+          height: 4px;
+        }
+
+        .section-card > div:last-child::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .section-card > div:last-child::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 2px;
+        }
+
+        /* Touch improvements for all screen sizes */
+        @media (max-width: 768px) {
+          tbody tr {
+            touch-action: manipulation;
+          }
+
+          tbody tr:active {
+            background: rgba(110, 193, 255, 0.1);
+          }
+        }
+
+        .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .filter-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .filter-input,
+        .filter-select {
+          padding: 10px 14px;
+          border-radius: 8px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          outline: none;
+        }
+
+        .filter-input:focus,
+        .filter-select:focus {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light), 0 0 0 2px var(--accent);
+        }
+
+        .filter-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .btn-filter-primary {
+          padding: 10px 20px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+        }
+
+        .btn-filter-secondary {
+          padding: 10px 20px;
+          border-radius: 8px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+
+        .results-count {
+          font-size: 14px;
+          color: var(--text-muted);
+          margin-bottom: 16px;
         }
 
         .pagination {
@@ -236,131 +880,293 @@ export default function Orders() {
       `}</style>
 
       <div className="orders-header">
-        <h1 className="header-title">
-          <ShoppingCart className="w-8 h-8" />
-          Orders
-        </h1>
-        <div className="header-actions">
-          <div className="search-box">
-            <Search className="search-icon w-5 h-5" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <select
-            className="filter-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+        <h1 className="header-title">Orders</h1>
+        <p className="header-subtitle">Manage customer orders and fulfillment</p>
+      </div>
+
+      <div className="header-actions">
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={() => setShowFilters(!showFilters)} 
+            className="btn-secondary"
+            style={{ 
+              background: showFilters ? 'linear-gradient(135deg, var(--accent), var(--accent-2))' : 'var(--card)',
+              color: showFilters ? 'white' : 'var(--text)'
+            }}
           >
-            <option value="all">All Status</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="paid">Paid</option>
-            <option value="packed">Packed</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="refunded">Refunded</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            <Filter size={16} /> Filters
+          </button>
+          {(filters.dateFrom || filters.dateTo || filters.fulfillmentType || filters.status || filters.search) && (
+            <button onClick={clearFilters} className="btn-secondary">
+              <X size={16} /> Clear Filters
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={() => markAsRead('orders')} className="btn-secondary">
+            <CheckCircle size={16} /> Mark read
+          </button>
+          <button onClick={() => refetch()} className="btn-secondary">
+            <RefreshCw size={16} /> Reload
+          </button>
         </div>
       </div>
 
-      <div className="orders-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Order #</th>
-              <th>Customer</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+      {/* Filters Section */}
+      <div className={`filters-section ${showFilters ? 'show' : ''}`}>
+        <div className="filters-grid">
+          <div className="filter-group">
+            <label className="filter-label">Search</label>
+            <input
+              type="text"
+              className="filter-input"
+              placeholder="Search orders, customers..."
+              value={filters.search}
+              onChange={(e) => setFilters({...filters, search: e.target.value})}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                if (filters.search.trim() === '/tools') {
+                  const next = !invoiceToolsEnabled;
+                  if (next) localStorage.setItem('blom_invoice_tools', '1');
+                  else localStorage.removeItem('blom_invoice_tools');
+                  setInvoiceToolsEnabled(next);
+                  setFilters({ ...filters, search: '' });
+                  e.preventDefault();
+                }
+              }}
+            />
+          </div>
+          
+          <div className="filter-group">
+            <label className="filter-label">Date From</label>
+            <input
+              type="date"
+              className="filter-input"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
+            />
+          </div>
+          
+          <div className="filter-group">
+            <label className="filter-label">Date To</label>
+            <input
+              type="date"
+              className="filter-input"
+              value={filters.dateTo}
+              onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
+            />
+          </div>
+          
+          <div className="filter-group">
+            <label className="filter-label">Fulfillment Type</label>
+            <select
+              className="filter-select"
+              value={filters.fulfillmentType}
+              onChange={(e) => setFilters({...filters, fulfillmentType: e.target.value})}
+            >
+              <option value="">All Types</option>
+              {uniqueFulfillmentTypes.map(type => (
+                <option key={type} value={type}>
+                  {type === 'collection' ? 'Collection' : 
+                   type === 'delivery' ? 'Delivery' : 
+                   type.charAt(0).toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label className="filter-label">Status</label>
+            <select
+              className="filter-select"
+              value={filters.status}
+              onChange={(e) => setFilters({...filters, status: e.target.value})}
+            >
+              <option value="">All Statuses</option>
+              {uniqueStatuses.map(status => (
+                <option key={status} value={status}>
+                  {status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group" style={{ gridColumn: '1 / -1' }}>
+            <label className="filter-label">Missing order? Backfill from Payment ID</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr 2fr auto', gap: '12px', alignItems: 'end' }}>
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Payment ID / Reference (e.g. BL-MLHUIZ46-754416)"
+                value={backfill.payment_id}
+                onChange={(e) => setBackfill({ ...backfill, payment_id: e.target.value })}
+              />
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Amount (e.g. 2420.00)"
+                value={backfill.amount}
+                onChange={(e) => setBackfill({ ...backfill, amount: e.target.value })}
+              />
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Customer email (optional)"
+                value={backfill.buyer_email}
+                onChange={(e) => setBackfill({ ...backfill, buyer_email: e.target.value })}
+              />
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Customer name (optional)"
+                value={backfill.buyer_name}
+                onChange={(e) => setBackfill({ ...backfill, buyer_name: e.target.value })}
+              />
+              <button
+                type="button"
+                className="btn-filter"
+                onClick={runBackfill}
+                disabled={backfilling}
+              >
+                {backfilling ? 'Adding…' : 'Add Order'}
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="filter-actions">
+          <div className="results-count">
+            Showing {filteredOrders.length} of {orders.length} orders
+          </div>
+        </div>
+      </div>
+
+      <div className="section-card">
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
               <tr>
-                <td colSpan="5" className="empty-state">
-                  Loading orders...
-                </td>
+                <th>Order #</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Items</th>
+                <th style={{ textAlign: 'right' }}>Total</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan="5" className="empty-state">
-                  <div className="empty-state-title">Error loading orders</div>
-                  <div>{error.message || 'Please try again later'}</div>
-                </td>
-              </tr>
-            ) : filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="empty-state">
-                  <div className="empty-state-title">No orders found</div>
-                  <div>{searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Orders will appear here'}</div>
-                </td>
-              </tr>
-            ) : (
-              paginatedOrders.map(order => (
-                <Link key={order.id} to={createPageUrl(`OrderDetail?id=${order.id}`)} style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}>
-                  <tr>
-                    <td>
-                      <div className="order-number">
-                        {order.order_number || `#${shortId(order.id)}`}
-                      </div>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading orders...</td></tr>
+              ) : error ? (
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: '#ef4444' }}>Error: {error.message}</td></tr>
+              ) : filteredOrders.length === 0 ? (
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  {orders.length === 0 ? 'No orders found.' : 'No orders match your current filters.'}
+                </td></tr>
+              ) : (
+                filteredOrders.map((order) => (
+                  <tr key={order.id}>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                      {order.order_number || order.short_code || order.m_payment_id?.slice(0, 12)}
+                    </td>
+                    <td style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                      {order.placed_at
+                        ? format(new Date(order.placed_at), 'MMM d, yyyy')
+                        : format(new Date(order.created_at), 'MMM d, yyyy')
+                      }
                     </td>
                     <td>
-                      <div>{order.customer_name || '-'}</div>
-                      {order.customer_email && (
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          {order.customer_email}
+                      <div style={{ fontWeight: 600 }}>{order.buyer_name || order.customer_name || '-'}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                        {order.buyer_email || order.customer_email || '-'}
+                      </div>
+                      {order.shipping_address && typeof order.shipping_address === 'string' && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          📍 {order.shipping_address.split('\n')[0]}
                         </div>
                       )}
                     </td>
                     <td>
-                      <span
-                        className="status-badge"
-                        style={{
-                          background: `${getStatusColor(order.status)}20`,
-                          color: getStatusColor(order.status)
-                        }}
-                      >
-                        {order.status}
+                      {order.fulfillment_type === 'collection' ? (
+                        <span className="fulfillment-badge fulfillment-collection">
+                          <Package size={14} /> Collection
+                        </span>
+                      ) : (
+                        <span className="fulfillment-badge fulfillment-delivery">
+                          <Truck size={14} /> Delivery
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-badge status-${order.status}`}>
+                        {order.status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN'}
                       </span>
                     </td>
-                    <td className="total-cell">{moneyZAR(order.total_cents)}</td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {dateShort(order.placed_at || order.created_at)}
+                    <td style={{ fontWeight: 600 }}>
+                      {order.item_count !== undefined ? order.item_count : 0}
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                      R{(order.total_cents / 100).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                        {order.invoice_url && (
+                          <a
+                            href={order.invoice_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-invoice"
+                            title="Open invoice PDF"
+                          >
+                            <FileText size={14} /> Invoice
+                          </a>
+                        )}
+                        {invoiceToolsEnabled && (
+                          <button
+                            type="button"
+                            className="btn-invoice"
+                            onClick={() => regenerateInvoice(order)}
+                            disabled={regeneratingId === order.id}
+                            title="Regenerate invoice"
+                          >
+                            <RefreshCw size={14} /> {regeneratingId === order.id ? 'Regen…' : 'Regen'}
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => navigate(`/orders/${order.id}`)} 
+                          className="btn-view"
+                          title="View Order Details"
+                        >
+                          <Eye size={14} /> View
+                        </button>
+                        <button 
+                          onClick={() => handleArchiveOrder(order.id)} 
+                          className="btn-archive"
+                          title="Archive Order"
+                        >
+                          <Archive size={14} /> Archive
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                </Link>
-              ))
-            )}
-          </tbody>
-        </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            className="pagination-btn"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={safePage <= 1}
-          >
-            ← Previous
-          </button>
-          <span className="pagination-info">
-            Page {safePage} of {totalPages}
-          </span>
-          <button
-            className="pagination-btn"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={safePage >= totalPages}
-          >
-            Next →
-          </button>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, order: null })}
+        onConfirm={confirmArchiveOrder}
+        title="Archive Order"
+        description="Are you sure you want to archive this order? This will hide it from the main orders list."
+        confirmText="Archive"
+        cancelText="Cancel"
+      />
     </>
   );
 }

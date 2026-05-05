@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Variant Manually</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; cursor: pointer; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; }
+        .result { margin-top: 20px; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>Add "Sweet Peach" Variant to Core Acrylics</h1>
+    
+    <p>Click the button below to add the Sweet Peach variant to your Core Acrylics product.</p>
+    
+    <button onclick="addVariant()">Add Sweet Peach Variant</button>
+    
+    <div id="result"></div>
+
+    <script>
+        async function addVariant() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Adding variant...</p>';
+            
+            try {
+                // Step 1: Find the Core Acrylics product
+                console.log('Finding Core Acrylics product...');
+                const findResponse = await fetch('https://blom-admin.netlify.app/.netlify/functions/admin-product?slug=core-acrylics', {
+                    method: 'GET'
+                });
+                
+                if (!findResponse.ok) {
+                    throw new Error(`Product not found: ${findResponse.status}`);
+                }
+                
+                const findData = await findResponse.json();
+                const product = findData.product;
+                
+                console.log('Found product:', product.name);
+                console.log('Product ID:', product.id);
+                
+                // Step 2: Add the new variant
+                const updateData = {
+                    id: product.id,
+                    partial_update: true,
+                    variants: [
+                        ...(product.variants || []),
+                        {
+                            name: "Sweet Peach",
+                            image: "https://res.cloudinary.com/dnlgohkcc/image/upload/v1763740353/peach-cuticile_pd063t.jpg"
+                        }
+                    ]
+                };
+                
+                console.log('Updating with variants:', updateData.variants);
+                
+                const saveResponse = await fetch('https://blom-admin.netlify.app/.netlify/functions/save-product', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updateData),
+                });
+                
+                const saveResult = await saveResponse.json();
+                
+                if (saveResponse.ok && saveResult.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <h3>✅ Success!</h3>
+                            <p>Successfully added "Sweet Peach" variant to Core Acrylics!</p>
+                            <p><strong>Product:</strong> ${product.name}</p>
+                            <p><strong>New Variant:</strong> Sweet Peach</p>
+                            <p><strong>Image:</strong> ${updateData.variants[updateData.variants.length - 1].image}</p>
+                        </div>
+                    `;
+                    console.log('✅ Successfully added variant!');
+                } else {
+                    throw new Error(saveResult.error || 'Failed to update product');
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Error</h3>
+                        <p>${error.message}</p>
+                        <p><em>Check the browser console for more details.</em></p>
+                    </div>
+                `;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

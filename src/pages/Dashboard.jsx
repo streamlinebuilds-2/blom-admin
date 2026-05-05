@@ -1,20 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { api } from "@/components/data/api";
 import {
   Package,
   ShoppingCart,
   Star,
   TrendingUp,
   DollarSign,
-  Users,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Loader2
 } from "lucide-react";
 
-function StatCard({ title, value, subtitle, icon: Icon, trend, trendUp }) {
+function StatCard({ title, value, subtitle, icon: Icon, trend, trendUp, loading }) {
   return (
     <div className="stat-card">
       <div className="stat-header">
@@ -23,7 +22,9 @@ function StatCard({ title, value, subtitle, icon: Icon, trend, trendUp }) {
         </div>
         <div className="stat-info">
           <div className="stat-title">{title}</div>
-          <div className="stat-value">{value}</div>
+          <div className="stat-value">
+            {loading ? <Loader2 className="w-6 h-6 animate-spin text-gray-300" /> : value}
+          </div>
         </div>
       </div>
       {subtitle && <div className="stat-subtitle">{subtitle}</div>}
@@ -53,78 +54,108 @@ function QuickLink({ title, description, url, icon: Icon }) {
 }
 
 export default function Dashboard() {
-  const { data: productsData = [], isLoading: isLoadingProducts } = useQuery({
-    queryKey: ['products'],
-    queryFn: () => api?.listProducts() || [],
-    enabled: !!api,
+  // 1. Fetch Today's Financials (Same logic as Payments Page)
+  const { data: todayStats, isLoading: isLoadingToday } = useQuery({
+    queryKey: ['admin-finance-stats', 'today'],
+    queryFn: async () => {
+      const res = await fetch('/.netlify/functions/admin-finance-stats?period=today');
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+      return json.data;
+    }
   });
 
-  const { data: ordersData = [], isLoading: isLoadingOrders } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => api?.listOrders() || [],
-    enabled: !!api,
+  // 2. Fetch General Analytics (For Total Orders & Top Product)
+  const { data: analyticsData, isLoading: isLoadingAnalytics } = useQuery({
+    queryKey: ['admin-analytics-advanced', '30'],
+    queryFn: async () => {
+      // Fetching last 30 days to get recent top products
+      const res = await fetch('/.netlify/functions/admin-analytics-advanced?period=30');
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+      return json.data;
+    }
   });
 
-  const { data: reviewsData = [], isLoading: isLoadingReviews } = useQuery({
-    queryKey: ['reviews', 'pending'],
-    queryFn: () => api?.listReviews?.('pending') || [],
-    enabled: !!api,
+  // 3. Fetch Recent Products directly from Admin API
+  const { data: productsData, isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['admin-products-recent'],
+    queryFn: async () => {
+      const res = await fetch('/.netlify/functions/admin-products?page=1&pageSize=5');
+      const json = await res.json();
+      return json.data || [];
+    }
   });
 
-  const [financeMetrics, setFinanceMetrics] = useState(null);
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch(`/.netlify/functions/admin-finance-daily?date=${new Date().toISOString().slice(0,10)}`);
-        const j = await r.json();
-        setFinanceMetrics(j.data);
-      } catch (e) {
-        console.error('Failed to load finance metrics:', e);
-      }
-    })();
-  }, []);
-
-  // Ensure arrays
-  const products = Array.isArray(productsData) ? productsData : [];
-  const orders = Array.isArray(ordersData) ? ordersData : [];
-  const reviews = Array.isArray(reviewsData) ? reviewsData : [];
-
-  // Safe calculations
-  const totalSales = (Array.isArray(orders) ? orders : []).reduce((sum, order) => {
-    const total = order?.total_cents ? order.total_cents / 100 : (order?.total || 0);
-    return sum + total;
-  }, 0);
-
-  const todaySales = (Array.isArray(orders) ? orders : []).filter(o => {
-    if (!o) return false;
-    const today = new Date().toDateString();
-    const orderDate = o.placed_at || o.created_at || o.created_date;
-    if (!orderDate) return false;
-    return new Date(orderDate).toDateString() === today;
-  }).reduce((sum, order) => {
-    const total = order?.total_cents ? order.total_cents / 100 : (order?.total || 0);
-    return sum + total;
-  }, 0);
-
-  const topProduct = products.length > 0 ? [...products].sort((a, b) => (b.stock_qty || b.stock || 0) - (a.stock_qty || a.stock || 0))[0] : null;
-
+  // Safe Data Access
+  const todaySales = todayStats?.revenue || 0;
+  const todayProfit = todayStats?.profit || 0;
+  const totalOrders = analyticsData?.summary?.totalOrders || 0; // Orders in last 30 days (active metric)
+  const topProduct = analyticsData?.topProducts?.[0];
+  
   return (
     <>
       <style>{`
+        .dashboard-header {
+          margin-bottom: 32px;
+        }
+
+        .dashboard-title {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 8px;
+        }
+
+        .dashboard-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+
         .dashboard-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 24px;
+          grid-template-columns: 1fr;
+          gap: 16px;
           margin-bottom: 32px;
+        }
+
+        @media (min-width: 640px) {
+          .dashboard-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .dashboard-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+          }
         }
 
         .stat-card {
           background: var(--card);
-          border-radius: 20px;
-          padding: 24px;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+          border-radius: 16px;
+          padding: 20px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           position: relative;
           overflow: hidden;
+        }
+
+        .stat-card.revenue::before {
+          background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        .stat-card.profit::before {
+          background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+
+        .stat-card.orders::before {
+          background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+        }
+
+        .stat-card.product::before {
+          background: linear-gradient(90deg, #f59e0b, #fbbf24);
         }
 
         .stat-card::before {
@@ -134,7 +165,6 @@ export default function Dashboard() {
           left: 0;
           right: 0;
           height: 4px;
-          background: linear-gradient(90deg, var(--accent), var(--accent-2));
         }
 
         .stat-header {
@@ -148,12 +178,12 @@ export default function Dashboard() {
           width: 48px;
           height: 48px;
           border-radius: 12px;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          background: var(--card);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          color: var(--accent);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
         .stat-info {
@@ -161,52 +191,72 @@ export default function Dashboard() {
         }
 
         .stat-title {
-          font-size: 14px;
+          font-size: 13px;
           color: var(--text-muted);
           font-weight: 500;
           margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .stat-value {
-          font-size: 32px;
+          font-size: 24px;
           font-weight: 700;
           color: var(--text);
         }
 
         .stat-subtitle {
-          font-size: 14px;
+          font-size: 13px;
           color: var(--text-muted);
           margin-top: 8px;
         }
 
         .stat-trend {
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 6px;
-          margin-top: 12px;
-          font-size: 14px;
+          gap: 4px;
+          margin-top: 8px;
+          font-size: 12px;
           font-weight: 600;
+          padding: 4px 10px;
+          border-radius: 999px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
         .trend-up {
-          color: #10b981;
+          background: #16a34a20;
+          color: #16a34a;
         }
 
         .trend-down {
-          color: #ef4444;
+          background: #dc262620;
+          color: #dc2626;
         }
 
         .section-title {
           font-size: 20px;
           font-weight: 700;
           color: var(--text);
-          margin-bottom: 20px;
+          margin: 32px 0 20px 0;
         }
 
         .quick-links-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 20px;
+          grid-template-columns: 1fr;
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+
+        @media (min-width: 640px) {
+          .quick-links-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .quick-links-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
         }
 
         .quick-link {
@@ -218,16 +268,12 @@ export default function Dashboard() {
           gap: 16px;
           text-decoration: none;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
-          transition: all 0.3s ease;
+          transition: all 0.2s ease;
         }
 
         .quick-link:hover {
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
           transform: translateY(-2px);
-        }
-
-        .quick-link:active {
-          transform: translateY(0);
+          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
         }
 
         .quick-link-icon {
@@ -240,6 +286,12 @@ export default function Dashboard() {
           justify-content: center;
           color: var(--accent);
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          transition: all 0.2s ease;
+        }
+
+        .quick-link:hover .quick-link-icon {
+          color: var(--accent);
+          transform: scale(1.05);
         }
 
         .quick-link-content {
@@ -250,7 +302,7 @@ export default function Dashboard() {
           font-size: 16px;
           font-weight: 600;
           color: var(--text);
-          margin-bottom: 4px;
+          margin-bottom: 2px;
         }
 
         .quick-link-description {
@@ -260,19 +312,14 @@ export default function Dashboard() {
 
         .quick-link-arrow {
           color: var(--text-muted);
-          transition: transform 0.3s ease;
-        }
-
-        .quick-link:hover .quick-link-arrow {
-          transform: translate(4px, -4px);
         }
 
         .recent-table {
           background: var(--card);
-          border-radius: 20px;
+          border-radius: 16px;
           padding: 24px;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-          margin-top: 32px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          overflow: hidden;
         }
 
         .table-header {
@@ -295,7 +342,18 @@ export default function Dashboard() {
           font-weight: 600;
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 4px;
+          padding: 8px 16px;
+          border-radius: 8px;
+          background: var(--card);
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          transition: all 0.2s ease;
+        }
+
+        .view-all-link:hover {
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          transform: translateY(-1px);
         }
 
         table {
@@ -310,7 +368,6 @@ export default function Dashboard() {
           font-weight: 600;
           color: var(--text-muted);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
           border-bottom: 1px solid var(--border);
         }
 
@@ -318,170 +375,156 @@ export default function Dashboard() {
           padding: 16px 12px;
           color: var(--text);
           border-bottom: 1px solid var(--border);
+          font-size: 14px;
         }
 
         tr:last-child td {
           border-bottom: none;
         }
 
+        tr:hover {
+          background: rgba(110, 193, 255, 0.05);
+        }
+
         .status-badge {
           display: inline-flex;
           padding: 4px 12px;
-          border-radius: 8px;
+          border-radius: 10px;
           font-size: 12px;
           font-weight: 600;
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
         .status-active {
-          background: #10b98120;
-          color: #10b981;
+          background: #16a34a20;
+          color: #16a34a;
         }
 
-        .status-draft {
-          background: #f59e0b20;
-          color: #f59e0b;
-        }
-
-        .status-pending {
-          background: #3b82f620;
-          color: #3b82f6;
+        .status-archived {
+          background: #6b728020;
+          color: #6b7280;
         }
       `}</style>
 
-      <div className="dashboard-grid">
-        <StatCard
-          title="Today's Sales"
-          value={`R${(todaySales / 100).toFixed(2)}`}
-          subtitle="24 hour period"
-          icon={DollarSign}
-          trend="+12.5%"
-          trendUp={true}
-        />
-        
-        <StatCard
-          title="Total Orders"
-          value={orders.length}
-          subtitle="Lifetime"
-          icon={ShoppingCart}
-          trend="+8.2%"
-          trendUp={true}
-        />
-        
-        <StatCard
-          title="Top Product"
-          value={topProduct?.name || 'No products'}
-          subtitle={topProduct ? `${topProduct.stock} in stock` : ''}
-          icon={Package}
-        />
-        
-        <StatCard
-          title="Pending Reviews"
-          value={reviews.length}
-          subtitle="Awaiting moderation"
-          icon={Star}
-        />
+      <div className="dashboard-header">
+        <h1 className="dashboard-title">Dashboard</h1>
+        <p className="dashboard-subtitle">Overview of your business performance</p>
       </div>
 
-      {/* Analytics Section */}
-      {financeMetrics && (
-        <>
-          <div className="section-title">Analytics</div>
-          <div className="dashboard-grid">
-            <StatCard
-              title="Today's Revenue"
-              value={`R${(financeMetrics.revenue || 0).toFixed(2)}`}
-              subtitle="From paid orders"
-              icon={DollarSign}
-            />
-            <StatCard
-              title="Today's Expenses"
-              value={`R${(financeMetrics.expenses || 0).toFixed(2)}`}
-              subtitle="Operating costs"
-              icon={TrendingUp}
-            />
-            <StatCard
-              title="Today's Profit"
-              value={`R${(financeMetrics.profit || 0).toFixed(2)}`}
-              subtitle="Revenue - Expenses"
-              icon={TrendingUp}
-              trend={financeMetrics.profit >= 0 ? "positive" : "negative"}
-              trendUp={financeMetrics.profit >= 0}
-            />
-          </div>
-        </>
-      )}
+      <div className="dashboard-grid">
+        <div className="stat-card revenue">
+          <StatCard
+            title="Today's Sales"
+            value={`R${(todaySales / 100).toFixed(2)}`}
+            subtitle="Net Revenue"
+            icon={DollarSign}
+            trend={todaySales > 0 ? "Active" : "No Sales"}
+            trendUp={todaySales > 0}
+            loading={isLoadingToday}
+          />
+        </div>
+        
+        <div className="stat-card profit">
+          <StatCard
+            title="Today's Profit"
+            value={`R${(todayProfit / 100).toFixed(2)}`}
+            subtitle="After Est. Costs"
+            icon={TrendingUp}
+            trend={todayProfit > 0 ? "Positive" : "-"}
+            trendUp={todayProfit > 0}
+            loading={isLoadingToday}
+          />
+        </div>
+        
+        <div className="stat-card orders">
+          <StatCard
+            title="Orders (30 Days)"
+            value={totalOrders}
+            subtitle="Monthly Volume"
+            icon={ShoppingCart}
+            loading={isLoadingAnalytics}
+          />
+        </div>
+        
+        <div className="stat-card product">
+          <StatCard
+            title="Top Product"
+            value={topProduct ? topProduct.name : 'N/A'}
+            subtitle={topProduct ? `${topProduct.totalUnitsSold} sold` : 'No data'}
+            icon={Package}
+            loading={isLoadingAnalytics}
+          />
+        </div>
+      </div>
 
       <div className="section-title">Quick Actions</div>
       <div className="quick-links-grid">
         <QuickLink
-          title="Add Product"
-          description="Create a new product listing"
-          url="ProductCreate"
-          icon={Package}
-        />
-        
-        <QuickLink
           title="View Orders"
-          description="Manage customer orders"
+          description="Manage recent orders"
           url="Orders"
           icon={ShoppingCart}
         />
-        
         <QuickLink
-          title="Moderate Reviews"
-          description="Approve or reject reviews"
-          url="Reviews"
-          icon={Star}
+          title="Products"
+          description="Manage inventory"
+          url="Products"
+          icon={Package}
         />
-        
         <QuickLink
-          title="Check Stock"
-          description="Monitor inventory levels"
+          title="View Reports"
+          description="View reports"
+          url="Analytics"
+          icon={DollarSign}
+        />
+        <QuickLink
+          title="Stock"
+          description="Manual adjustments"
           url="Stock"
           icon={TrendingUp}
         />
-        
-        <QuickLink
-          title="Finance"
-          description="View financial reports and metrics"
-          url="finance"
-          icon={DollarSign}
-        />
       </div>
 
+      <div className="section-title">Recent Products</div>
       <div className="recent-table">
         <div className="table-header">
-          <div className="table-title">Recent Products</div>
+          <div className="table-title">Latest Inventory</div>
           <Link to={createPageUrl("Products")} className="view-all-link">
             View All <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Status</th>
-              <th>Price</th>
-              <th>Stock</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.slice(0, 5).map(product => (
-              <tr key={product.id}>
-                <td>{product.name}</td>
-                <td>
-                  <span className={`status-badge status-${product.status}`}>
-                    {product.status}
-                  </span>
-                </td>
-                <td>R{((product.price_cents || product.price || 0) / 100).toFixed(2)}</td>
-                <td>{product.stock_qty || product.stock || 0}</td>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Status</th>
+                <th>Price</th>
+                <th>Stock</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {isLoadingProducts ? (
+                <tr><td colSpan="4" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading products...</td></tr>
+              ) : productsData.map(product => (
+                <tr key={product.id}>
+                  <td className="font-medium">{product.name}</td>
+                  <td>
+                    <span className={`status-badge status-${product.status}`}>
+                      {product.status}
+                    </span>
+                  </td>
+                  <td>R{((product.price_cents || 0) / 100).toFixed(2)}</td>
+                  <td>{product.stock_qty || 0}</td>
+                </tr>
+              ))}
+              {!isLoadingProducts && productsData.length === 0 && (
+                <tr><td colSpan="4" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>No products found</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );
