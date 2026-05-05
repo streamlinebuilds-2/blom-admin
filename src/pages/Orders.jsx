@@ -10,23 +10,8 @@ export default function Orders() {
   const navigate = useNavigate();
   const { markAsRead } = useNotifications();
 
-  const { data: ordersResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['orders'],
-    queryFn: async () => {
-      console.log('🔄 Fetching orders from API...');
-      const res = await fetch('/.netlify/functions/admin-orders');
-      if (!res.ok) throw new Error('Failed to fetch orders');
-      const json = await res.json();
-
-      if (!json.ok) throw new Error(json.error || 'Failed to load orders');
-      console.log('✅ Orders fetched:', json.data?.length || 0, 'orders');
-      return json.data || [];
-    },
-    staleTime: 0, // Always refetch
-    cacheTime: 0, // Don't cache
-    refetchOnWindowFocus: true,
-    refetchOnMount: true
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -37,6 +22,25 @@ export default function Orders() {
     search: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+
+  const { data: ordersResponse, isLoading, error, refetch } = useQuery({
+    queryKey: ['orders', currentPage, filters.status, filters.search, filters.fulfillmentType],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: currentPage, size: PAGE_SIZE });
+      if (filters.status) params.set('status', filters.status);
+      if (filters.search) params.set('search', filters.search);
+      if (filters.fulfillmentType) params.set('fulfillment', filters.fulfillmentType);
+      const res = await fetch(`/.netlify/functions/admin-orders?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Failed to load orders');
+      return json;
+    },
+    staleTime: 0,
+    cacheTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
+  });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, order: null });
 
   const [backfill, setBackfill] = useState({
@@ -49,7 +53,8 @@ export default function Orders() {
   const [regeneratingId, setRegeneratingId] = useState(null);
   const [invoiceToolsEnabled, setInvoiceToolsEnabled] = useState(() => localStorage.getItem('blom_invoice_tools') === '1');
 
-  const orders = ordersResponse || [];
+  const orders = ordersResponse?.data || [];
+  const totalCount = ordersResponse?.count || 0;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -226,13 +231,10 @@ export default function Orders() {
     }
   };
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
-
-  // Reset page when filters change
+  // Reset page when server-side filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters.dateFrom, filters.dateTo, filters.fulfillmentType, filters.status, filters.search]);
+  }, [filters.status, filters.search, filters.fulfillmentType]);
 
   // Clear filters
   const clearFilters = () => {
@@ -245,10 +247,9 @@ export default function Orders() {
     });
   };
 
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
+  // Server-side pagination
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedOrders = filteredOrders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Get unique statuses and fulfillment types for filter options
   const uniqueStatuses = [...new Set(orders.map(order => order.status).filter(Boolean))];
@@ -1049,7 +1050,7 @@ export default function Orders() {
         
         <div className="filter-actions">
           <div className="results-count">
-            Showing {filteredOrders.length} of {orders.length} orders
+            Page {safePage} of {totalPages} — {totalCount} orders total
           </div>
         </div>
       </div>
@@ -1079,7 +1080,7 @@ export default function Orders() {
                   {orders.length === 0 ? 'No orders found.' : 'No orders match your current filters.'}
                 </td></tr>
               ) : (
-                paginatedOrders.map((order) => (
+                filteredOrders.map((order) => (
                   <tr key={order.id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>
                       {order.order_number || order.short_code || order.m_payment_id?.slice(0, 12)}
