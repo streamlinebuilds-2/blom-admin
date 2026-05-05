@@ -57,7 +57,7 @@ const initialFormState = {
   price: "",
   compare_at_price: "",
   cost_price: "",
-  inventory_quantity: "100",
+  isInStock: true,
   weight: "",
   short_description: "",
   overview: "",
@@ -402,7 +402,7 @@ export default function ProductEdit() {
             price: product.price?.toString() || (product.price_cents ? (product.price_cents / 100).toString() : ''),
             compare_at_price: product.compare_at_price?.toString() || (product.compare_at_price_cents ? (product.compare_at_price_cents / 100).toString() : ''),
             cost_price: product.cost_price_cents ? (product.cost_price_cents / 100).toFixed(2) : '',
-            inventory_quantity: (product.inventory_quantity || product.stock || product.stock_on_hand || product.stock_qty || 0).toString(),
+            isInStock: !product.out_of_stock && ((product.inventory_quantity || product.stock || product.stock_on_hand || product.stock_qty || 0) > 0 || product.out_of_stock === false),
             weight: product.weight?.toString() || '',
             short_description: product.short_description || product.short_desc || '',
             overview: product.overview || product.long_description || product.description || '',
@@ -777,12 +777,6 @@ export default function ProductEdit() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [form.compare_at_price]);
 
-  const inventoryQuantityNumber = useMemo(() => {
-    if (form.inventory_quantity === "" || form.inventory_quantity === null || form.inventory_quantity === undefined) return null;
-    const parsed = Number(form.inventory_quantity);
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [form.inventory_quantity]);
-
   const weightNumber = useMemo(() => {
     if (form.weight === "" || form.weight === null || form.weight === undefined) return null;
     const parsed = parseFloat(form.weight);
@@ -853,7 +847,7 @@ export default function ProductEdit() {
     [form.gallery_urls]
   );
 
-  const inStock = useMemo(() => inventoryQuantityNumber > 0, [inventoryQuantityNumber]);
+  const inStock = form.isInStock;
 
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
@@ -891,10 +885,10 @@ export default function ProductEdit() {
       compare_at_price_cents: compareAtNumber ? Math.round(compareAtNumber * 100) : undefined,
       short_desc: form.short_description || "",
       images: previewImages,
-      stock_qty: form.status !== "archived" && inStock ? inventoryQuantityNumber : 0,
+      stock_qty: form.status !== "archived" && inStock ? 100 : 0,
       badges,
     }),
-    [badges, form.id, form.name, form.short_description, form.slug, form.status, inStock, inventoryQuantityNumber, previewImages, priceNumber, compareAtNumber]
+    [badges, form.id, form.name, form.short_description, form.slug, form.status, inStock, previewImages, priceNumber, compareAtNumber]
   );
 
   const pageModel = useMemo(
@@ -970,10 +964,6 @@ export default function ProductEdit() {
       nextErrors.price = "Price must be greater than 0";
     }
 
-    if (inventoryQuantityNumber != null && inventoryQuantityNumber < 0) {
-      nextErrors.inventory_quantity = "Inventory must be zero or greater";
-    }
-
     // Images are now optional - no validation required
     // Users can add images later if needed for display
 
@@ -1012,7 +1002,9 @@ export default function ProductEdit() {
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
       cost_price_cents: form.cost_price ? Math.round(parseFloat(form.cost_price) * 100) : 0,
-      inventory_quantity: inventoryQuantityNumber != null ? inventoryQuantityNumber : 100,
+      out_of_stock: !form.isInStock,
+      stock: form.isInStock ? 100 : 0,
+      inventory_quantity: form.isInStock ? 100 : 0,
       weight: weightNumber,
       barcode: barcode,
       short_description: form.short_description,
@@ -1735,23 +1727,33 @@ export default function ProductEdit() {
                 />
                 <small className="text-xs text-[var(--text-muted)]">What you pay for the product</small>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="inventory_quantity">
-                  Inventory Quantity
-                </label>
-                <input
-                  id="inventory_quantity"
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="product-form-input"
-                  value={form.inventory_quantity}
-                  onChange={(event) => update("inventory_quantity", event.target.value)}
-                  placeholder="25"
-                />
-                {errors.inventory_quantity ? (
-                  <p className="text-xs text-red-500">{errors.inventory_quantity}</p>
-                ) : null}
+              <div className="space-y-1" style={{ gridColumn: '1 / -1' }}>
+                <label className="text-sm font-semibold text-[var(--text)]">Stock Status</label>
+                <button
+                  type="button"
+                  onClick={() => update('isInStock', !form.isInStock)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '12px 20px', borderRadius: '10px', width: '100%', textAlign: 'left',
+                    border: `2px solid ${form.isInStock ? '#10b981' : '#ef4444'}`,
+                    background: form.isInStock ? '#f0fdf4' : '#fef2f2', cursor: 'pointer',
+                  }}
+                >
+                  <span style={{
+                    width: '12px', height: '12px', borderRadius: '50%', flexShrink: 0,
+                    background: form.isInStock ? '#10b981' : '#ef4444',
+                  }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px', color: form.isInStock ? '#059669' : '#dc2626' }}>
+                      {form.isInStock ? 'In Stock' : 'Out of Stock'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                      {form.isInStock
+                        ? 'Customers can add this product to cart. Click to mark as Out of Stock.'
+                        : 'Add to Cart is disabled on the website. Click to mark as In Stock.'}
+                    </div>
+                  </div>
+                </button>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-[var(--text)]" htmlFor="weight">
