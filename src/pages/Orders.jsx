@@ -340,27 +340,25 @@ export default function Orders() {
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            className="pagination-btn"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={safePage <= 1}
-          >
-            ← Previous
-          </button>
-          <span className="pagination-info">
-            Page {safePage} of {totalPages}
-          </span>
-          <button
-            className="pagination-btn"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={safePage >= totalPages}
-          >
-            Next →
-          </button>
-        </div>
-      )}
+      <div className="pagination">
+        <button
+          className="pagination-btn"
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          disabled={safePage <= 1}
+        >
+          ← Previous
+        </button>
+        <span className="pagination-info">
+          Page {safePage} of {totalPages}
+        </span>
+        <button
+          className="pagination-btn"
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          disabled={safePage >= totalPages}
+        >
+          Next →
+        </button>
+      </div>
     </>
   );
 }
