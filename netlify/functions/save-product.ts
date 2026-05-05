@@ -324,6 +324,7 @@ export const handler: Handler = async (event) => {
       stock: out_of_stock ? 0 : stock,
       stock_on_hand: out_of_stock ? 0 : stock,
       stock_qty: out_of_stock ? 0 : stock,
+      inventory_quantity: out_of_stock ? 0 : stock,
       // descriptions
       short_description: body.short_description ?? null,
       overview: body.overview ?? null,
