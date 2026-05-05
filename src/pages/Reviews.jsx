@@ -1,32 +1,88 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { api } from "../components/data/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star, Check, X } from "lucide-react";
+import { Star, Check, X, Trash2 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
+import { useNotifications } from "../contexts/NotificationContext";
 
 export default function Reviews() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const { showToast } = useToast();
+  const { markAsRead } = useNotifications();
   const queryClient = useQueryClient();
 
   const { data: reviews = [], isLoading, error } = useQuery({
     queryKey: ['reviews', statusFilter],
-    queryFn: () => api.listReviews(statusFilter === 'all' ? null : statusFilter),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      params.set('limit', '100');
+
+      const response = await fetch(`/.netlify/functions/admin-reviews?${params}`);
+      if (!response.ok) throw new Error('Failed to load reviews');
+      const json = await response.json();
+      return json.data || [];
+    },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, patch }) => api.updateReview(id, patch),
+    mutationFn: async ({ id, status }) => {
+      const response = await fetch('/.netlify/functions/admin-review-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to update review');
+      }
+
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       showToast('success', 'Review updated');
     },
     onError: (error) => {
+      console.error('Update error:', error);
       showToast('error', error.message || 'Failed to update review');
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const response = await fetch('/.netlify/functions/delete-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.error || 'Failed to delete review');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      showToast('success', 'Review permanently deleted');
+    },
+    onError: (error) => {
+      console.error('Delete error:', error);
+      showToast('error', error.message || 'Failed to delete review');
+    },
+  });
+
+  const handleDelete = (review) => {
+    if (window.confirm(`Are you sure you want to permanently delete this review by ${review.name || review.reviewer_name}? This action cannot be undone.`)) {
+      deleteMutation.mutate(review.id);
+    }
+  };
 
   const renderStars = (rating) => {
     return (
@@ -53,35 +109,62 @@ export default function Reviews() {
     <>
       <style>{`
         .reviews-header {
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+        }
+
+        @media (min-width: 768px) {
+          .reviews-header {
+            margin-bottom: 32px;
+          }
         }
 
         .reviews-title {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--text);
           margin-bottom: 8px;
         }
 
+        @media (min-width: 768px) {
+          .reviews-title {
+            font-size: 28px;
+          }
+        }
+
         .filter-tabs {
           display: flex;
-          gap: 12px;
-          margin-bottom: 24px;
+          gap: 8px;
+          margin-bottom: 16px;
           flex-wrap: wrap;
         }
 
+        @media (min-width: 768px) {
+          .filter-tabs {
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+        }
+
         .filter-tab {
-          padding: 10px 20px;
+          padding: 8px 16px;
           border-radius: 10px;
           border: none;
           background: var(--card);
           color: var(--text-muted);
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
           box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
           transition: all 0.2s;
           position: relative;
+          min-height: 44px;
+        }
+
+        @media (min-width: 768px) {
+          .filter-tab {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
         }
 
         .filter-tab.active {
@@ -108,23 +191,33 @@ export default function Reviews() {
 
         .table-container {
           overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 700px;
         }
 
         th {
           text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
+          padding: 16px 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           border-bottom: 2px solid var(--border);
           background: var(--card);
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 20px 24px;
+            font-size: 12px;
+          }
         }
 
         td {
@@ -193,6 +286,11 @@ export default function Reviews() {
           color: #ef4444;
         }
 
+        .btn-delete {
+          background: #dc262620;
+          color: #dc2626;
+        }
+
         .btn-action:hover {
           transform: translateY(-1px);
         }
@@ -218,7 +316,23 @@ export default function Reviews() {
       {error && <Banner type="error">{error.message || 'Failed to load reviews'}</Banner>}
 
       <div className="reviews-header">
-        <h1 className="reviews-title">Reviews</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 className="reviews-title">Reviews</h1>
+          <button
+              onClick={() => markAsRead('reviews')}
+              style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'var(--card)',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  boxShadow: '2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light)'
+              }}
+          >
+              Mark all read
+          </button>
+        </div>
       </div>
 
       <div className="filter-tabs">
@@ -281,10 +395,10 @@ export default function Reviews() {
                     }}
                   >
                     <td>
-                      <div className="product-name">{review.product_name || 'Unknown Product'}</div>
+                      <div className="product-name">{review.product_slug || 'Unknown Product'}</div>
                     </td>
                     <td>
-                      <div className="author-name">{review.author_name}</div>
+                      <div className="author-name">{review.name || review.reviewer_name}</div>
                     </td>
                     <td>
                       {renderStars(review.rating)}
@@ -292,7 +406,7 @@ export default function Reviews() {
                     <td>
                       <div className="review-snippet">
                         {review.title && <strong>{review.title} — </strong>}
-                        {review.body}
+                        {review.body || review.comment}
                       </div>
                     </td>
                     <td style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
@@ -303,8 +417,8 @@ export default function Reviews() {
                         {review.status !== 'approved' && (
                           <button
                             className="btn-action btn-approve"
-                            onClick={() => updateMutation.mutate({ id: review.id, patch: { status: 'approved' } })}
-                            disabled={updateMutation.isPending}
+                            onClick={() => updateMutation.mutate({ id: review.id, status: 'approved' })}
+                            disabled={updateMutation.isPending || deleteMutation.isPending}
                           >
                             <Check className="w-4 h-4" />
                             Approve
@@ -313,11 +427,21 @@ export default function Reviews() {
                         {review.status !== 'rejected' && (
                           <button
                             className="btn-action btn-reject"
-                            onClick={() => updateMutation.mutate({ id: review.id, patch: { status: 'rejected' } })}
-                            disabled={updateMutation.isPending}
+                            onClick={() => updateMutation.mutate({ id: review.id, status: 'rejected' })}
+                            disabled={updateMutation.isPending || deleteMutation.isPending}
                           >
                             <X className="w-4 h-4" />
                             Reject
+                          </button>
+                        )}
+                        {review.status === 'rejected' && (
+                          <button
+                            className="btn-action btn-delete"
+                            onClick={() => handleDelete(review)}
+                            disabled={updateMutation.isPending || deleteMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
                           </button>
                         )}
                       </div>

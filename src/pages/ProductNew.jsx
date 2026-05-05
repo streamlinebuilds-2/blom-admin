@@ -1,10 +1,36 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ProductCard } from "../../ProductCard";
+import { ArrowLeft } from "lucide-react";
+import ProductCard from "../components/ProductCard";
 import { ProductPageTemplate } from "../../ProductPageTemplate";
 import { useToast } from "../components/ui/ToastProvider";
+import { supabase } from "../components/supabaseClient";
+import { uploadToCloudinary } from "../lib/cloudinary";
 
-const PRODUCTS_WORKFLOW_URL = import.meta.env.VITE_PRODUCTS_WEBHOOK || "";
+const CATEGORY_OPTIONS = [
+  { key: 'acrylic-system|core-acrylics', category: 'acrylic-system', tags: ['core-acrylics'], label: 'Acrylic System - Core Acrylics' },
+  { key: 'acrylic-system|coloured-acrylics', category: 'acrylic-system', tags: ['coloured-acrylics'], label: 'Acrylic System - Coloured Acrylics' },
+  { key: 'bundle-deals', category: 'bundle-deals', tags: [], label: 'Bundle Deals' },
+  { key: 'prep-finishing', category: 'prep-finishing', tags: [], label: 'Prep & Finish' },
+  { key: 'gel-system', category: 'gel-system', tags: [], label: 'Gel System' },
+  { key: 'tools-essentials', category: 'tools-essentials', tags: [], label: 'Tools & Essentials' },
+  { key: 'furniture', category: 'furniture', tags: [], label: 'Furniture' },
+  { key: 'courses', category: 'courses', tags: [], label: 'Courses' },
+  { key: 'workshops', category: 'workshops', tags: [], label: 'Workshops' },
+  { key: 'coming-soon', category: 'coming-soon', tags: [], label: 'Coming Soon' },
+];
+
+// Helper function to determine stock type based on category
+const getStockTypeFromCategory = (category) => {
+  const cat = (category || '').toLowerCase();
+  if (cat.includes('course') || cat.includes('workshop') || cat.includes('training')) {
+    return 'unlimited';
+  }
+  if (cat.includes('furniture')) {
+    return 'made_on_demand';
+  }
+  return 'tracked';
+};
 
 const slugify = (value) =>
   value
@@ -14,23 +40,31 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+const generateSKU = (category) => {
+  const prefix = category?.substring(0, 3).toUpperCase() || 'PRD';
+  const timestamp = Date.now().toString().slice(-6);
+  return `${prefix}-${timestamp}`;
+};
+
+const generateBarcode = () => {
+  return `BC${Date.now()}${Math.floor(Math.random() * 1000)}`;
+};
+
 const initialFormState = {
   name: "",
-  slug: "",
-  sku: "",
   category: "",
+  tags: [],
   price: "",
   compare_at_price: "",
-  inventory_quantity: "0",
-  track_inventory: true,
+  cost_price: "",
+  inventory_quantity: "100",
   weight: "",
-  barcode: "",
   short_description: "",
   overview: "",
   thumbnail_url: "",
   hover_url: "",
   gallery_urls: [""],
-  variants: [""],
+  variants: [{ name: "", image: "", price_cents: null }],
   features: [""],
   how_to_use: [""],
   inci_ingredients: [""],
@@ -38,18 +72,47 @@ const initialFormState = {
   size: "",
   shelf_life: "",
   claims: [""],
-  meta_title: "",
-  meta_description: "",
-  is_active: true,
-  is_featured: false,
-  status: "draft",
+  status: "active",
   badges: [""],
-  related: [""],
+  related: [],
 };
 
 const ensureList = (value) => {
   if (Array.isArray(value) && value.length > 0) return value;
   return [""];
+};
+
+// Helper function to validate image URLs
+const isValidImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  
+  // Check if it's a valid URL format
+  try {
+    new URL(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Helper function to determine if an image is from Cloudinary
+const isCloudinaryImage = (url) => {
+  return url && typeof url === 'string' && url.includes('res.cloudinary.com');
+};
+
+// Helper function to clean and validate image URLs before saving
+const sanitizeImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  
+  // Only return URLs that are valid
+  if (isValidImageUrl(trimmed)) {
+    return trimmed;
+  }
+  return '';
 };
 
 export default function ProductNew() {
@@ -60,16 +123,59 @@ export default function ProductNew() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [previewTab, setPreviewTab] = useState("card");
+  const [viewMode, setViewMode] = useState("desktop");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [allProducts, setAllProducts] = useState([]);
+  const [dynamicCategories, setDynamicCategories] = useState([]);
+  const [fullscreenPreview, setFullscreenPreview] = useState(false);
+  
+  // Track which variants are being edited
+  const [editingVariantPrice, setEditingVariantPrice] = useState({});
+
+  const handleVariantImageUpload = async (index, file) => {
+    if (!file) return;
+
+    try {
+      showToast('info', 'Uploading variant image...');
+      const { original } = await uploadToCloudinary(file);
+      const updated = typeof current === "string"
+        ? { name: current, image: original }
+        : { ...current, image: original };
+
+      updateArr("variants", index, updated);
+      showToast('success', 'Variant image uploaded');
+    } catch (error) {
+      showToast('error', 'Image upload failed');
+      console.error('Variant image upload error:', error);
+    }
+  };
 
   useEffect(() => {
-    setForm((previous) => {
-      if (!previous.name || previous.slug) return previous;
-      const nextSlug = slugify(previous.name);
-      if (previous.slug === nextSlug) return previous;
-      return { ...previous, slug: nextSlug };
-    });
-  }, [form.name]);
+    async function loadProducts() {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      setAllProducts(data || []);
+    }
+    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    async function loadCategories() {
+      const { data } = await supabase
+        .from('products')
+        .select('category')
+        .not('category', 'is', null);
+      const known = new Set(CATEGORY_OPTIONS.map(o => o.category));
+      const custom = [...new Set((data || []).map(p => p.category).filter(Boolean))]
+        .filter(cat => !known.has(cat));
+      setDynamicCategories(custom);
+    }
+    loadCategories();
+  }, []);
 
   const update = (field, value) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -94,7 +200,13 @@ export default function ProductNew() {
   const addRow = (field) => {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
-      next.push("");
+      if (field === "variants") {
+        next.push({ name: "", image: "", price_cents: null });
+      } else if (field === "related") {
+        next.push("");
+      } else {
+        next.push("");
+      }
       return { ...previous, [field]: next };
     });
   };
@@ -103,8 +215,222 @@ export default function ProductNew() {
     setForm((previous) => {
       const next = getArrayFromPrevious(previous, field);
       next.splice(index, 1);
+      if (field === "variants") {
+        return { ...previous, [field]: next.length ? next : [{ name: "", image: "", price_cents: null }] };
+      } else if (field === "related") {
+        return { ...previous, [field]: next.length ? next : [] };
+      }
       return { ...previous, [field]: next.length ? next : [""] };
     });
+  };
+
+  const moveVariant = (field, index, direction) => {
+    setForm((previous) => {
+      const next = getArrayFromPrevious(previous, field);
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      
+      // Check bounds
+      if (targetIndex < 0 || targetIndex >= next.length) {
+        return previous;
+      }
+      
+      // Swap positions
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      
+      return { ...previous, [field]: next };
+    });
+  };
+
+  const updateVariantPrice = (index, priceCents) => {
+    setForm((previous) => {
+      const next = [...previous.variants];
+      
+      // Ensure the array is large enough
+      if (index >= next.length) {
+        // Fill array with empty variants up to the index
+        while (next.length <= index) {
+          next.push({ name: "", image: "", price_cents: null });
+        }
+      }
+      
+      const current = next[index];
+      
+      // Handle undefined or null current variant
+      if (!current) {
+        const newVariant = { name: "", image: "", price_cents: priceCents };
+        next[index] = newVariant;
+      } else if (typeof current === "string") {
+        const updated = { name: current, image: "", price_cents: priceCents };
+        next[index] = updated;
+      } else {
+        const updated = { ...current, price_cents: priceCents };
+        next[index] = updated;
+      }
+      
+      return { ...previous, variants: next };
+    });
+  };
+
+  const getVariantDisplayPrice = (variant) => {
+    // Add robust null/undefined check
+    if (!variant || typeof variant !== 'object') {
+      return `R${(parseFloat(form.price || 0)).toFixed(2)} (Default)`;
+    }
+    // Safely access price_cents with fallback
+    const priceCents = variant.price_cents ?? null;
+    if (priceCents && priceCents > 0) {
+      return `R${(priceCents / 100).toFixed(2)}`;
+    }
+    return `R${(parseFloat(form.price || 0)).toFixed(2)} (Default)`;
+  };
+
+  const hasCustomPrice = (variant) => {
+    // Add robust null/undefined check
+    if (!variant || typeof variant !== 'object') {
+      return false;
+    }
+    // Safely access price_cents with fallback
+    const priceCents = variant.price_cents ?? null;
+    return priceCents && priceCents > 0;
+  };
+
+  const startEditingVariantPrice = (index) => {
+    setEditingVariantPrice(prev => ({ ...prev, [index]: true }));
+  };
+
+  const cancelEditingVariantPrice = (index) => {
+    setEditingVariantPrice(prev => ({ ...prev, [index]: false }));
+  };
+
+  const saveVariantPrice = (index, priceValue) => {
+    const priceNumber = parseFloat(priceValue);
+    if (Number.isFinite(priceNumber) && priceNumber >= 0) {
+      const priceCents = Math.round(priceNumber * 100);
+      updateVariantPrice(index, priceCents);
+      cancelEditingVariantPrice(index);
+      showToast('success', `Variant ${index + 1} price updated to R${priceNumber.toFixed(2)}`);
+    } else {
+      showToast('error', 'Please enter a valid price');
+    }
+  };
+
+  const resetToDefaultPrice = (index) => {
+    updateVariantPrice(index, null);
+    cancelEditingVariantPrice(index);
+    showToast('success', `Variant ${index + 1} price reset to default`);
+  };
+
+  const getVariantPriceInput = (index) => {
+    // Add bounds checking to prevent undefined access
+    if (index < 0 || index >= variants.length) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="variant-price-display variant-price-default">
+            R{(parseFloat(form.price || 0)).toFixed(2)} (Default)
+          </span>
+        </div>
+      );
+    }
+    
+    const variant = variants[index];
+    const isEditing = editingVariantPrice[index];
+    
+    // Additional safety check for undefined variant
+    if (!variant || typeof variant !== 'object') {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="variant-price-display variant-price-default">
+            R{(parseFloat(form.price || 0)).toFixed(2)} (Default)
+          </span>
+          <button
+            type="button"
+            onClick={() => startEditingVariantPrice(index)}
+            className="product-btn-secondary"
+            style={{ padding: '4px 8px', fontSize: '11px' }}
+            title="Set custom price"
+          >
+            ✏️ Custom
+          </button>
+        </div>
+      );
+    }
+    
+    const currentPrice = hasCustomPrice(variant) 
+      ? (variant.price_cents / 100).toFixed(2)
+      : (parseFloat(form.price || 0)).toFixed(2);
+    
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            defaultValue={currentPrice}
+            className="price-edit-input"
+            placeholder="0.00"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                saveVariantPrice(index, e.target.value);
+              } else if (e.key === 'Escape') {
+                cancelEditingVariantPrice(index);
+              }
+            }}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              const input = e.target.parentElement.querySelector('input');
+              saveVariantPrice(index, input.value);
+            }}
+            className="product-btn-secondary"
+            style={{ padding: '6px 10px', fontSize: '12px' }}
+          >
+            ✓ Save
+          </button>
+          <button
+            type="button"
+            onClick={() => cancelEditingVariantPrice(index)}
+            className="product-btn-secondary"
+            style={{ padding: '6px 10px', fontSize: '12px' }}
+          >
+            ✕ Cancel
+          </button>
+          {hasCustomPrice(variant) && (
+            <button
+              type="button"
+              onClick={() => resetToDefaultPrice(index)}
+              className="product-btn-secondary"
+              style={{ padding: '6px 10px', fontSize: '12px', background: 'var(--accent)', color: 'white' }}
+            >
+              🎯 Default
+            </button>
+          )}
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center gap-2">
+        <span 
+          className={`variant-price-display ${hasCustomPrice(variant) ? 'variant-price-custom' : 'variant-price-default'}`}
+        >
+          {getVariantDisplayPrice(variant)}
+        </span>
+        <button
+          type="button"
+          onClick={() => startEditingVariantPrice(index)}
+          className="product-btn-secondary"
+          style={{ padding: '4px 8px', fontSize: '11px' }}
+          title={hasCustomPrice(variant) ? 'Edit custom price' : 'Set custom price'}
+        >
+          ✏️ {hasCustomPrice(variant) ? 'Edit' : 'Custom'}
+        </button>
+      </div>
+    );
   };
 
   const priceNumber = useMemo(() => {
@@ -118,8 +444,9 @@ export default function ProductNew() {
   }, [form.compare_at_price]);
 
   const inventoryQuantityNumber = useMemo(() => {
+    if (form.inventory_quantity === "" || form.inventory_quantity === null || form.inventory_quantity === undefined) return null;
     const parsed = Number(form.inventory_quantity);
-    return Number.isFinite(parsed) ? parsed : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : null;
   }, [form.inventory_quantity]);
 
   const weightNumber = useMemo(() => {
@@ -127,11 +454,6 @@ export default function ProductNew() {
     const parsed = parseFloat(form.weight);
     return Number.isFinite(parsed) ? parsed : null;
   }, [form.weight]);
-
-  const galleryUrls = useMemo(
-    () => ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean),
-    [form.gallery_urls]
-  );
 
   const badges = useMemo(
     () => ensureList(form.badges).map((item) => item.trim()).filter(Boolean),
@@ -144,14 +466,33 @@ export default function ProductNew() {
   );
 
   const related = useMemo(
-    () => ensureList(form.related).map((item) => item.trim()).filter(Boolean),
+    () => Array.isArray(form.related) ? form.related.filter(Boolean) : [],
     [form.related]
   );
 
-  const variants = useMemo(
-    () => ensureList(form.variants).map((item) => item.trim()).filter(Boolean),
-    [form.variants]
-  );
+  const variants = useMemo(() => {
+    const list = ensureList(form.variants);
+    return list
+      .map((item) => {
+        if (typeof item === "string") {
+          return item.trim() ? { name: item.trim(), image: "", price_cents: null } : null;
+        }
+        // Allow variants that have at least a name (image and price are optional)
+        const name = item?.name?.trim() || "";
+        const image = item?.image?.trim() || "";
+        const price_cents = item?.price_cents ?? null;
+        
+        // Only filter out completely empty variants (no name AND no image AND no price)
+        if (!name && !image && price_cents === null) return null;
+        
+        return {
+          name: name,
+          image: image,
+          price_cents: price_cents
+        };
+      })
+      .filter(Boolean);
+  }, [form.variants]);
 
   const features = useMemo(
     () => ensureList(form.features).map((item) => item.trim()).filter(Boolean),
@@ -173,17 +514,26 @@ export default function ProductNew() {
     [form.key_ingredients]
   );
 
+  const galleryUrls = useMemo(
+    () => ensureList(form.gallery_urls).map((url) => url.trim()).filter(Boolean),
+    [form.gallery_urls]
+  );
+
   const inStock = useMemo(() => inventoryQuantityNumber > 0, [inventoryQuantityNumber]);
 
   const images = useMemo(() => {
     const primary = form.thumbnail_url?.trim();
+    // Only include hover image if it's different from primary
     const hover = form.hover_url?.trim();
-    const list = [primary, hover, ...galleryUrls].filter(Boolean);
-    return list;
-  }, [form.thumbnail_url, form.hover_url, galleryUrls]);
+    
+    // We only want the main image in the gallery as requested
+    // If you ever want hover back, add it to this list
+    const list = [primary, ...galleryUrls].filter(Boolean);
+    return [...new Set(list)];
+  }, [form.thumbnail_url, galleryUrls]);
 
   const previewImages = useMemo(
-    () => (images.length ? images : ["https://via.placeholder.com/800x800.png?text=Product+Preview"]),
+    () => (images.length ? images : ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23f0f0f0' width='800' height='800'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='24' font-family='system-ui'%3ENo Image%3C/text%3E%3C/svg%3E"]),
     [images]
   );
 
@@ -203,14 +553,14 @@ export default function ProductNew() {
       id: "new-product-preview",
       name: form.name || "New Product",
       slug: form.slug || "new-product",
-      price: Number.isFinite(priceNumber) ? priceNumber : 0,
-      compareAtPrice: compareAtNumber ?? undefined,
-      shortDescription: form.short_description || "",
+      price_cents: Number.isFinite(priceNumber) ? Math.round(priceNumber * 100) : 0,
+      compare_at_price_cents: compareAtNumber ? Math.round(compareAtNumber * 100) : undefined,
+      short_desc: form.short_description || "",
       images: previewImages,
-      inStock: form.status !== "archived" && inStock,
+      stock_qty: form.status !== "archived" && inStock ? inventoryQuantityNumber : 0,
       badges,
     }),
-    [badges, form.name, form.short_description, form.slug, form.status, inStock, previewImages, priceNumber, compareAtNumber]
+    [badges, form.name, form.short_description, form.slug, form.status, inStock, inventoryQuantityNumber, previewImages, priceNumber, compareAtNumber]
   );
 
   const pageModel = useMemo(
@@ -241,8 +591,10 @@ export default function ProductNew() {
       reviewCount: 124,
       reviews: [],
       seo: {
-        title: form.meta_title?.trim() || form.name || "",
-        description: form.meta_description?.trim() || form.short_description || "",
+        title: form.name || "",
+        description: form.short_description
+          ? `${form.short_description.substring(0, 150)}...`
+          : `Buy ${form.name} online at BLOM Cosmetics`,
       },
     }),
     [
@@ -250,13 +602,10 @@ export default function ProductNew() {
       compareAtNumber,
       features,
       form.category,
-      form.meta_description,
-      form.meta_title,
       form.name,
       form.overview,
       form.short_description,
       form.size,
-      form.slug,
       form.shelf_life,
       howToUse,
       inciIngredients,
@@ -272,45 +621,21 @@ export default function ProductNew() {
   const validate = () => {
     const nextErrors = {};
     if (!form.name.trim()) nextErrors.name = "Name is required";
-    if (!form.slug.trim()) nextErrors.slug = "Slug is required";
-    if (!form.sku.trim()) nextErrors.sku = "SKU is required";
     if (!form.category.trim()) nextErrors.category = "Category is required";
 
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
       nextErrors.price = "Price must be greater than 0";
     }
 
-    if (!Number.isFinite(inventoryQuantityNumber) || inventoryQuantityNumber < 0) {
+    if (inventoryQuantityNumber != null && inventoryQuantityNumber < 0) {
       nextErrors.inventory_quantity = "Inventory must be zero or greater";
     }
 
-    if (images.length === 0) {
-      nextErrors.images = "Add at least one product image";
-    }
+    // Images are now optional - no validation required
+    // Users can add images later if needed for display
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
-  };
-
-  const triggerWorkflows = (createdProductId, payload) => {
-    if (!PRODUCTS_WORKFLOW_URL) return;
-    try {
-      fetch(PRODUCTS_WORKFLOW_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_product",
-          product: {
-            id: createdProductId ?? null,
-            ...payload,
-          },
-        }),
-      }).catch((workflowError) => {
-        console.warn("[ProductNew] Workflow trigger failed", workflowError);
-      });
-    } catch (workflowError) {
-      console.warn("[ProductNew] Workflow trigger error", workflowError);
-    }
   };
 
   const handleSubmit = async (event) => {
@@ -322,23 +647,35 @@ export default function ProductNew() {
       return;
     }
 
+    // Auto-generate fields
+    const slug = slugify(form.name);
+    const sku = generateSKU(form.category);
+    const barcode = generateBarcode();
+    const meta_title = form.name;
+    const meta_description = form.short_description
+      ? `${form.short_description.substring(0, 150)}...`
+      : `Buy ${form.name} online at BLOM Cosmetics`;
+    const stockType = getStockTypeFromCategory(form.category);
+
     const payload = {
       name: form.name.trim(),
-      slug: form.slug.trim(),
-      sku: form.sku.trim(),
+      slug: slug,
+      sku: sku,
       category: form.category.trim(),
-      status: form.status,
+      tags: Array.isArray(form.tags) ? form.tags : [],
+      stock_type: stockType,
+      status: form.status || 'active',
       price: Number.isFinite(priceNumber) ? priceNumber : 0,
       compare_at_price: Number.isFinite(compareAtNumber ?? Number.NaN) ? compareAtNumber : null,
-      inventory_quantity: Number.isFinite(inventoryQuantityNumber) ? inventoryQuantityNumber : 0,
-      track_inventory: Boolean(form.track_inventory),
+      cost_price_cents: form.cost_price ? Math.round(parseFloat(form.cost_price) * 100) : 0,
+      inventory_quantity: inventoryQuantityNumber != null ? inventoryQuantityNumber : 100,
       weight: weightNumber,
-      barcode: form.barcode?.trim() || null,
+      barcode: barcode,
       short_description: form.short_description,
       overview: form.overview,
       description: form.overview,
-      thumbnail_url: form.thumbnail_url?.trim() || "",
-      hover_url: form.hover_url?.trim() || "",
+      thumbnail_url: sanitizeImageUrl(form.thumbnail_url),
+      hover_url: sanitizeImageUrl(form.hover_url),
       gallery_urls: galleryUrls,
       variants,
       features,
@@ -348,10 +685,10 @@ export default function ProductNew() {
       size: form.size,
       shelf_life: form.shelf_life,
       claims,
-      meta_title: form.meta_title,
-      meta_description: form.meta_description,
-      is_active: Boolean(form.is_active),
-      is_featured: Boolean(form.is_featured),
+      meta_title: meta_title,
+      meta_description: meta_description,
+      is_active: true,
+      is_featured: false,
       badges,
       related,
       stock_label: stockLabel,
@@ -379,10 +716,9 @@ export default function ProductNew() {
       showToast("success", "Product created successfully");
 
       const createdId = data?.id || data?.product?.id || null;
-      triggerWorkflows(createdId, payload);
 
       if (createdId) {
-        navigate(`/products/edit?id=${createdId}`);
+        navigate(`/products/${createdId}`);
       } else {
         navigate("/products");
       }
@@ -400,9 +736,9 @@ export default function ProductNew() {
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-slate-700">{label}</label>
+          <label className="text-sm font-semibold text-[var(--text)]">{label}</label>
           {errorKey && errors[errorKey] ? (
-            <span className="text-xs font-medium text-rose-500">{errors[errorKey]}</span>
+            <span className="text-xs font-medium text-red-500">{errors[errorKey]}</span>
           ) : null}
         </div>
         <div className="space-y-2">
@@ -410,7 +746,7 @@ export default function ProductNew() {
             <div key={`${field}-${index}`} className="flex gap-2">
               <input
                 type="text"
-                className="input flex-1"
+                className="product-form-input flex-1"
                 value={item}
                 placeholder={placeholder}
                 onChange={(event) => updateArr(field, index, event.target.value)}
@@ -418,7 +754,7 @@ export default function ProductNew() {
               <button
                 type="button"
                 onClick={() => removeRow(field, index)}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                className="product-btn-secondary"
               >
                 Remove
               </button>
@@ -428,103 +764,469 @@ export default function ProductNew() {
         <button
           type="button"
           onClick={() => addRow(field)}
-          className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+          className="product-btn-add"
         >
           + {addLabel}
         </button>
         {errorKey && errors[errorKey] ? (
-          <p className="text-xs text-rose-500">{errors[errorKey]}</p>
+          <p className="text-xs text-red-500">{errors[errorKey]}</p>
         ) : null}
       </div>
     );
   };
 
-  const inputClass = (hasError) => `input${hasError ? " border-rose-500 focus:ring-rose-500" : ""}`;
-  const textareaClass = (hasError) => `textarea${hasError ? " border-rose-500 focus:ring-rose-500" : ""}`;
+  const inputClass = (hasError) => `product-form-input${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
+  const textareaClass = (hasError) => `product-form-textarea${hasError ? " border-red-500 focus:ring-rose-500" : ""}`;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="topbar">
-        <div className="font-bold text-lg">New Product</div>
-        <div className="text-sm text-slate-500">Create a new product and preview the merchandising experience.</div>
-      </div>
+    <>
+      <style>{`
+        /* Product Form Styling - Matching BundleEditor */
+        .topbar {
+          padding: 24px 32px;
+          border-bottom: 2px solid var(--border);
+          background: var(--card);
+          margin-bottom: 24px;
+        }
+        .content-area {
+          padding: 0 32px 32px;
+          overflow-y: auto;
+        }
+        .product-form-input, .product-form-textarea, .product-form-select {
+          width: 100%;
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 15px;
+          font-family: inherit;
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+          transition: box-shadow .2s;
+        }
+        .product-form-input:focus, .product-form-textarea:focus, .product-form-select:focus {
+          outline: none;
+          box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+        }
+        .product-form-textarea {
+          min-height: 100px;
+          resize: vertical;
+          position: relative;
+          z-index: 1;
+        }
+        .product-form-section {
+          background: var(--card);
+          border-radius: 20px;
+          padding: 32px;
+          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+          margin-bottom: 24px;
+        }
+        .product-section-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 8px;
+        }
+        .product-section-desc {
+          font-size: 14px;
+          color: var(--text-muted);
+          margin-bottom: 20px;
+        }
+        .product-form-label {
+          display: block;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-muted);
+          margin-bottom: 10px;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+        }
+        .product-btn-primary {
+          padding: 12px 28px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          transition: transform 0.2s;
+        }
+        .product-btn-primary:disabled {
+          opacity: .6;
+          cursor: not-allowed;
+        }
+        .product-btn-primary:not(:disabled):hover {
+          transform: translateY(-2px);
+        }
+        .product-btn-secondary {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+        .product-btn-secondary:hover {
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+        .product-btn-secondary:active {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+        .product-btn-add {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          margin-top: 8px;
+        }
+        .product-btn-add:hover {
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+        }
+        .product-error-text {
+          color: #ef4444;
+          font-size: 12px;
+          margin-top: 4px;
+        }
+        .product-required {
+          color: #ef4444;
+        }
+        /* Variant Styles */
+        .variant-row {
+          display: flex;
+          gap: 0.75rem;
+          align-items: flex-start;
+          padding: 1rem;
+          background: var(--bg);
+          border-radius: 12px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+        .variant-image-upload {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+          flex-shrink: 0;
+        }
+        .upload-btn {
+          padding: 8px 14px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: white;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow: 2px 2px 4px var(--shadow-dark);
+          transition: transform 0.2s;
+        }
+        .upload-btn:hover {
+          transform: translateY(-1px);
+        }
+        .variant-thumbnail {
+          width: 50px;
+          height: 50px;
+          object-fit: cover;
+          border-radius: 8px;
+          border: 2px solid var(--border);
+          box-shadow: 2px 2px 4px var(--shadow-dark);
+        }
+        .variant-price-display {
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid var(--border);
+        }
+        .variant-price-custom {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+        .variant-price-default {
+          background: var(--bg);
+          color: var(--text-muted);
+        }
+        .price-edit-input {
+          width: 80px;
+          padding: 4px 6px;
+          font-size: 12px;
+          border-radius: 4px;
+          border: 1px solid var(--border);
+          background: var(--card);
+          color: var(--text);
+        }
+        /* Utility Classes */
+        .space-y-1 > * + * { margin-top: 0.25rem; }
+        .space-y-2 > * + * { margin-top: 0.5rem; }
+        .space-y-4 > * + * { margin-top: 1rem; }
+        .space-y-6 > * + * { margin-top: 1.5rem; }
+        .grid { display: grid; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+        .gap-6 { gap: 1.5rem; }
+        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .flex { display: flex; }
+        .flex-1 { flex: 1 1 0%; }
+        .hidden { display: none; }
+        .cursor-pointer { cursor: pointer; }
+        @media (min-width: 768px) {
+          .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1280px) {
+          .xl\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
 
-      <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        /* Fullscreen Preview Styles */
+        .preview-fullscreen {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: white;
+          z-index: 9999;
+          overflow-y: auto;
+          padding: 0;
+        }
+
+        .preview-fullscreen .desktop-preview {
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+
+        .preview-fullscreen .mobile-preview {
+          max-width: 375px;
+          margin: 0 auto;
+        }
+
+        /* Mobile responsive styles - vertical layout */
+        @media (max-width: 768px) {
+          .topbar {
+            padding: 16px 20px;
+            margin-bottom: 16px;
+          }
+
+          .content-area {
+            padding: 0 16px 32px;
+          }
+
+          /* Stack form sections vertically */
+          .content-area.grid {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+          }
+
+          .product-form-section {
+            padding: 20px !important;
+            margin-bottom: 16px !important;
+          }
+
+          /* Better form inputs for mobile */
+          .product-form-input,
+          .product-form-textarea,
+          .product-form-select {
+            font-size: 16px !important;
+            padding: 12px 16px !important;
+          }
+
+          /* Stack grid elements vertically */
+          .grid.gap-4.md\:grid-cols-2 {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+          }
+
+          /* Stack flex elements vertically */
+          .flex.gap-2 {
+            flex-direction: column !important;
+            gap: 12px !important;
+          }
+
+          /* Better variant rows for mobile */
+          .variant-row {
+            flex-direction: column !important;
+            gap: 12px !important;
+            padding: 16px !important;
+          }
+
+          .variant-row input,
+          .variant-row .product-form-input {
+            width: 100% !important;
+          }
+
+          .variant-row .price-edit-input {
+            width: 100% !important;
+          }
+
+          .variant-image-upload {
+            justify-content: flex-start !important;
+            width: 100% !important;
+          }
+
+          .variant-price-display {
+            font-size: 13px !important;
+            padding: 6px 10px !important;
+          }
+
+          /* Mobile-friendly buttons */
+          .flex.items-center.justify-end.gap-3 {
+            flex-direction: column !important;
+            gap: 12px !important;
+          }
+
+          .flex.items-center.justify-end.gap-3 button {
+            width: 100% !important;
+          }
+
+          /* Touch optimization */
+          button,
+          input,
+          select,
+          textarea {
+            touch-action: manipulation;
+          }
+
+          /* Prevent zoom on input focus */
+          input[type="text"],
+          input[type="number"],
+          input[type="email"],
+          input[type="tel"],
+          input[type="url"],
+          textarea,
+          select {
+            font-size: 16px !important;
+          }
+        }
+      `}</style>
+      <div className="flex h-full flex-col">
+        <div className="topbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/products')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'var(--bg)',
+                boxShadow: '2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light)',
+                cursor: 'pointer',
+                transition: 'transform 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--text)' }} />
+            </button>
+            <div className="font-bold text-lg">New Product</div>
+          </div>
+          <div className="text-sm text-[var(--text-muted)]">Create a new product and preview the merchandising experience.</div>
+        </div>
+
+        <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+          <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Basic Information</h2>
-              <p className="text-sm text-slate-600">Name, slug and classification for the product.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Basic Information</h2>
+              <p className="text-sm text-[var(--text-muted)]">Name and classification for the product.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="name">
-                  Name <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="name">
+                  Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="name"
                   type="text"
-                  className={inputClass(Boolean(errors.name))}
+                  className="product-form-input"
                   value={form.name}
                   onChange={(event) => update("name", event.target.value)}
                   placeholder="Base 44 Nail Strengthener"
                 />
-                {errors.name ? <p className="text-xs text-rose-500">{errors.name}</p> : null}
+                {errors.name ? <p className="text-xs text-red-500">{errors.name}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="slug">
-                  Slug <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="category">
+                  Category <span className="text-red-500">*</span>
                 </label>
-                <input
-                  id="slug"
-                  type="text"
-                  className={inputClass(Boolean(errors.slug))}
-                  value={form.slug}
-                  onChange={(event) => update("slug", event.target.value)}
-                  placeholder="base-44-nail-strengthener"
-                />
-                {errors.slug ? <p className="text-xs text-rose-500">{errors.slug}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="sku">
-                  SKU <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  id="sku"
-                  type="text"
-                  className={inputClass(Boolean(errors.sku))}
-                  value={form.sku}
-                  onChange={(event) => update("sku", event.target.value)}
-                  placeholder="SKU-001"
-                />
-                {errors.sku ? <p className="text-xs text-rose-500">{errors.sku}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="category">
-                  Category <span className="text-rose-500">*</span>
-                </label>
-                <input
+                <select
                   id="category"
-                  type="text"
-                  className={inputClass(Boolean(errors.category))}
-                  value={form.category}
-                  onChange={(event) => update("category", event.target.value)}
-                  placeholder="Treatments"
-                />
-                {errors.category ? <p className="text-xs text-rose-500">{errors.category}</p> : null}
+                  className="product-form-select"
+                  value={(() => {
+                    const cat = (form.category || '').trim();
+                    const tags = Array.isArray(form.tags) ? form.tags : [];
+                    if (cat === 'acrylic-system' && tags.includes('core-acrylics')) return 'acrylic-system|core-acrylics';
+                    if (cat === 'acrylic-system' && tags.includes('coloured-acrylics')) return 'acrylic-system|coloured-acrylics';
+                    if (cat === 'acrylic-system') return 'acrylic-system|core-acrylics';
+                    return cat;
+                  })()}
+                  onChange={(event) => {
+                    if (event.target.value === '__custom__') {
+                      setShowCustomCategory(true);
+                      update('category', '');
+                      update('tags', []);
+                    } else {
+                      setShowCustomCategory(false);
+                      const opt = CATEGORY_OPTIONS.find(o => o.key === event.target.value) || null;
+                      if (opt) {
+                        update('category', opt.category);
+                        update('tags', opt.tags);
+                      } else {
+                        update('category', event.target.value);
+                        update('tags', []);
+                      }
+                    }
+                  }}
+                >
+                  <option value="">Select category...</option>
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <option key={opt.key} value={opt.key}>{opt.label}</option>
+                  ))}
+                  {dynamicCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  <option value="__custom__">+ Add New Category</option>
+                </select>
+                {showCustomCategory && (
+                  <input
+                    type="text"
+                    placeholder="Enter new category name"
+                    value={form.category}
+                    onChange={(event) => update('category', event.target.value)}
+                    className="product-form-input mt-2"
+                  />
+                )}
+                {errors.category ? <p className="text-xs text-red-500">{errors.category}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="status">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="status">
                   Status
                 </label>
                 <select
                   id="status"
-                  className="select"
+                  className="product-form-select"
                   value={form.status}
                   onChange={(event) => update("status", event.target.value)}
                 >
                   <option value="draft">Draft</option>
-                  <option value="published">Published</option>
+                  <option value="active">Active</option>
                   <option value="archived">Archived</option>
                 </select>
               </div>
@@ -534,30 +1236,30 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Pricing &amp; Stock</h2>
-              <p className="text-sm text-slate-600">Control pricing, inventory and identifiers.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Pricing &amp; Stock</h2>
+              <p className="text-sm text-[var(--text-muted)]">Control pricing, inventory and identifiers.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="price">
-                  Price <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="price">
+                  Price <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="price"
                   type="number"
                   min="0"
                   step="0.01"
-                  className={inputClass(Boolean(errors.price))}
+                  className="product-form-input"
                   value={form.price}
                   onChange={(event) => update("price", event.target.value)}
                   placeholder="199"
                 />
-                {errors.price ? <p className="text-xs text-rose-500">{errors.price}</p> : null}
+                {errors.price ? <p className="text-xs text-red-500">{errors.price}</p> : null}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="compare_at_price">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="compare_at_price">
                   Compare at Price
                 </label>
                 <input
@@ -565,44 +1267,48 @@ export default function ProductNew() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="input"
+                  className="product-form-input"
                   value={form.compare_at_price}
                   onChange={(event) => update("compare_at_price", event.target.value)}
                   placeholder="249"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="inventory_quantity">
-                  Inventory Quantity <span className="text-rose-500">*</span>
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="cost_price">
+                  Cost Price (R)
+                </label>
+                <input
+                  id="cost_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="product-form-input"
+                  value={form.cost_price}
+                  onChange={(event) => update("cost_price", event.target.value)}
+                  placeholder="150.00"
+                />
+                <small className="text-xs text-[var(--text-muted)]">What you pay for the product</small>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="inventory_quantity">
+                  Inventory Quantity
                 </label>
                 <input
                   id="inventory_quantity"
                   type="number"
                   min="0"
                   step="1"
-                  className={inputClass(Boolean(errors.inventory_quantity))}
+                  className="product-form-input"
                   value={form.inventory_quantity}
                   onChange={(event) => update("inventory_quantity", event.target.value)}
                   placeholder="25"
                 />
                 {errors.inventory_quantity ? (
-                  <p className="text-xs text-rose-500">{errors.inventory_quantity}</p>
+                  <p className="text-xs text-red-500">{errors.inventory_quantity}</p>
                 ) : null}
               </div>
-              <div className="flex items-center gap-3 pt-6">
-                <input
-                  id="track_inventory"
-                  type="checkbox"
-                  checked={form.track_inventory}
-                  onChange={(event) => update("track_inventory", event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                <label className="text-sm font-medium text-slate-700" htmlFor="track_inventory">
-                  Track inventory automatically
-                </label>
-              </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="weight">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="weight">
                   Weight (grams)
                 </label>
                 <input
@@ -610,36 +1316,23 @@ export default function ProductNew() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="input"
+                  className="product-form-input"
                   value={form.weight}
                   onChange={(event) => update("weight", event.target.value)}
                   placeholder="250"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="barcode">
-                  Barcode
-                </label>
-                <input
-                  id="barcode"
-                  type="text"
-                  className="input"
-                  value={form.barcode}
-                  onChange={(event) => update("barcode", event.target.value)}
-                  placeholder="6001234567890"
-                />
-              </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Descriptions</h2>
-              <p className="text-sm text-slate-600">Short copy for cards and the full overview.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Descriptions</h2>
+              <p className="text-sm text-[var(--text-muted)]">Short copy for cards and the full overview.</p>
             </header>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="short_description">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="short_description">
                   Short Description
                 </label>
                 <textarea
@@ -652,7 +1345,7 @@ export default function ProductNew() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="overview">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="overview">
                   Overview
                 </label>
                 <textarea
@@ -667,58 +1360,124 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Images</h2>
-              <p className="text-sm text-slate-600">Primary, hover and gallery imagery.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Images</h2>
+              <p className="text-sm text-[var(--text-muted)]">Main product image and optional hover image.</p>
             </header>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="thumbnail_url">
-                  Thumbnail URL
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="thumbnail_url">
+                  Main Product Image URL (optional)
                 </label>
-                <input
-                  id="thumbnail_url"
-                  type="url"
-                  className={inputClass(Boolean(errors.images))}
-                  value={form.thumbnail_url}
-                  onChange={(event) => update("thumbnail_url", event.target.value)}
-                  placeholder="https://..."
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="thumbnail_url"
+                    type="url"
+                    className="product-form-input flex-1"
+                    value={form.thumbnail_url}
+                    onChange={(event) => update("thumbnail_url", event.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  <label className="product-btn-secondary cursor-pointer">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          showToast('info', 'Uploading to Cloudinary...');
+                          const { original } = await uploadToCloudinary(file);
+                          update("thumbnail_url", original);
+                          update("hover_url", ""); // Clear hover URL when main image changes
+                          showToast('success', 'Image uploaded to Cloudinary');
+                        } catch (err) {
+                          showToast('error', 'Upload failed: ' + (err.message || 'Unknown error'));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {form.thumbnail_url && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                    {isCloudinaryImage(form.thumbnail_url) ? (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded">☁️ Cloudinary</span>
+                    ) : (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">🔗 External</span>
+                    )}
+                    <span>Image URL: {form.thumbnail_url.substring(0, 60)}{form.thumbnail_url.length > 60 ? '...' : ''}</span>
+                  </div>
+                )}
+                <small className="text-xs text-[var(--text-muted)]">Optional hover image for product cards</small>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="hover_url">
-                  Hover URL
-                </label>
-                <input
-                  id="hover_url"
-                  type="url"
-                  className="input"
-                  value={form.hover_url}
-                  onChange={(event) => update("hover_url", event.target.value)}
-                  placeholder="https://..."
-                />
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-[var(--text)]">Gallery URLs</label>
+                  {errors.images ? (
+                    <span className="text-xs font-medium text-red-500">{errors.images}</span>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  {ensureList(form.gallery_urls).map((item, index) => (
+                    <div key={`gallery_urls-${index}`} className="flex gap-2">
+                      <input
+                        type="text"
+                        className="product-form-input flex-1"
+                        value={item}
+                        placeholder="https://..."
+                        onChange={(event) => updateArr("gallery_urls", index, event.target.value)}
+                      />
+                      <label className="product-btn-secondary cursor-pointer">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              showToast('info', 'Uploading...');
+                              const { original } = await uploadToCloudinary(file);
+                              updateArr("gallery_urls", index, original);
+                              showToast('success', 'Image uploaded');
+                            } catch (err) {
+                              showToast('error', 'Upload failed');
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeRow("gallery_urls", index)}
+                        className="product-btn-secondary"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addRow("gallery_urls")}
+                  className="product-btn-add"
+                >
+                  + Add image
+                </button>
               </div>
-              {renderArrayField("gallery_urls", "Gallery URLs", "https://...", "Add image", "images")}
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Variants &amp; Highlights</h2>
-              <p className="text-sm text-slate-600">List variants, key features and how to use steps.</p>
-            </header>
-            <div className="space-y-6">
-              {renderArrayField("variants", "Variants", "Shade or size", "Add variant")}
-              {renderArrayField("features", "Features", "Key selling point", "Add feature")}
-              {renderArrayField("how_to_use", "How to Use", "Usage instruction", "Add step")}
-            </div>
-          </section>
+          {/* Variants & Highlights removed */}
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
-              <p className="text-sm text-slate-600">Break down formulation details.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Ingredients</h2>
+              <p className="text-sm text-[var(--text-muted)]">Break down formulation details.</p>
             </header>
             <div className="space-y-6">
               {renderArrayField("inci_ingredients", "INCI Ingredients", "Water (Aqua)", "Add INCI")}
@@ -726,33 +1485,33 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="product-form-section">
             <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Product Details</h2>
-              <p className="text-sm text-slate-600">Supporting specifications and claims.</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Product Details</h2>
+              <p className="text-sm text-[var(--text-muted)]">Supporting specifications and claims.</p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="size">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="size">
                   Size
                 </label>
                 <input
                   id="size"
                   type="text"
-                  className="input"
+                  className="product-form-input"
                   value={form.size}
                   onChange={(event) => update("size", event.target.value)}
                   placeholder="100ml"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="shelf_life">
+                <label className="text-sm font-semibold text-[var(--text)]" htmlFor="shelf_life">
                   Shelf Life
                 </label>
                 <input
                   id="shelf_life"
                   type="text"
-                  className="input"
+                  className="product-form-input"
                   value={form.shelf_life}
                   onChange={(event) => update("shelf_life", event.target.value)}
                   placeholder="12 months"
@@ -764,77 +1523,7 @@ export default function ProductNew() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">SEO</h2>
-              <p className="text-sm text-slate-600">Meta information for search engines.</p>
-            </header>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="meta_title">
-                  Meta Title
-                </label>
-                <input
-                  id="meta_title"
-                  type="text"
-                  className="input"
-                  value={form.meta_title}
-                  onChange={(event) => update("meta_title", event.target.value)}
-                  placeholder="Base 44 | Nail Strengthener"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-slate-700" htmlFor="meta_description">
-                  Meta Description
-                </label>
-                <textarea
-                  id="meta_description"
-                  className={textareaClass(false)}
-                  rows={3}
-                  value={form.meta_description}
-                  onChange={(event) => update("meta_description", event.target.value)}
-                  placeholder="Boost your nails with Base 44's restorative strengthener."
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Display Settings</h2>
-              <p className="text-sm text-slate-600">Control visibility across storefront experiences.</p>
-            </header>
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-3 text-sm font-medium text-slate-700" htmlFor="is_active">
-                <input
-                  id="is_active"
-                  type="checkbox"
-                  checked={form.is_active}
-                  onChange={(event) => update("is_active", event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                Active
-              </label>
-              <label className="flex items-center gap-3 text-sm font-medium text-slate-700" htmlFor="is_featured">
-                <input
-                  id="is_featured"
-                  type="checkbox"
-                  checked={form.is_featured}
-                  onChange={(event) => update("is_featured", event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                Featured product
-              </label>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <header className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Related Products</h2>
-              <p className="text-sm text-slate-600">Surface complementary products by ID or slug.</p>
-            </header>
-            {renderArrayField("related", "Related Product IDs or Slugs", "product-slug", "Add related product")}
-          </section>
+          {/* Related Products removed */}
 
           {serverError ? (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">{serverError}</div>
@@ -843,7 +1532,7 @@ export default function ProductNew() {
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="product-btn-secondary"
               onClick={() => navigate("/products")}
               disabled={isSubmitting}
             >
@@ -851,7 +1540,7 @@ export default function ProductNew() {
             </button>
             <button
               type="submit"
-              className={`btn-primary ${isSubmitting ? "opacity-70" : ""}`}
+              className={`product-btn-primary ${isSubmitting ? "opacity-70" : ""}`}
               disabled={isSubmitting}
             >
               {isSubmitting ? "Saving..." : "Create Product"}
@@ -860,63 +1549,87 @@ export default function ProductNew() {
         </form>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex gap-2 border-b border-slate-200 p-3 text-sm font-semibold text-slate-600">
-              {[
-                { id: "card", label: "Product Card" },
-                { id: "page-desktop", label: "Product Page – Desktop" },
-                { id: "page-mobile", label: "Product Page – Mobile" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setPreviewTab(tab.id)}
-                  className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                    previewTab === tab.id ? "bg-emerald-100 text-emerald-700" : "text-slate-500 hover:bg-slate-100"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          <div className={fullscreenPreview ? "preview-fullscreen" : "rounded-2xl border border-[var(--card)] bg-[var(--card)] shadow-sm"}>
+            <div className="flex gap-2 justify-between border-b border-[var(--card)] p-3 text-sm font-semibold text-[var(--text-muted)]">
+              <div className="flex gap-2">
+                {[
+                  { id: "card", label: "Product Card" },
+                  { id: "page-desktop", label: "Product Page – Desktop" },
+                  { id: "page-mobile", label: "Product Page – Mobile" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setPreviewTab(tab.id)}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                      previewTab === tab.id ? "bg-[var(--accent)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--card)]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setFullscreenPreview(!fullscreenPreview)}
+                className="product-btn-secondary text-xs"
+              >
+                {fullscreenPreview ? '✕ Exit Fullscreen' : '⛶ Fullscreen'}
+              </button>
             </div>
-            <div className="max-h-[75vh] overflow-auto p-4">
+            <div className={fullscreenPreview ? "overflow-auto p-4" : "max-h-[75vh] overflow-auto p-4"}>
               {previewTab === "card" ? (
                 <div className="mx-auto max-w-sm">
-                  <ProductCard {...cardModel} />
+                  {cardModel ? (
+                    <ProductCard product={cardModel} />
+                  ) : (
+                    <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                  )}
                 </div>
               ) : null}
               {previewTab === "page-desktop" ? (
-                <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-slate-100 shadow-sm">
-                  <ProductPageTemplate product={pageModel} />
+                <div className={fullscreenPreview ? "desktop-preview" : "preview-container overflow-x-auto max-w-full"}>
+                  <div className={fullscreenPreview ? "mx-auto max-w-[1200px]" : "min-w-[1200px] mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
+                    {pageModel ? (
+                      <ProductPageTemplate product={pageModel} isPreview={true} />
+                    ) : (
+                      <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                    )}
+                  </div>
                 </div>
               ) : null}
               {previewTab === "page-mobile" ? (
-                <div className="mx-auto w-[390px] overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-                  <ProductPageTemplate product={pageModel} />
+                <div className={fullscreenPreview ? "mobile-preview mx-auto" : "mx-auto w-[390px] overflow-hidden rounded-xl border border-[var(--card)] shadow-sm"}>
+                  {pageModel ? (
+                    <ProductPageTemplate product={pageModel} isPreview={true} />
+                  ) : (
+                    <div className="text-center text-[var(--text-muted)] py-8">Loading preview...</div>
+                  )}
                 </div>
               ) : null}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Preview Summary</h3>
+          <div className="rounded-2xl border border-[var(--card)] bg-[var(--card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
+            <h3 className="text-sm font-semibold text-[var(--text)]">Preview Summary</h3>
             <dl className="mt-3 space-y-2">
               <div className="flex justify-between">
-                <dt className="text-slate-500">Stock Label</dt>
-                <dd className="font-medium text-slate-800">{stockLabel}</dd>
+                <dt className="text-[var(--text-muted)]">Stock Label</dt>
+                <dd className="font-medium text-[var(--text)]">{stockLabel}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Price String</dt>
-                <dd className="font-medium text-slate-800">{priceString}</dd>
+                <dt className="text-[var(--text-muted)]">Price String</dt>
+                <dd className="font-medium text-[var(--text)]">{priceString}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Images</dt>
-                <dd className="font-medium text-slate-800">{previewImages.length}</dd>
+                <dt className="text-[var(--text-muted)]">Images</dt>
+                <dd className="font-medium text-[var(--text)]">{previewImages.length}</dd>
               </div>
             </dl>
           </div>
         </div>
       </div>
     </div>
+    </>
   );
 }

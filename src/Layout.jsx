@@ -3,14 +3,12 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ToastProvider } from "./components/ui/ToastProvider";
-import { setAPI } from './components/data/api';
-import { createMockAdapter } from './components/data/mockAdapter';
+import { useNotifications } from "@/contexts/NotificationContext";
 import {
   LayoutDashboard, // Replaced Home
   Package,
   Layers,
   Sparkles, // Added
-  TrendingUp,
   ShoppingCart,
   CreditCard,
   Archive, // Replaced Warehouse
@@ -20,8 +18,6 @@ import {
   Users,
   DollarSign,
   Mail,
-  Megaphone, // Kept for Campaigns
-  Percent, // Kept for Discounts
   Tag,
   BarChart3,
   Settings,
@@ -34,37 +30,32 @@ import {
   Moon,
   Bell, // Added
   Search, // Added
-  User // Added
+  User, // Added
+  Menu, // Added for mobile hamburger menu
+  BookOpen // Added for Course Bookings
 } from "lucide-react";
 
-// Initialize DataAPI with Supabase adapter, fallback to mock
-import { createSupabaseAdapter } from './components/data/supabaseAdapter';
 
-try {
-  const api = createSupabaseAdapter();
-  setAPI(api);
-  console.log('✓ Using Supabase adapter');
-} catch (error) {
-  console.warn('⚠ Supabase adapter failed, using mock adapter:', error.message);
-  setAPI(createMockAdapter());
-}
 
 const navigationGroups = [
   {
     title: "Merchandising",
     items: [
       { name: "Products", url: "Products", icon: Package },
+      { name: "Courses", url: "Courses", icon: BookOpen },
       { name: "Bundles", url: "Bundles", icon: Layers },
+      { name: "Featured", url: "featured", icon: Sparkles },
       { name: "Specials", url: "Specials", icon: Tag },
-      { name: "Price Updates", url: "PriceUpdates", icon: TrendingUp }
+      { name: "Price Updates", url: "PriceUpdates", icon: DollarSign }
     ]
   },
   {
     title: "Sales & Inventory",
     items: [
       { name: "Orders", url: "Orders", icon: ShoppingCart },
-      { name: "Payments", url: "Payments", icon: CreditCard },
-      { name: "Stock", url: "Stock", icon: Archive } // Changed from Warehouse to Archive
+      { name: "Course Bookings", url: "course-bookings", icon: BookOpen },
+      { name: "Sales", url: "Payments", icon: CreditCard },
+      // { name: "Stock", url: "Stock", icon: Archive } // Changed from Warehouse to Archive
     ]
   },
   {
@@ -72,31 +63,31 @@ const navigationGroups = [
     items: [
       { name: "Reviews", url: "Reviews", icon: Star },
       { name: "Messages", url: "Messages", icon: MessageSquare },
-      { name: "Contacts", url: "Contacts", icon: Users },
-      { name: "Campaigns", url: "Campaigns", icon: Megaphone },
-      { name: "Discounts", url: "Discounts", icon: Percent }
+      { name: "Contacts", url: "Contacts", icon: Users }
     ]
   },
   {
     title: "Analytics",
     items: [
-      { name: "Analytics", url: "Analytics", icon: BarChart3 },
-      { name: "Finance", url: "finance", icon: DollarSign }
-    ]
-  },
-  {
-    title: "Settings",
-    items: [
-      { name: "General", url: "GeneralSettings", icon: Settings },
-      { name: "Users", url: "UserSettings", icon: Users },
-      { name: "Shipping", url: "ShippingSettings", icon: Truck }
+      { name: "Analytics", url: "Analytics", icon: BarChart3 }
     ]
   }
 ];
 
-function NavGroup({ group, currentPath, isCollapsed }) {
+function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
   const [isOpen, setIsOpen] = useState(true);
+  const { counts } = useNotifications();
   const hasActive = group.items.some(item => currentPath.includes(item.url.toLowerCase()));
+
+  const getBadgeCount = (url) => {
+    // Debug logging
+    // console.log('Checking badge for:', url, counts);
+    if (url === 'Orders') return counts?.orders || 0;
+    if (url === 'course-bookings') return counts?.course_bookings || 0;
+    if (url === 'Messages') return counts?.messages || 0;
+    if (url === 'Reviews') return counts?.reviews || 0;
+    return 0;
+  };
 
   return (
     <div className="nav-group">
@@ -113,16 +104,36 @@ function NavGroup({ group, currentPath, isCollapsed }) {
       </button>
       {isOpen && (
         <div className="nav-items">
-          {group.items.map(item => (
-            <Link
-              key={item.url}
-              to={item.url === "Orders" ? "/orders" : item.url === "finance" ? "/finance" : createPageUrl(item.url)}
-              className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
-            >
-              <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
-              {!isCollapsed && <span>{item.name}</span>}
-            </Link>
-          ))}
+          {group.items.map(item => {
+            const count = getBadgeCount(item.url);
+            return (
+              <Link
+                key={item.url}
+                to={item.url === "Orders" ? "/orders" : item.url === "featured" ? "/featured" : createPageUrl(item.url)}
+                className={`nav-item ${currentPath.includes(item.url.toLowerCase()) ? 'active' : ''}`}
+                onClick={onNavClick}
+              >
+                <div className="relative">
+                  <item.icon className={isCollapsed ? "w-6 h-6" : "w-5 h-5"} />
+                  {count > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-[#E02424] text-white text-[10px] font-bold h-[18px] min-w-[18px] flex items-center justify-center rounded-full border-2 border-[var(--bg)]">
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <span className="flex-1 flex justify-between items-center">
+                    {item.name}
+                    {count > 0 && (
+                      <span className="bg-[#E02424] text-white text-xs font-bold h-5 min-w-[20px] px-1.5 flex items-center justify-center rounded-full">
+                        {count > 99 ? '99+' : count}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
@@ -201,7 +212,7 @@ export default function Layout({ children, currentPageName }) {
           top: 0;
           bottom: 0;
           z-index: 100;
-          transition: width 0.3s ease;
+          transition: width 0.3s ease, transform 0.3s ease;
         }
 
         .sidebar-header {
@@ -341,27 +352,51 @@ export default function Layout({ children, currentPageName }) {
         }
 
         .menu-button {
-          width: 40px;
-          height: 40px;
+          min-width: 44px;
+          min-height: 44px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
           background: var(--bg);
           border: none;
           color: var(--text);
           cursor: pointer;
-          display: flex;
+          display: none;
           align-items: center;
           justify-content: center;
           box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          flex-shrink: 0;
         }
 
         .menu-button:active {
           box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
         }
 
+        .menu-button.mobile-menu {
+          display: none;
+        }
+
+        .menu-button.desktop-menu {
+          display: flex;
+        }
+
+        @media (max-width: 768px) {
+          .menu-button.mobile-menu {
+            display: flex;
+          }
+
+          .menu-button.desktop-menu {
+            display: none;
+          }
+        }
+
         .breadcrumb {
           font-size: 24px;
           font-weight: 700;
           color: var(--text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .topbar-actions {
@@ -371,8 +406,10 @@ export default function Layout({ children, currentPageName }) {
         }
 
         .theme-toggle {
-          width: 40px;
-          height: 40px;
+          min-width: 44px;
+          min-height: 44px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
           background: var(--bg);
           border: none;
@@ -382,6 +419,7 @@ export default function Layout({ children, currentPageName }) {
           align-items: center;
           justify-content: center;
           box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+          flex-shrink: 0;
         }
 
         .theme-toggle:active {
@@ -397,19 +435,41 @@ export default function Layout({ children, currentPageName }) {
         @media (max-width: 768px) {
           .sidebar {
             transform: translateX(${mobileOpen ? '0' : '-100%'});
-            width: 240px;
+            width: 280px;
+            z-index: 150;
+            box-shadow: ${mobileOpen ? '8px 0 24px rgba(0, 0, 0, 0.3)' : 'none'};
           }
-          
+
           .main-content {
             margin-left: 0;
           }
 
           .topbar {
-            padding: 0 16px;
+            padding: 0 12px;
+            height: 64px;
+          }
+
+          .topbar-left {
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+          }
+
+          .breadcrumb {
+            font-size: 18px;
           }
 
           .content-area {
             padding: 16px;
+          }
+
+          .nav-item {
+            min-height: 48px;
+            padding: 12px 16px;
+          }
+
+          .nav-group-header {
+            min-height: 44px;
           }
         }
 
@@ -422,8 +482,10 @@ export default function Layout({ children, currentPageName }) {
             display: ${mobileOpen ? 'block' : 'none'};
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 90;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 140;
+            backdrop-filter: blur(2px);
+            pointer-events: ${mobileOpen ? 'auto' : 'none'};
           }
         }
       `}</style>
@@ -446,6 +508,7 @@ export default function Layout({ children, currentPageName }) {
                 group={group}
                 currentPath={location.pathname}
                 isCollapsed={sidebarCollapsed}
+                onNavClick={() => setMobileOpen(false)}
               />
             ))}
           </div>
@@ -456,9 +519,16 @@ export default function Layout({ children, currentPageName }) {
         <div className="main-content">
           <header className="topbar">
             <div className="topbar-left">
-              <button className="menu-button hidden md:flex" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+              {/* Mobile menu button - VISIBLE on mobile, HIDDEN on desktop */}
+              <button className="menu-button mobile-menu" onClick={() => setMobileOpen(!mobileOpen)}>
+                {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+
+              {/* Desktop collapse button - HIDDEN on mobile, VISIBLE on desktop */}
+              <button className="menu-button desktop-menu" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
                 {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <X className="w-5 h-5" />}
               </button>
+
               <h1 className="breadcrumb">
                 {currentPageName || (location.pathname === '/' ? 'Dashboard' : location.pathname.split('/').pop() || 'Dashboard')}
                 {(currentPageName === 'Dashboard' || location.pathname === '/') && (
@@ -468,8 +538,11 @@ export default function Layout({ children, currentPageName }) {
                 )}
               </h1>
             </div>
-            
+
             <div className="topbar-actions">
+              <Link to="/seed" className="theme-toggle" title="Seed Test Data">
+                <Sparkles className="w-5 h-5" />
+              </Link>
               <button className="theme-toggle" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>

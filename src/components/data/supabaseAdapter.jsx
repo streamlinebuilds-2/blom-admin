@@ -16,6 +16,24 @@ function ensureArray(data, error) {
   return Array.isArray(data) ? data : [];
 }
 
+// Helper to ensure how_to_use is always an array
+function ensureHowToUseArray(howToUse) {
+  if (!howToUse) return [];
+  if (Array.isArray(howToUse)) return howToUse;
+  if (typeof howToUse === 'string') {
+    // Try to parse as JSON first (might be JSON string)
+    try {
+      const parsed = JSON.parse(howToUse);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      // Not JSON, so split by newlines and filter empty strings
+      return howToUse.split('\n').map(item => item.trim()).filter(Boolean);
+    }
+  }
+  // Fallback for other types
+  return [];
+}
+
 // Generate slug from name
 function generateSlug(name) {
   return name
@@ -34,8 +52,16 @@ export function createSupabaseAdapter() {
         const { data, error } = await supabase
           .from('products')
           .select('*')
+          .neq('status', 'deleted')
           .order('updated_at', { ascending: false });
-        return ensureArray(data, error);
+        
+        const products = ensureArray(data, error);
+        
+        // Transform how_to_use to always be an array for all products
+        return products.map(product => ({
+          ...product,
+          how_to_use: ensureHowToUseArray(product.how_to_use)
+        }));
       } catch (err) {
         console.error('Error listing products:', err);
         return [];
@@ -48,7 +74,18 @@ export function createSupabaseAdapter() {
         .select('*')
         .eq('id', id)
         .single();
-      return ensure(data, error);
+      
+      const product = ensure(data, error);
+      
+      // Transform how_to_use to always be an array for frontend compatibility
+      if (product) {
+        return {
+          ...product,
+          how_to_use: ensureHowToUseArray(product.how_to_use)
+        };
+      }
+      
+      return product;
     },
 
     async upsertProduct(p) {
@@ -89,11 +126,201 @@ export function createSupabaseAdapter() {
       return saved.product || saved;
     },
 
+    // Partial update - only updates specified fields, preserves all others (like images)
+    async partialUpdateProduct(p) {
+      if (!p.id) {
+        throw new Error('partialUpdateProduct requires product id');
+      }
+
+      // Build payload with only the fields that should be updated
+      const payload = {
+        id: p.id,
+        partial_update: true,  // This flag tells the backend to only update provided fields
+      };
+
+      // Only include fields that are explicitly provided
+      if (p.name !== undefined) payload.name = String(p.name).trim();
+      if (p.slug !== undefined) payload.slug = String(p.slug).trim();
+      if (p.status !== undefined) payload.status = p.status;
+      if (p.sku !== undefined) payload.sku = p.sku;
+      if (p.category !== undefined) payload.category = p.category;
+
+      // Price - convert from cents if provided as price_cents
+      if (p.price !== undefined) {
+        payload.price = Number(p.price);
+      } else if (p.price_cents !== undefined) {
+        payload.price = Number(p.price_cents) / 100;
+      }
+
+      if (p.compare_at_price !== undefined) {
+        payload.compare_at_price = p.compare_at_price != null ? Number(p.compare_at_price) : null;
+      }
+
+      // Stock
+      if (p.stock !== undefined || p.stock_qty !== undefined || p.stock_on_hand !== undefined) {
+        payload.stock = Number(p.stock ?? p.stock_qty ?? p.stock_on_hand ?? 0);
+      }
+
+      // Descriptions
+      if (p.short_description !== undefined) payload.short_description = p.short_description;
+      if (p.overview !== undefined) payload.overview = p.overview;
+
+      // Images
+      if (p.thumbnail_url !== undefined) payload.thumbnail_url = p.thumbnail_url;
+      if (p.gallery_urls !== undefined) payload.gallery_urls = p.gallery_urls;
+      if (p.image_url !== undefined) payload.thumbnail_url = p.image_url;
+      if (p.images !== undefined) payload.gallery_urls = p.images;
+
+      // Product details
+      if (p.features !== undefined) payload.features = p.features;
+      if (p.how_to_use !== undefined) payload.how_to_use = p.how_to_use;
+      if (p.inci_ingredients !== undefined) payload.inci_ingredients = p.inci_ingredients;
+      if (p.key_ingredients !== undefined) payload.key_ingredients = p.key_ingredients;
+      if (p.claims !== undefined) payload.claims = p.claims;
+      if (p.variants !== undefined) payload.variants = p.variants;
+
+      // Details
+      if (p.size !== undefined) payload.size = p.size;
+      if (p.shelf_life !== undefined) payload.shelf_life = p.shelf_life;
+      if (p.weight !== undefined) payload.weight = p.weight;
+
+      // Cost price
+      if (p.cost_price_cents !== undefined) payload.cost_price_cents = p.cost_price_cents;
+
+      // Meta
+      if (p.meta_title !== undefined) payload.meta_title = p.meta_title;
+      if (p.meta_description !== undefined) payload.meta_description = p.meta_description;
+      if (p.is_active !== undefined) payload.is_active = p.is_active;
+      if (p.is_featured !== undefined) payload.is_featured = p.is_featured;
+
+      const res = await fetch('/.netlify/functions/save-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`save-product partial update failed: ${res.status} ${text}`);
+      }
+
+      const saved = await res.json();
+      return saved.product || saved;
+    },
+
+    // ===== COURSES =====
+    async listCourses() {
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select('*')
+          .order('created_at', { ascending: false });
+        return ensureArray(data, error);
+      } catch (err) {
+        console.error('Error listing courses:', err);
+        return [];
+      }
+    },
+
+    async getCourse(id) {
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select('*')
+          .eq('id', id)
+          .single();
+        return ensure(data, error);
+      } catch (err) {
+        console.error('Error loading course:', err);
+        return null;
+      }
+    },
+
+    async upsertCourse(c) {
+      const payload = {
+        id: c.id,
+        title: String(c.title || '').trim(),
+        slug: String(c.slug || '').trim(),
+        description: c.description ?? null,
+        price: c.price === '' || c.price == null ? null : Number(c.price),
+        image_url: c.image_url ?? null,
+        duration: c.duration ?? null,
+        level: c.level ?? null,
+        template_key: c.template_key ?? null,
+        course_type: c.course_type || 'in-person',
+        is_active: c.is_active !== false,
+        deposit_amount: c.deposit_amount === '' || c.deposit_amount == null ? null : Number(c.deposit_amount),
+        available_dates: Array.isArray(c.available_dates) ? c.available_dates : null,
+        packages: Array.isArray(c.packages) ? c.packages : null,
+        key_details: Array.isArray(c.key_details) ? c.key_details : null,
+      };
+
+      const res = await fetch('/.netlify/functions/save-course', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`save-course failed: ${res.status} ${text}`);
+      }
+
+      const saved = await res.json();
+      return saved.course || saved;
+    },
+
+    async listCoursePurchases(filters = {}) {
+      const params = new URLSearchParams();
+      if (filters.page) params.append('page', filters.page);
+      if (filters.pageSize) params.append('pageSize', filters.pageSize);
+      if (filters.course_slug) params.append('course_slug', filters.course_slug);
+      if (filters.buyer_email) params.append('buyer_email', filters.buyer_email);
+      if (filters.invitation_status) params.append('invitation_status', filters.invitation_status);
+      
+      const res = await fetch(`/.netlify/functions/admin-course-purchases?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch course purchases: ${res.statusText}`);
+      }
+      return await res.json();
+    },
+
+    async listCoursePurchasesByCourse(course_slug) {
+      return this.listCoursePurchases({ course_slug, pageSize: 1000 });
+    },
+
+    async getCoursePurchase(id) {
+      const params = new URLSearchParams();
+      params.append('id', id);
+      const res = await fetch(`/.netlify/functions/admin-course-purchase?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch course purchase: ${res.statusText}`);
+      }
+      const json = await res.json();
+      if (!json.ok) {
+        throw new Error(json.error || 'Failed to load course purchase');
+      }
+      return json.item;
+    },
+
+    async deleteCoursePurchase(id) {
+      const res = await fetch('/.netlify/functions/admin-course-purchase-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || 'Failed to delete course booking');
+      }
+      return json;
+    },
+
     // ===== INVENTORY =====
     async listStockMovements(limit = 50) {
       const { data, error } = await supabase
         .from('stock_movements')
-        .select('*')
+        .select('*, products(name)')
         .order('created_at', { ascending: false })
         .limit(limit);
       return ensure(data || [], error);
@@ -127,36 +354,64 @@ export function createSupabaseAdapter() {
     // ===== SPECIALS =====
     async listSpecials() {
       try {
+        console.log('🔍 Fetching specials from database...');
         const { data, error } = await supabase
           .from('specials')
           .select('*')
           .order('starts_at', { ascending: false });
+        
+        if (error) {
+          console.error('❌ Supabase error fetching specials:', error);
+          console.log('💡 This might mean the specials table doesn\'t exist or has wrong schema');
+          return [];
+        }
+        
+        console.log('✅ Fetched specials:', data?.length || 0, 'items');
         return ensureArray(data, error);
       } catch (err) {
-        console.error('Error listing specials:', err);
+        console.error('💥 Exception in listSpecials:', err);
         return [];
       }
     },
 
     async upsertSpecial(s) {
-      let result;
-      if (s.id) {
-        const { data, error } = await supabase
-          .from('specials')
-          .update(s)
-          .eq('id', s.id)
-          .select()
-          .single();
-        result = ensure(data, error);
-      } else {
-        const { data, error } = await supabase
-          .from('specials')
-          .insert([s])
-          .select()
-          .single();
-        result = ensure(data, error);
+      // Route special saves through Netlify function (service role)
+      const special = { ...s };
+      
+      // Ensure required fields are present
+      if (!special.title || !special.starts_at || !special.ends_at) {
+        throw new Error('Missing required fields for special');
       }
-      return result;
+
+      // Prepare payload for save-special function
+      const payload = {
+        id: special.id,
+        title: String(special.title || '').trim(),
+        starts_at: special.starts_at,
+        ends_at: special.ends_at,
+        scope: special.scope || 'product',
+        discount_type: special.discount_type || 'percent',
+        discount_value: Number(special.discount_value || 0),
+        status: special.status || 'active',
+        target_ids: Array.isArray(special.target_ids) ? special.target_ids : [],
+      };
+
+      const res = await fetch('/.netlify/functions/save-special', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`save-special failed: ${res.status} ${text}`);
+      }
+
+      const saved = await res.json();
+      if (!saved.ok) {
+        throw new Error(saved.error || 'Save special failed');
+      }
+      return saved.special || saved;
     },
 
     // ===== BUNDLES =====
@@ -472,6 +727,15 @@ export function createSupabaseAdapter() {
         .from('reviews')
         .update(patch)
         .eq('id', id)
+        .select()
+        .single();
+      return ensure(data, error);
+    },
+    // ===== FINANCE =====
+    async createOperatingCost(cost) {
+      const { data, error } = await supabase
+        .from('operating_costs')
+        .insert([{ ...cost, created_at: new Date().toISOString() }])
         .select()
         .single();
       return ensure(data, error);

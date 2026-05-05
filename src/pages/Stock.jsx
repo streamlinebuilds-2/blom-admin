@@ -1,168 +1,130 @@
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { History, Search, DollarSign, Package, Save, X } from 'lucide-react';
+import { useToast } from '../components/ui/ToastProvider';
+import { api } from '../components/data/api';
 
-import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Package, Plus, Minus, AlertCircle } from "lucide-react";
-import { moneyZAR, dateTime } from "../components/formatUtils";
-import { useToast } from "../components/ui/ToastProvider";
-import { api } from "../components/data/api";
+// Helper to format currency
+const formatRands = (cents) => {
+  if (cents == null || isNaN(cents)) return 'R0.00';
+  return `R${(cents / 100).toFixed(2)}`;
+};
+
+// Helper to determine stock type
+const getStockType = (product) => {
+  if (product.stock_type) return product.stock_type;
+
+  const category = (product.category || '').toLowerCase();
+  if (category.includes('course') || category.includes('workshop') || category.includes('training')) {
+    return 'unlimited';
+  }
+  if (category.includes('furniture')) {
+    return 'made_on_demand';
+  }
+  return 'tracked';
+};
 
 export default function Stock() {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [delta, setDelta] = useState("");
-  const [reason, setReason] = useState("");
-  // Restock form state
-  const [restockItems, setRestockItems] = useState([]);
-  const [supplier, setSupplier] = useState("");
-  const [reference, setReference] = useState("");
-  const [restockStatus, setRestockStatus] = useState("received");
-  const [restockNotes, setRestockNotes] = useState("");
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const { showToast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ['products-stock'],
-    queryFn: () => api?.listProducts() || [],
-    enabled: (activeTab === 'overview' || activeTab === 'restock') && !!api,
-  });
-
-  const { data: movements = [], isLoading: loadingMovements } = useQuery({
-    queryKey: ['stock-movements'],
+  // Fetch product variants with parent product information
+  const { data: variantsResponse, isLoading } = useQuery({
+    queryKey: ['product_variants_with_products'],
     queryFn: async () => {
-      try {
-        const r = await fetch("/.netlify/functions/admin-stock-movements?limit=200");
-        const j = await r.json();
-        const movs = j.data || [];
-        return movs.map(m => ({
-          ...m,
-          product_name: m.product?.name || m.product_id || '—',
-          delta: m.quantity || m.delta || 0,
-          reason: m.note || m.reason || ''
-        }));
-      } catch (err) {
-        console.error('Error fetching stock movements:', err);
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select(`
+          id,
+          name as variant_name,
+          stock_quantity,
+          cost_price_cents,
+          status,
+          product_id,
+          products (id, name, status, category)
+        `)
+        .eq('products.status', 'active');
+      
+      if (error) {
+        console.error('Error fetching product variants:', error);
         return [];
       }
+      
+      return data || [];
     },
-    enabled: (activeTab === 'movements' || activeTab === 'restock') && true,
   });
 
-  const adjustMutation = useMutation({
-    mutationFn: async ({ productId, delta, reason }) => {
-      const r = await fetch("/.netlify/functions/adjust-stock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, quantity: parseInt(delta), note: reason.trim(), actor: 'admin' })
-      });
-      if (!r.ok) throw new Error(await r.text());
-      return await r.json();
-    },
-    onMutate: async ({ productId, delta, currentStock }) => {
-      await queryClient.cancelQueries({ queryKey: ['products-stock'] });
-      const previousProducts = queryClient.getQueryData(['products-stock']);
+  // Transform the response to match Stock page expectations
+  const variants = variantsResponse?.map(variant => ({
+    id: variant.id,
+    name: variant.variant_name || 'Default',
+    parent_product_name: variant.products?.name || 'Unknown',
+    parent_product_id: variant.product_id,
+    stock_quantity: variant.stock_quantity || 0,
+    cost_price_cents: variant.cost_price_cents || 0,
+    status: variant.status || 'active',
+    category: variant.products?.category || '',
+    stock_type: getStockType(variant.products || {})
+  })) || [];
+
+  // Helper function to get variant stock level
+  const getVariantStock = (product, variantIndex) => {
+    if (!product.variants || product.variants.length === 0) return product.stock || 0;
+    
+    const variant = product.variants[variantIndex];
+    if (!variant) return product.stock || 0;
+    
+    // Check if variant has explicit stock level
+    if (variant.stock !== undefined && variant.stock !== null) {
+      return variant.stock;
+    }
+    
+    // Fall back to product stock if variant doesn't have explicit stock
+    return product.stock || 0;
+  };
+
+  // Filter logic: Hide furniture/courses/unlimited items, only show active variants, apply search
+  const filteredVariants = useMemo(() => {
+    if (!variants) return [];
+    return variants.filter(variant => {
+      // Only show active variants
+      if (variant.status !== 'active') return false;
+
+      const cat = (variant.category || '').toLowerCase();
+      const stockType = getStockType(variant);
       
-      queryClient.setQueryData(['products-stock'], (old) => {
-        return old?.map(p => 
-          p.id === productId 
-            ? { ...p, stock_qty: (currentStock || 0) + parseInt(delta) }
-            : p
-        );
-      });
-      
-      return { previousProducts };
-    },
-    onError: (error, variables, context) => {
-      if (context?.previousProducts) {
-        queryClient.setQueryData(['products-stock'], context.previousProducts);
+      // Exclude items that don't need stock tracking
+      if (cat.includes('furniture') ||
+          cat.includes('course') ||
+          cat.includes('workshop') ||
+          cat.includes('training') ||
+          stockType === 'unlimited' ||
+          stockType === 'made_on_demand') {
+        return false;
       }
-      showToast('error', error.message || 'Failed to adjust stock');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products-stock'] });
-      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
-      showToast('success', 'Stock adjusted successfully');
-      setShowAdjustModal(false);
-      setSelectedProduct(null);
-      setDelta("");
-      setReason("");
-    },
-  });
 
-  const handleAdjust = (product) => {
+      // Search
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        return variant.parent_product_name?.toLowerCase().includes(term) ||
+               variant.name?.toLowerCase().includes(term);
+      }
+      return true;
+    });
+  }, [variants, searchTerm]);
+
+  const handleOpenAdjust = (product) => {
     setSelectedProduct(product);
     setShowAdjustModal(true);
-    setDelta("");
-    setReason("");
   };
-
-  const submitAdjustment = () => {
-    if (!delta || delta === "0") {
-      showToast('error', 'Enter a non-zero quantity');
-      return;
-    }
-    if (!reason.trim()) {
-      showToast('error', 'Enter a reason');
-      return;
-    }
-
-    adjustMutation.mutate({
-      productId: selectedProduct.id,
-      delta,
-      reason,
-      currentStock: selectedProduct.stock_qty
-    });
-  };
-
-  // Restock functions
-  function addRestockItem() {
-    if (!restockItems.length || restockItems[restockItems.length-1].product_id) {
-      setRestockItems([...restockItems, { product_id: "", quantity: 1, unit_cost: 0 }]);
-    }
-  }
-
-  function updateRestockItem(i, field, value) {
-    const updated = [...restockItems];
-    updated[i] = { ...updated[i], [field]: value };
-    setRestockItems(updated);
-  }
-
-  function removeRestockItem(i) {
-    setRestockItems(restockItems.filter((_, idx) => idx !== i));
-  }
-
-  async function submitRestock() {
-    const items = restockItems.filter(x => x.product_id && x.quantity > 0);
-    if (!items.length) { showToast('error', 'Add at least one item'); return; }
-    try {
-      const r = await fetch("/.netlify/functions/create-restock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ supplier, reference, status: restockStatus, notes: restockNotes, items })
-      });
-      if (!r.ok) { showToast('error', await r.text()); return; }
-      showToast('success', 'Restock created');
-      setRestockItems([]);
-      setSupplier("");
-      setReference("");
-      setRestockNotes("");
-      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
-      queryClient.invalidateQueries({ queryKey: ['products-stock'] });
-    } catch (e) {
-      showToast('error', e.message);
-    }
-  }
-
-  const loading = activeTab === 'overview' ? loadingProducts : loadingMovements;
 
   return (
     <>
       <style>{`
         .stock-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
           margin-bottom: 32px;
         }
 
@@ -170,49 +132,57 @@ export default function Stock() {
           font-size: 28px;
           font-weight: 700;
           color: var(--text);
-          display: flex;
-          align-items: center;
-          gap: 12px;
+          margin-bottom: 8px;
         }
 
-        .tabs {
+        .header-subtitle {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+
+        .header-actions {
           display: flex;
-          gap: 8px;
-          margin-bottom: 24px;
+          gap: 12px;
+          align-items: center;
+          margin-top: 16px;
+        }
+
+        .search-box {
+          position: relative;
+          flex: 1;
+          max-width: 400px;
+        }
+
+        .search-input {
+          width: 100%;
+          padding: 12px 16px 12px 44px;
+          border-radius: 10px;
+          border: none;
           background: var(--card);
-          padding: 6px;
-          border-radius: 12px;
+          color: var(--text);
+          font-size: 14px;
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
-        .tab {
-          padding: 10px 20px;
-          border-radius: 8px;
-          border: none;
-          background: transparent;
+        .search-input:focus {
+          outline: none;
+        }
+
+        .search-icon {
+          position: absolute;
+          left: 14px;
+          top: 50%;
+          transform: translateY(-50%);
           color: var(--text-muted);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
         }
 
-        .tab:hover {
-          color: var(--text);
-        }
-
-        .tab.active {
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          color: white;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-        }
-
-        .stock-table {
+        .section-card {
           background: var(--card);
           border-radius: 16px;
           padding: 0;
           box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
           overflow: hidden;
+          margin-bottom: 24px;
         }
 
         table {
@@ -229,7 +199,7 @@ export default function Stock() {
           text-transform: uppercase;
           letter-spacing: 0.05em;
           background: var(--card);
-          border-bottom: 2px solid var(--border);
+          border-bottom: 1px solid var(--border);
         }
 
         td {
@@ -246,184 +216,24 @@ export default function Stock() {
           background: rgba(110, 193, 255, 0.05);
         }
 
-        .product-name {
-          font-weight: 600;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          padding: 4px 12px;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 600;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .status-active {
-          background: #10b98120;
-          color: #10b981;
-        }
-
-        .status-draft {
-          background: #f59e0b20;
-          color: #f59e0b;
-        }
-
-        .stock-low {
-          color: #ef4444;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .stock-ok {
-          color: var(--text);
-        }
-
-        .btn-adjust {
+        .btn-secondary {
           padding: 8px 16px;
-          border-radius: 8px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
-        }
-
-        .btn-adjust:hover {
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
-        }
-
-        .delta-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px 10px;
-          border-radius: 6px;
-          font-size: 13px;
-          font-weight: 700;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .delta-positive {
-          background: #10b98120;
-          color: #10b981;
-        }
-
-        .delta-negative {
-          background: #ef444420;
-          color: #ef4444;
-        }
-
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.7);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal-content {
-          background: var(--card);
-          border-radius: 16px;
-          padding: 32px;
-          max-width: 500px;
-          width: 90%;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-        }
-
-        .modal-title {
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--text);
-          margin-bottom: 8px;
-        }
-
-        .modal-subtitle {
-          font-size: 14px;
-          color: var(--text-muted);
-          margin-bottom: 24px;
-        }
-
-        .form-group {
-          margin-bottom: 20px;
-        }
-
-        .form-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-muted);
-          margin-bottom: 8px;
-          text-transform: uppercase;
-        }
-
-        .form-input, .form-textarea {
-          width: 100%;
-          padding: 12px 16px;
           border-radius: 10px;
           border: none;
           background: var(--card);
           color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .form-input:focus, .form-textarea:focus {
-          outline: none;
-        }
-
-        .quick-actions {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          margin-bottom: 16px;
-        }
-
-        .btn-quick {
-          padding: 10px;
-          border-radius: 8px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
           font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
-        }
-
-        .btn-quick:hover {
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-          margin-top: 24px;
-        }
-
-        .btn-cancel {
-          padding: 12px 24px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          transition: all 0.2s ease;
         }
 
-        .btn-submit {
+        .btn-secondary:hover {
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+        }
+
+        .btn-primary {
           padding: 12px 24px;
           border-radius: 10px;
           border: none;
@@ -433,279 +243,454 @@ export default function Stock() {
           font-weight: 600;
           cursor: pointer;
           box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
-        .btn-submit:disabled {
+        .btn-primary:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
 
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-          color: var(--text-muted);
+        /* Modal Styling */
+        .input, .select {
+          width: 100%;
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 15px;
+          font-family: inherit;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          outline: none;
+          position: relative;
+          z-index: 1;
+        }
+        
+        .input:focus, .select:focus {
+          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light), 0 0 0 2px var(--accent);
+        }
+
+        .input:focus, .select:focus {
+          outline: none;
+        }
+
+        @media (max-width: 768px) {
+          .header-actions {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .search-box {
+            max-width: 100%;
+          }
         }
       `}</style>
 
-      <div className="stock-header">
-        <h1 className="header-title">
-          <Package className="w-8 h-8" />
-          Inventory
-        </h1>
-      </div>
+      <div className="p-4 md:p-8">
+        <div className="stock-header">
+          <h1 className="header-title">Stock Management</h1>
+          <p className="header-subtitle">Track inventory levels and product costs.</p>
 
-      <div className="tabs">
-        <button
-          className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button
-          className={`tab ${activeTab === 'restock' ? 'active' : ''}`}
-          onClick={() => setActiveTab('restock')}
-        >
-          Restock
-        </button>
-        <button
-          className={`tab ${activeTab === 'movements' ? 'active' : ''}`}
-          onClick={() => setActiveTab('movements')}
-        >
-          Movements
-        </button>
-      </div>
-
-      {activeTab === 'overview' && (
-        <div className="stock-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Status</th>
-                <th>On Hand</th>
-                <th>Available</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="empty-state">Loading inventory...</td>
-                </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="empty-state">No products found</td>
-                </tr>
-              ) : (
-                products.map(product => (
-                  <tr key={product.id}>
-                    <td>
-                      <div className="product-name">{product.name}</div>
-                    </td>
-                    <td>
-                      <span className={`status-badge status-${product.status}`}>
-                        {product.status}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={product.stock_qty < 5 ? 'stock-low' : 'stock-ok'}>
-                        {product.stock_qty || 0}
-                        {product.stock_qty < 5 && <AlertCircle className="w-4 h-4" />}
-                      </span>
-                    </td>
-                    <td>{product.stock_qty || 0}</td>
-                    <td>
-                      <button className="btn-adjust" onClick={() => handleAdjust(product)}>
-                        Adjust
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === 'movements' && (
-        <div className="stock-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Delta</th>
-                <th>Reason</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="4" className="empty-state">Loading movements...</td>
-                </tr>
-              ) : movements.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="empty-state">No stock movements recorded</td>
-                </tr>
-              ) : (
-                movements.map(movement => (
-                  <tr key={movement.id}>
-                    <td>
-                      <div className="product-name">{movement.product_name}</div>
-                    </td>
-                    <td>
-                      <span className={`delta-chip ${movement.delta >= 0 ? 'delta-positive' : 'delta-negative'}`}>
-                        {movement.delta >= 0 ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                        {Math.abs(movement.delta)}
-                      </span>
-                    </td>
-                    <td>{movement.reason}</td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {dateTime(movement.created_date)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === 'restock' && (
-        <div className="stock-table" style={{ padding: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px' }}>Create Restock Order</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Supplier</label>
-              <input className="form-input" value={supplier} onChange={e=>setSupplier(e.target.value)} placeholder="Supplier name" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Reference</label>
-              <input className="form-input" value={reference} onChange={e=>setReference(e.target.value)} placeholder="PO number" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Status</label>
-              <select className="form-input" value={restockStatus} onChange={e=>setRestockStatus(e.target.value)}>
-                <option value="draft">Draft</option>
-                <option value="received">Received</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Notes</label>
-              <input className="form-input" value={restockNotes} onChange={e=>setRestockNotes(e.target.value)} placeholder="Optional notes" />
+          <div className="header-actions">
+            <div className="search-box">
+              <Search className="search-icon w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search inventory..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
             </div>
           </div>
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }}>Items</label>
-              <button className="btn-submit" onClick={addRestockItem}>+ Add Item</button>
-            </div>
-            {restockItems.length > 0 && (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Qty</th>
-                    <th>Unit Cost</th>
-                    <th>Total</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {restockItems.map((item, i) => (
-                    <tr key={i}>
-                      <td>
-                        <select className="form-input" value={item.product_id} onChange={e=>updateRestockItem(i, 'product_id', e.target.value)}>
-                          <option value="">Select product...</option>
-                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+        </div>
+
+        {showAdjustModal && (
+          <AdjustStockModal
+            product={selectedProduct}
+            onClose={() => {
+              setShowAdjustModal(false);
+              setSelectedProduct(null);
+            }}
+            showToast={showToast}
+          />
+        )}
+
+        <div className="section-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
+                  <th className="p-4">Product</th>
+                  <th className="p-4">Cost Price</th>
+                  <th className="p-4">Stock Level</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">Loading inventory...</td></tr>
+                ) : filteredVariants.length === 0 ? (
+                  <tr><td colSpan="5" className="p-8 text-center text-[var(--text-muted)]">No tracked variants found.</td></tr>
+                ) : (
+                  filteredVariants.map(variant => (
+                    <tr key={variant.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)] transition-colors">
+                      <td className="p-4">
+                        <div className="font-medium text-[var(--text)]">{variant.parent_product_name}</div>
+                        <div className="text-sm text-[var(--text-muted)]">{variant.name}</div>
                       </td>
-                      <td>
-                        <input type="number" className="form-input" value={item.quantity} onChange={e=>updateRestockItem(i, 'quantity', Number(e.target.value))} min="1" />
+                      <td className="p-4 text-[var(--text)]">{formatRands(variant.cost_price_cents)}</td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          (variant.stock_quantity || 0) > 10
+                            ? 'bg-green-500/10 text-green-500'
+                            : (variant.stock_quantity || 0) > 0
+                              ? 'bg-yellow-500/10 text-yellow-500'
+                              : 'bg-red-500/10 text-red-500'
+                        }`}>
+                          {variant.stock_quantity || 0} Units
+                        </span>
                       </td>
-                      <td>
-                        <input type="number" step="0.01" className="form-input" value={item.unit_cost} onChange={e=>updateRestockItem(i, 'unit_cost', Number(e.target.value))} min="0" />
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          variant.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                          variant.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
+                          'bg-red-500/10 text-red-500'
+                        }`}>
+                          {variant.status}
+                        </span>
                       </td>
-                      <td>R{(item.quantity * item.unit_cost).toFixed(2)}</td>
-                      <td><button className="btn-cancel" onClick={()=>removeRestockItem(i)}>×</button></td>
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleOpenAdjust({
+                            id: variant.id,
+                            name: `${variant.parent_product_name} - ${variant.name}`,
+                            variant_id: variant.id,
+                            product_id: variant.parent_product_id,
+                            stock: variant.stock_quantity,
+                            cost_price_cents: variant.cost_price_cents,
+                            status: variant.status
+                          })}
+                          className="btn-secondary text-xs py-1 px-3 h-auto"
+                        >
+                          Adjust
+                        </button>
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-          {restockItems.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-              <button className="btn-submit" onClick={submitRestock}>Create Restock</button>
-            </div>
-          )}
         </div>
-      )}
 
-      {showAdjustModal && selectedProduct && (
-        <div className="modal-overlay" onClick={() => setShowAdjustModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Adjust Stock</h2>
-            <p className="modal-subtitle">
-              {selectedProduct.name} • Current: {selectedProduct.stock_qty || 0} units
-            </p>
+        {/* History Section */}
+        <StockHistory />
+      </div>
+    </>
+  );
+}
 
-            <div className="quick-actions">
-              <button className="btn-quick" onClick={() => setDelta("10")}>
-                <Plus className="w-4 h-4" />
-                +10
-              </button>
-              <button className="btn-quick" onClick={() => setDelta("50")}>
-                <Plus className="w-4 h-4" />
-                +50
-              </button>
-              <button className="btn-quick" onClick={() => setDelta("-10")}>
-                <Minus className="w-4 h-4" />
-                −10
-              </button>
-              <button className="btn-quick" onClick={() => setDelta("-50")}>
-                <Minus className="w-4 h-4" />
-                −50
-              </button>
-            </div>
+// --- Manage Stock & Cost Modal ---
+function AdjustStockModal({ product, onClose, showToast }) {
+  const queryClient = useQueryClient();
+  const [quantity, setQuantity] = useState('');
+  const [costPrice, setCostPrice] = useState(product.cost_price_cents ? (product.cost_price_cents / 100).toFixed(2) : '');
+  const [reason, setReason] = useState('manual_restock');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Handle variant information
+  const productName = product.name || 'Unknown Product';
+  const currentStock = product.stock || 0;
 
-            <div className="form-group">
-              <label className="form-label">Quantity Change</label>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const qtyChange = parseInt(quantity) || 0;
+      
+      // Use the new Netlify function to adjust stock for variants
+      const response = await fetch('/.netlify/functions/adjust-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variantId: product.variant_id,
+          productId: product.product_id,
+          delta: qtyChange,
+          reason: reason,
+          costPrice: costPrice ? parseFloat(costPrice) : undefined
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to adjust stock');
+      }
+
+      const result = await response.json();
+      showToast('success', result.message || 'Stock updated successfully');
+
+      // CRITICAL: Invalidate the queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['product_variants_with_products'] });
+      queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
+
+      onClose();
+
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('error', error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="section-card w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h3 className="text-xl font-bold">Adjust Inventory</h3>
+            <p className="text-sm text-[var(--text-muted)]">{productName}</p>
+          </div>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text)]">
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Cost Price (R)</label>
+            <div className="relative">
               <input
                 type="number"
-                className="form-input"
-                value={delta}
-                onChange={(e) => setDelta(e.target.value)}
-                placeholder="Enter +/− quantity"
+                step="0.01"
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value)}
+                className="input"
+                placeholder="0.00"
               />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Reason *</label>
-              <textarea
-                className="form-textarea"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g., Stock count correction, Damaged goods, etc."
-                rows="3"
-              />
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setShowAdjustModal(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn-submit"
-                onClick={submitAdjustment}
-                disabled={adjustMutation.isPending}
-              >
-                {adjustMutation.isPending ? 'Adjusting...' : 'Adjust Stock'}
-              </button>
             </div>
           </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Add / Remove Stock</label>
+            <div className="relative">
+              <input
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="input"
+                placeholder="+5 or -2"
+              />
+            </div>
+            <div className="flex justify-between text-xs text-[var(--text-muted)] px-1">
+              <span>Current: {currentStock}</span>
+              {quantity && !isNaN(parseInt(quantity)) && (
+                <span className={parseInt(quantity) > 0 ? "text-green-400" : "text-red-400"}>
+                  New: {currentStock + parseInt(quantity)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Reason</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="select"
+            >
+              <option value="manual_restock">Stock Arrival</option>
+              <option value="manual_correction">Inventory Correction</option>
+              <option value="manual_damage">Damaged / Expired</option>
+              <option value="manual_return">Customer Return</option>
+            </select>
+          </div>
+
+          <div className="pt-4 flex gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 flex items-center justify-center gap-2">
+              {isSubmitting ? 'Saving...' : <><Save size={16} /> Save Changes</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function StockHistory() {
+  const [filter, setFilter] = useState('all'); // 'all', 'manual', 'order'
+  const { data: movements, isLoading } = useQuery({
+    queryKey: ['stock_movements'],
+    queryFn: api.listStockMovements,
+  });
+
+  // Filter movements based on selection
+  const filteredMovements = movements?.filter(move => {
+    if (filter === 'all') return true;
+    
+    const reason = move.reason || '';
+    const normalizedReason = reason.toLowerCase();
+    
+    if (filter === 'manual') {
+      return normalizedReason.includes('manual') || normalizedReason.includes('adjustment');
+    }
+    if (filter === 'order') {
+      return normalizedReason.includes('order') || normalizedReason.includes('sale');
+    }
+    return true;
+  }) || [];
+
+  // Helper to format the type nicely, regardless of casing
+  const formatMovementType = (type) => {
+    if (!type) return '-';
+    
+    // Normalize to lowercase for checking
+    const normalized = type.toLowerCase();
+    
+    // Handle the actual data patterns from Supabase
+    if (normalized.includes('manual') || normalized.includes('adjustment')) return 'Manual';
+    if (normalized.includes('order') || normalized.includes('sale')) return 'Order';
+    
+    // Additional patterns
+    if (normalized === 'restock') return 'Restock';
+    if (normalized === 'return') return 'Return';
+    
+    // Fallback: Capitalize first letter of whatever it is
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  // Helper to determine movement type for display
+  const getMovementType = (move) => {
+    const reason = move.reason || '';
+    return formatMovementType(reason);
+  };
+
+  // Helper to format reason for display
+  const formatReason = (reason) => {
+    if (!reason) return 'Unknown';
+    return reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  return (
+    <div className="section-card mt-8">
+      <div className="p-6 pb-0">
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <History size={20} className="text-[var(--accent)]" />
+          Movement History
+        </h2>
+        
+        {/* Filter Controls */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              filter === 'all' 
+                ? 'bg-[var(--accent)] text-white' 
+                : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            All ({movements?.length || 0})
+          </button>
+          <button
+            onClick={() => setFilter('manual')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              filter === 'manual' 
+                ? 'bg-[var(--accent)] text-white' 
+                : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            Manual ({movements?.filter(m => {
+              const reason = m.reason?.toLowerCase() || '';
+              return reason.includes('manual') || reason.includes('adjustment');
+            }).length || 0})
+          </button>
+          <button
+            onClick={() => setFilter('order')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              filter === 'order' 
+                ? 'bg-[var(--accent)] text-white' 
+                : 'bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            Order ({movements?.filter(m => {
+              const reason = m.reason?.toLowerCase() || '';
+              return reason.includes('order') || reason.includes('sale');
+            }).length || 0})
+          </button>
         </div>
-      )}
-    </>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)] text-xs uppercase tracking-wider">
+              <th className="p-4">Date</th>
+              <th className="p-4">Product</th>
+              <th className="p-4">Change</th>
+              <th className="p-4">Type</th>
+              <th className="p-4">Reason</th>
+              <th className="p-4">Ref</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">Loading history...</td></tr>
+            ) : filteredMovements.length === 0 ? (
+              <tr><td colSpan="6" className="p-8 text-center text-[var(--text-muted)]">No {filter !== 'all' ? filter + ' ' : ''}movements recorded yet.</td></tr>
+            ) : (
+              filteredMovements.map(move => (
+                <tr key={move.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-subtle)]">
+                  <td className="p-4 text-sm text-[var(--text-muted)]">
+                    {new Date(move.created_at).toLocaleString()}
+                  </td>
+                  <td className="p-4 font-medium">
+                    {move.product?.name || move.product_name || 'Unknown Product'}
+                    {move.variant_index !== undefined && move.variant_index !== null && (
+                      <span className="text-xs text-[var(--text-muted)] ml-1">
+                        (Variant {move.variant_index})
+                      </span>
+                    )}
+                  </td>
+                  <td className={`p-4 font-bold ${move.delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {move.delta > 0 ? `+${move.delta}` : move.delta}
+                  </td>
+                  <td className="p-4">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      formatMovementType(move.reason) === 'Manual' 
+                        ? 'bg-blue-500/10 text-blue-500' 
+                        : formatMovementType(move.reason) === 'Order'
+                          ? 'bg-purple-500/10 text-purple-500'
+                          : 'bg-gray-500/10 text-gray-500'
+                    }`}>
+                      {formatMovementType(move.reason)}
+                    </span>
+                  </td>
+                  <td className="p-4 text-sm text-[var(--text-muted)]">
+                    {formatReason(move.reason)}
+                  </td>
+                  <td className="p-4 text-xs font-mono text-[var(--text-muted)]">
+                    {move.order_id ? (
+                      <span className="text-purple-500">
+                        Order: {move.order_id.slice(0,8)}...
+                      </span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

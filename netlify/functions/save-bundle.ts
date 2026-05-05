@@ -1,110 +1,215 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
+const getSupabaseAdmin = () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  
+  return createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+};
+
+const headers = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*'
+};
+
+// Helper to create a slug from a name
+const slugify = (text: string) => {
+  return text.toString().toLowerCase().trim()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-');        // Replace multiple - with single -
+};
 
 export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
+
   try {
-    if (event.httpMethod !== 'POST') {
-      return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Method Not Allowed' }) };
-    }
-    if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Empty body' }) };
-    }
-
-    let body: any;
+    console.log('Received event body:', event.body);
+    
+    let payload;
     try {
-      body = typeof event.body === 'string' ? (event.body ? JSON.parse(event.body) : {}) : (event.body || {});
-    } catch (e) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid JSON: ' + (e instanceof Error ? e.message : String(e)) }) };
+      const body = JSON.parse(event.body || '{}');
+      payload = body.payload || body; // Handle wrapped payload or direct body
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Invalid JSON in request body' })
+      };
     }
 
-    const name = String(body.name || '').trim();
-    const slug = String(body.slug || '').trim();
-    const price = Number(body.price);
-    const status = body.status || 'active';
+    console.log('Processing bundle:', payload.name || 'Unnamed bundle');
 
-    if (!name || !slug) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Missing required fields (name, slug)' }) };
+    let supabase;
+    try {
+      supabase = getSupabaseAdmin();
+    } catch (envError) {
+      console.error('Environment variable error:', envError);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'Server configuration error: ' + envError.message })
+      };
     }
-    if (!Number.isFinite(price)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Invalid price' }) };
-    }
 
-    const supabaseUrl = process.env.SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    if (!supabaseUrl || !serviceKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'Server not configured (SUPABASE envs missing)' }) };
-    }
-    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    // Calculate price_cents from price if provided
+    const priceCents = payload.price_cents ?? (payload.price ? Math.round(Number(payload.price) * 100) : 0);
+    const compareAtPriceCents = payload.compare_at_price_cents ??
+      (payload.compare_at_price ? Math.round(Number(payload.compare_at_price) * 100) : null);
 
-    const compareAt = body.compare_at_price == null ? null : Number(body.compare_at_price);
+    // product_type: 'collection' or 'bundle'
+    // As per user request, ALL bundles/collections must be categorized as 'Bundle Deals' and type 'bundle'
+    // const rawType = String(payload.product_type || '').toLowerCase();
+    // const productType = (rawType === 'bundle' || rawType === 'bundle deals') ? 'bundle' : 'collection';
+    const productType = 'bundle';
+    
+    // FORCE 'Bundle Deals' category regardless of type
+    const category = 'Bundle Deals';
 
-    const row: any = {
-      id: body.id ?? undefined,
-      name,
-      slug,
-      status,
-      price_cents: Math.round(price * 100),
-      compare_at_price_cents: compareAt == null ? null : Math.round(compareAt * 100),
-      short_desc: body.short_description ?? null,
-      short_description: body.short_description ?? null,
-      long_desc: body.long_description ?? null,
-      long_description: body.long_description ?? null,
-      images: Array.isArray(body.images) ? body.images : [],
-      hover_image: body.hover_image ?? null,
+    // Ensure images/gallery has content
+      const gallery = payload.gallery_urls || payload.images || [];
+      if (gallery.length === 0 && payload.thumbnail_url) {
+        gallery.push(payload.thumbnail_url);
+      }
+
+      // Create a default variant for the bundle so frontend product templates don't crash
+      const defaultVariant = {
+        id: `var_${Date.now()}`,
+        name: 'Default Title',
+        price: priceCents / 100,
+        price_cents: priceCents,
+        sku: payload.sku,
+        inventory_quantity: 100, // Bundles are virtual, assume stock
+        inventory_management: 'manual',
+        option1: 'Default Title'
+      };
+
+      // Build bundle data for the bundles table
+      const bundleData: any = {
+        name: payload.name,
+        slug: payload.slug || slugify(payload.name),
+        sku: payload.sku || (productType === 'bundle' ? `BND-${Date.now()}` : `COL-${Date.now()}`),
+        product_type: productType,
+        category,
+        status: 'active',
+        is_active: true, 
+        
+        price_cents: priceCents,
+        compare_at_price_cents: compareAtPriceCents,
+        stock: 100, // Bundles are virtual — always in stock unless explicitly archived
+        stock_label: 'In Stock',
+        track_inventory: false,
+        
+        pricing_mode: payload.pricing_mode || 'manual',
+        discount_value: payload.discount_value || null,
+        
+        short_desc: payload.short_description || payload.short_desc || '',
+        long_desc: payload.overview || payload.long_desc || '',
+        images: gallery,
+        gallery_urls: gallery,
+        thumbnail_url: payload.thumbnail_url || '',
+        hover_image: payload.hover_url || payload.hover_image || null,
+        
+        badges: payload.badges || [],
+        
+        // Polyfill variants for frontend compatibility
+        variants: [defaultVariant],
+
+        // The components - saved as JSONB array in bundles table as well for easier access
+      bundle_products: payload.bundle_products || [],
+      
       updated_at: new Date().toISOString(),
     };
 
-    let data, error;
-    if (row.id) {
-      const { data: updated, error: updateError } = await admin
-        .from('bundles')
-        .update(row)
-        .eq('id', row.id)
-        .select('*')
-        .single();
-      data = updated;
-      error = updateError;
-    } else {
-      const { data: existing } = await admin
-        .from('bundles')
-        .select('id')
-        .eq('slug', row.slug)
-        .maybeSingle();
+    let bundleResult;
 
-      if (existing) {
-        const { data: updated, error: updateError } = await admin
-          .from('bundles')
-          .update(row)
-          .eq('id', existing.id)
-          .select('*')
-          .single();
-        data = updated;
-        error = updateError;
-      } else {
-        delete row.id;
-        const { data: inserted, error: insertError } = await admin
-          .from('bundles')
-          .insert(row)
-          .select('*')
-          .single();
-        data = inserted;
-        error = insertError;
+    // Upsert: Update if ID exists, Insert if not
+    if (payload.id) {
+      // Update existing bundle
+      const { data, error } = await supabase
+        .from('bundles')
+        .update(bundleData)
+        .eq('id', payload.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database Error updating bundle:', error);
+        throw error;
       }
+      bundleResult = data;
+    } else {
+      // Insert new bundle
+      const { data, error } = await supabase
+        .from('bundles')
+        .insert(bundleData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database Error inserting bundle:', error);
+        throw error;
+      }
+      bundleResult = data;
     }
 
-    if (error) {
-      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: `DB error: ${error.message}` }) };
+    // Handle bundle_products (items) - save to bundle_items table
+    if (payload.bundle_products && Array.isArray(payload.bundle_products) && payload.bundle_products.length > 0) {
+      const bundleId = bundleResult.id;
+
+      // First, delete existing items for this bundle
+      const { error: deleteError } = await supabase
+        .from('bundle_items')
+        .delete()
+        .eq('bundle_id', bundleId);
+
+      if (deleteError) {
+        console.error('Error deleting old bundle items:', deleteError);
+        // Continue anyway, items might not exist yet
+      }
+
+      // Insert new items
+      const bundleItems = payload.bundle_products
+        .filter((item: any) => item.product_id)
+        .map((item: any) => ({
+          bundle_id: bundleId,
+          product_id: item.product_id,
+          variant_id: item.variant_id || null, // Save variant selection
+          qty: item.quantity || item.qty || 1,
+        }));
+
+      if (bundleItems.length > 0) {
+        const { error: insertError } = await supabase
+          .from('bundle_items')
+          .insert(bundleItems);
+
+        if (insertError) {
+          console.error('Error inserting bundle items:', insertError);
+          throw insertError;
+        }
+      }
     }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, bundle: data })
+      body: JSON.stringify({ ok: true, bundle: bundleResult })
     };
+
   } catch (e: any) {
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: e?.message || String(e) }) };
+    console.error('Save Bundle Error:', e);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ ok: false, error: e.message })
+    };
   }
 };
-

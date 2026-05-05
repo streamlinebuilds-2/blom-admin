@@ -1,396 +1,640 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { api } from "../components/data/api";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Mail, Phone, Calendar, User, ExternalLink, Paperclip } from "lucide-react";
-import { useToast } from "../components/ui/ToastProvider";
-import { Banner } from "../components/ui/Banner";
+// src/pages/MessageDetail.jsx
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/ToastProvider";
+import { ArrowLeft, Mail, MessageCircle, CheckCircle, Trash2 } from "lucide-react";
 
 export default function MessageDetail() {
+  const { id } = useParams();
   const navigate = useNavigate();
+  const [message, setMessage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { showToast } = useToast();
-  const queryClient = useQueryClient();
-  const urlParams = new URLSearchParams(window.location.search);
-  const messageId = urlParams.get('id');
 
-  const { data: message, isLoading, error } = useQuery({
-    queryKey: ['message', messageId],
-    queryFn: () => api.getMessage(messageId),
-    enabled: !!messageId,
-  });
+  async function load() {
+    if (!id) return;
+    setLoading(true);
+    setError("");
+    try {
+      const r = await fetch(`/.netlify/functions/admin-message?id=${id}`);
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      const j = await r.json();
+      if (j.ok) {
+        setMessage(j.message);
+      } else {
+        setError(j.error || "Failed to load message");
+        showToast('error', j.error || "Failed to load message");
+      }
+    } catch (err) {
+      const errMsg = err.message || "Failed to fetch message";
+      setError(errMsg);
+      showToast('error', errMsg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const updateMutation = useMutation({
-    mutationFn: ({ patch }) => api.updateMessage(messageId, patch),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['message', messageId] });
-      showToast('success', 'Message updated');
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to update message');
-    },
-  });
+  async function updateStatus(newStatus) {
+    if (!id) return;
+    setUpdating(true);
+    try {
+      const r = await fetch("/.netlify/functions/admin-message-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      const j = await r.json();
+      if (j.ok) {
+        showToast('success', `Status updated to ${newStatus}`);
+        await load();
+      } else {
+        showToast('error', j.error || "Failed to update status");
+      }
+    } catch (err) {
+      showToast('error', err.message || "Failed to update status");
+    } finally {
+      setUpdating(false);
+    }
+  }
 
-  if (isLoading) {
+  async function handleDelete() {
+    if (!id) return;
+    
+    if (!confirm('Are you sure you want to delete this message? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const r = await fetch("/.netlify/functions/admin-message-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+      const j = await r.json();
+      if (j.ok) {
+        showToast('success', 'Message deleted successfully');
+        navigate('/messages');
+      } else {
+        showToast('error', j.error || "Failed to delete message");
+      }
+    } catch (err) {
+      showToast('error', err.message || "Failed to delete message");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function handleEmailReply() {
+    if (!message?.email) {
+      showToast('error', 'No email address available');
+      return;
+    }
+    const subject = message.subject ? `Re: ${message.subject}` : 'Re: Your inquiry';
+    window.open(`mailto:${message.email}?subject=${encodeURIComponent(subject)}`, '_blank');
+  }
+
+  function handleWhatsAppReply() {
+    if (!message?.phone) {
+      showToast('error', 'No phone number available');
+      return;
+    }
+    const cleanPhone = message.phone.replace(/\D/g, '');
+    const phone = cleanPhone.startsWith('27') ? cleanPhone : `27${cleanPhone}`;
+    const text = `Hi ${message.name || 'there'}, `;
+    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  }
+
+  useEffect(() => { load(); }, [id]);
+
+  const formatDate = (d) => {
+    if (!d) return "-";
+    const date = new Date(d);
+    return date.toLocaleString('en-ZA', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
-        Loading message...
+      <div className="p-6" style={{ color: 'var(--text)' }}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: 'var(--accent)' }}></div>
       </div>
     );
   }
 
-  if (error || !message) {
-    return <Banner type="error">{error?.message || 'Message not found'}</Banner>;
+  if (error && !message) {
+    return (
+      <div className="p-6" style={{ color: 'var(--text)' }}>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+          <div className="text-red-600 dark:text-red-400 font-semibold mb-2">Error</div>
+          <div className="text-sm text-red-500 dark:text-red-300">{error}</div>
+          <button
+            onClick={() => navigate('/messages')}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Back to Messages
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  const handleReply = () => {
-    const subject = message.subject.startsWith('Re:') ? message.subject : `Re: ${message.subject}`;
-    window.open(`mailto:${message.email}?subject=${encodeURIComponent(subject)}`, '_blank');
-  };
+  if (!message) {
+    return (
+      <div className="p-6" style={{ color: 'var(--text)' }}>
+        Message not found
+      </div>
+    );
+  }
+
+  // Base44 styling CSS
+  const base44Styles = `
+    .message-detail-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .btn-back {
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .btn-back:hover {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
+    .message-title-section {
+      flex: 1;
+    }
+
+    .message-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    .message-date {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
+    .btn-danger {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+      transition: all 0.3s ease;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+    }
+
+    .section-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 24px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .info-value {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .info-link {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .info-link:hover {
+      color: var(--accent-2);
+      text-decoration: underline;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+    }
+
+    .status-new {
+      background: #ef444420;
+      color: #ef4444;
+    }
+
+    .status-handled {
+      background: #10b98120;
+      color: #10b981;
+    }
+
+    .message-content {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 20px;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      font-size: 14px;
+      color: var(--text);
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+    }
+
+    .image-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .image-item {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 12px;
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .image-item:hover {
+      transform: scale(1.05);
+    }
+
+    .status-select {
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+      min-width: 200px;
+    }
+
+    .loading-state, .error-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .error-state {
+      color: #ef4444;
+    }
+
+    @media (max-width: 768px) {
+      .message-detail-container {
+        padding: 20px;
+      }
+      .message-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+      }
+      .action-buttons {
+        justify-content: center;
+      }
+      .info-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+    }
+  `;
+
+  if (loading) {
+    return (
+      <>
+        <style>{base44Styles}</style>
+        <div className="loading-state">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+          <div>Loading message...</div>
+        </div>
+      </>
+    );
+  }
+
+  if (error && !message) {
+    return (
+      <>
+        <style>{base44Styles}</style>
+        <div className="error-state">
+          <div className="font-semibold mb-2">Error loading message</div>
+          <div className="text-sm">{error}</div>
+          <button onClick={() => navigate('/messages')} className="btn-secondary mt-4">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Messages
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (!message) {
+    return (
+      <>
+        <style>{base44Styles}</style>
+        <div className="loading-state">
+          Message not found
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
-      <style>{`
-        .detail-header {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-
-        .btn-back {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
-        }
-
-        .btn-back:active {
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .detail-title {
-          font-size: 24px;
-          font-weight: 700;
-          color: var(--text);
-          flex: 1;
-        }
-
-        .btn-reply {
-          padding: 12px 24px;
-          border-radius: 12px;
-          border: none;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
-        }
-
-        .btn-reply:hover {
-          transform: translateY(-2px);
-        }
-
-        .detail-content {
-          max-width: 1000px;
-        }
-
-        .detail-card {
-          background: var(--card);
-          border-radius: 16px;
-          padding: 32px;
-          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
-          margin-bottom: 24px;
-        }
-
-        .detail-section {
-          margin-bottom: 32px;
-          padding-bottom: 32px;
-          border-bottom: 2px solid var(--border);
-        }
-
-        .detail-section:last-child {
-          border-bottom: none;
-          margin-bottom: 0;
-          padding-bottom: 0;
-        }
-
-        .section-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 16px;
-        }
-
-        .control-group {
-          margin-bottom: 20px;
-        }
-
-        .control-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-muted);
-          margin-bottom: 8px;
-          display: block;
-        }
-
-        .control-select, .control-input {
-          width: 100%;
-          padding: 12px 16px;
-          border-radius: 10px;
-          border: none;
-          background: var(--bg);
-          color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .control-select:focus, .control-input:focus {
-          outline: none;
-        }
-
-        .message-body {
-          background: var(--bg);
-          border-radius: 12px;
-          padding: 20px;
-          color: var(--text);
-          white-space: pre-wrap;
-          line-height: 1.6;
-          font-size: 15px;
-          box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
-        }
-
-        .attachments {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          margin-top: 16px;
-        }
-
-        .attachment-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 16px;
-          border-radius: 10px;
-          background: var(--card);
-          color: var(--text);
-          text-decoration: none;
-          font-size: 14px;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-          transition: all 0.2s;
-        }
-
-        .attachment-chip:hover {
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .meta-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 16px;
-        }
-
-        .meta-item {
-          display: flex;
-          align-items: start;
-          gap: 12px;
-        }
-
-        .meta-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: var(--bg);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--accent);
-          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
-          flex-shrink: 0;
-        }
-
-        .meta-content {
-          flex: 1;
-        }
-
-        .meta-label {
-          font-size: 12px;
-          color: var(--text-muted);
-          margin-bottom: 4px;
-        }
-
-        .meta-value {
-          font-size: 14px;
-          color: var(--text);
-          font-weight: 600;
-        }
-
-        .tip-banner {
-          background: var(--card);
-          border-left: 4px solid var(--accent);
-          padding: 16px;
-          border-radius: 10px;
-          font-size: 14px;
-          color: var(--text);
-          margin-top: 24px;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-        }
-      `}</style>
-
-      <div className="detail-header">
-        <button className="btn-back" onClick={() => navigate(createPageUrl('Messages'))}>
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="detail-title">{message.subject}</h1>
-        <button className="btn-reply" onClick={handleReply}>
-          <Mail className="w-5 h-5" />
-          Reply via Email
-        </button>
-      </div>
-
-      <div className="detail-content">
-        <div className="detail-card">
-          <div className="detail-section">
-            <h3 className="section-title">Status & Assignment</h3>
-            
-            <div className="control-group">
-              <label className="control-label">Status</label>
-              <select
-                className="control-select"
-                value={message.status}
-                onChange={(e) => updateMutation.mutate({ patch: { status: e.target.value } })}
-                disabled={updateMutation.isPending}
-              >
-                <option value="new">New</option>
-                <option value="open">Open</option>
-                <option value="closed">Closed</option>
-              </select>
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Assigned To</label>
-              <input
-                type="email"
-                className="control-input"
-                value={message.assignee || ''}
-                onChange={(e) => updateMutation.mutate({ patch: { assignee: e.target.value || null } })}
-                placeholder="email@example.com"
-                disabled={updateMutation.isPending}
-              />
-            </div>
+      <style>{base44Styles}</style>
+      <div className="message-detail-container">
+        {/* Header */}
+        <div className="message-header">
+          <button onClick={() => navigate('/messages')} className="btn-back">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="message-title-section">
+            <h1 className="message-title">
+              Message Details
+              <span className={`status-badge status-${message.status}`}>
+                {message.status === "new" ? "Unanswered" : "Answered"}
+              </span>
+            </h1>
+            <p className="message-date">
+              Received on {formatDate(message.created_at)}
+            </p>
           </div>
+        </div>
 
-          <div className="detail-section">
-            <h3 className="section-title">Message</h3>
-            <div className="message-body">{message.body}</div>
+        <div className="action-buttons">
+          {message.status === "new" && (
+            <button
+              onClick={() => updateStatus("handled")}
+              disabled={updating}
+              className="btn-primary"
+            >
+              <CheckCircle size={18} />
+              {updating ? 'Updating...' : 'Mark as Answered'}
+            </button>
+          )}
+          {message.email && (
+            <button
+              onClick={handleEmailReply}
+              className="btn-primary"
+            >
+              <Mail size={18} />
+              Reply via Email
+            </button>
+          )}
+          {message.phone && (
+            <button
+              onClick={handleWhatsAppReply}
+              className="btn-primary"
+            >
+              <MessageCircle size={18} />
+              Reply via WhatsApp
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="btn-danger"
+            title="Delete message"
+          >
+            <Trash2 size={18} />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
 
-            {message.attachments && message.attachments.length > 0 && (
-              <div className="attachments">
-                {message.attachments.map((att, idx) => (
-                  <a
-                    key={idx}
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="attachment-chip"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                    <span>{att.name}</span>
-                    <ExternalLink className="w-4 h-4" />
+        {/* Contact Information */}
+        <div className="section-card">
+          <h3 className="section-title">
+            Contact Information
+          </h3>
+          <div className="info-grid">
+            <div className="info-item">
+              <div className="info-label">Name</div>
+              <div className="info-value">{message.name || "-"}</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">Email</div>
+              <div className="info-value">
+                {message.email ? (
+                  <a href={`mailto:${message.email}`} className="info-link">
+                    {message.email}
                   </a>
-                ))}
+                ) : "-"}
               </div>
-            )}
-          </div>
-
-          <div className="detail-section">
-            <h3 className="section-title">Customer Details</h3>
-            
-            <div className="meta-grid">
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <User className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Name</div>
-                  <div className="meta-value">{message.full_name}</div>
-                </div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">Phone</div>
+              <div className="info-value">
+                {message.phone ? (
+                  <a href={`tel:${message.phone}`} className="info-link">
+                    {message.phone}
+                  </a>
+                ) : "-"}
               </div>
-
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <Mail className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Email</div>
-                  <div className="meta-value">{message.email}</div>
-                </div>
-              </div>
-
-              {message.phone && (
-                <div className="meta-item">
-                  <div className="meta-icon">
-                    <Phone className="w-5 h-5" />
-                  </div>
-                  <div className="meta-content">
-                    <div className="meta-label">Phone</div>
-                    <div className="meta-value">{message.phone}</div>
-                  </div>
-                </div>
-              )}
-
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Inquiry Type</div>
-                  <div className="meta-value">{message.inquiry_type}</div>
-                </div>
-              </div>
-
-              <div className="meta-item">
-                <div className="meta-icon">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div className="meta-content">
-                  <div className="meta-label">Received</div>
-                  <div className="meta-value">{new Date(message.created_at).toLocaleString()}</div>
-                </div>
-              </div>
-
-              {message.updated_at && message.updated_at !== message.created_at && (
-                <div className="meta-item">
-                  <div className="meta-icon">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <div className="meta-content">
-                    <div className="meta-label">Last Updated</div>
-                    <div className="meta-value">{new Date(message.updated_at).toLocaleString()}</div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        <div className="tip-banner">
-          ℹ️ <strong>Tip:</strong> Direct email integration is coming soon. For now, use "Reply via Email" to respond using your email client.
+        {/* Subject and Message */}
+        {message.subject && (
+          <div className="section-card">
+            <h3 className="section-title">Subject</h3>
+            <div className="info-value" style={{ fontSize: '18px' }}>{message.subject}</div>
+          </div>
+        )}
+
+        <div className="section-card">
+          <h3 className="section-title">Message</h3>
+          <div className="message-content">{message.message || "(No message content)"}</div>
+        </div>
+
+        {/* Images */}
+        {message.images && Array.isArray(message.images) && message.images.length > 0 && (
+          <div className="section-card">
+            <h3 className="section-title">Images ({message.images.length})</h3>
+            <div className="image-gallery">
+              {message.images.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                  <img src={url} alt={`Attachment ${i + 1}`} className="image-item" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Additional Information */}
+        <div className="section-card">
+          <h3 className="section-title">Additional Information</h3>
+          <div className="info-grid">
+            <div className="info-item">
+              <div className="info-label">Source</div>
+              <div className="info-value">{message.source || "website"}</div>
+            </div>
+            {message.product_slug && (
+              <div className="info-item">
+                <div className="info-label">Product</div>
+                <div className="info-value">{message.product_slug}</div>
+              </div>
+            )}
+            {message.order_id && (
+              <div className="info-item">
+                <div className="info-label">Order ID</div>
+                <div className="info-value">{message.order_id}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Status Update */}
+        <div className="section-card">
+          <h3 className="section-title">Update Status</h3>
+          <select
+            value={message.status}
+            onChange={(e) => updateStatus(e.target.value)}
+            disabled={updating}
+            className="status-select"
+          >
+            <option value="new">Unanswered</option>
+            <option value="handled">Answered</option>
+          </select>
         </div>
       </div>
     </>

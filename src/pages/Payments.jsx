@@ -1,79 +1,76 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { CreditCard, X, ExternalLink } from "lucide-react";
-import { moneyZAR, dateTime } from "../components/formatUtils";
-import { useToast } from "../components/ui/ToastProvider";
-import { Banner } from "../components/ui/Banner";
-import { api } from "@/components/data/api";
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { TrendingUp, ShoppingCart, DollarSign, Package, Target } from 'lucide-react';
+import { moneyZAR } from '../components/formatUtils';
+
+// Helper to format numbers
+const formatNumber = (num) => {
+  if (num == null || isNaN(num)) return '0';
+  return new Intl.NumberFormat().format(num);
+};
 
 export default function Payments() {
-  const [selectedPayment, setSelectedPayment] = useState(null);
-  const [refundAmount, setRefundAmount] = useState("");
-  const [refundReason, setRefundReason] = useState("");
-  const { showToast } = useToast();
-  const queryClient = useQueryClient();
+  const [selectedPeriod, setSelectedPeriod] = useState(30);
 
-  const { data: paymentsData = [], isLoading, error } = useQuery({
-    queryKey: ['payments'],
-    queryFn: () => api?.listPayments() || [],
-    enabled: !!api,
-  });
-
-  const { data: ordersData = [] } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => api?.listOrders() || [],
-    enabled: !!api,
-  });
-
-  // Ensure arrays
-  const payments = Array.isArray(paymentsData) ? paymentsData : [];
-  const orders = Array.isArray(ordersData) ? ordersData : [];
-
-  const refundMutation = useMutation({
-    mutationFn: async ({ paymentId, amount, reason }) => {
-      if (!api) throw new Error('API not available');
-      // Refund functionality would need to be added to the adapter
-      // For now, just show a message
-      throw new Error('Refund functionality not yet implemented in Supabase adapter');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      showToast('success', 'Refund processed successfully');
-      setSelectedPayment(null);
-      setRefundAmount("");
-      setRefundReason("");
-    },
-    onError: (error) => {
-      showToast('error', error.message || 'Failed to process refund');
-    },
-  });
-
-  const handleRefund = () => {
-    if (!refundAmount || parseFloat(refundAmount) <= 0) {
-      showToast('error', 'Enter a valid refund amount');
-      return;
+  // Fetch ALL financial data directly from the unified Backend Function
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['finance-stats-unified', selectedPeriod],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/.netlify/functions/admin-finance-stats?period=${selectedPeriod}`);
+        if (!res.ok) {
+          console.warn('Finance stats fetch failed:', res.status);
+          return {};
+        }
+        const json = await res.json();
+        return json.data || {};
+      } catch (err) {
+        console.error('Error loading finance stats:', err);
+        return {};
+      }
     }
-    if (!refundReason.trim()) {
-      showToast('error', 'Enter a refund reason');
-      return;
-    }
-    refundMutation.mutate({
-      paymentId: selectedPayment.id,
-      amount: refundAmount,
-      reason: refundReason
-    });
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // 🛡️ SAFE DATA MERGING: 
+  // Ensure we always have default values even if the API returns an empty object or old data structure.
+  const defaults = {
+    revenue: 0,
+    orders_count: 0,
+    items_sold: 0,
+    netRevenue: 0,
+    profit: 0,
+    top_selling_product: 'No sales yet',
+    top_selling_count: 0,
+    period_label: selectedPeriod === 1 ? 'Today' : `Last ${selectedPeriod} Days`,
+    cogs: 0,
+    expenses: 0,
+    totalDiscounts: 0
   };
 
-  const getOrder = (orderId) => {
-    return orders.find(o => o.id === orderId);
-  };
+  // Merge defaults with fetched stats to guarantee all fields exist
+  const data = { ...defaults, ...(stats || {}) };
+
+  // Calculate average order value safely
+  const avgOrderValue = data.orders_count > 0 ? data.netRevenue / data.orders_count : 0;
+
+  // Safe string handling for top selling product
+  const topProductName = data.top_selling_product || 'No sales yet';
+  const displayProductName = topProductName.length > 20 
+    ? topProductName.substring(0, 20) + '...'
+    : topProductName;
 
   return (
     <>
       <style>{`
-        .payments-header {
+        .sales-header {
           margin-bottom: 32px;
         }
 
@@ -81,417 +78,310 @@ export default function Payments() {
           font-size: 28px;
           font-weight: 700;
           color: var(--text);
+          margin-bottom: 8px;
           display: flex;
           align-items: center;
           gap: 12px;
         }
 
-        .payments-table {
-          background: var(--card);
-          border-radius: 20px;
-          padding: 0;
-          box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-          overflow: hidden;
-        }
-
-        table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        th {
-          text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
-          font-weight: 700;
+        .header-subtitle {
           color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border-bottom: 2px solid var(--border);
-          background: var(--card);
-        }
-
-        td {
-          padding: 20px 24px;
-          color: var(--text);
-          border-bottom: 1px solid var(--border);
-        }
-
-        tr:last-child td {
-          border-bottom: none;
-        }
-
-        tbody tr {
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        tbody tr:hover {
-          background: rgba(110, 193, 255, 0.05);
-        }
-
-        .payment-id {
-          font-weight: 600;
-          font-family: monospace;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          padding: 6px 14px;
-          border-radius: 10px;
-          font-size: 12px;
-          font-weight: 600;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .drawer-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.7);
-          z-index: 1000;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-        }
-
-        .drawer {
-          width: 600px;
-          max-width: 90vw;
-          height: 100vh;
-          background: var(--card);
-          box-shadow: -8px 0 16px rgba(0,0,0,0.3);
-          display: flex;
-          flex-direction: column;
-          animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-
-        .drawer-header {
-          padding: 24px;
-          border-bottom: 2px solid var(--border);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .drawer-title {
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--text);
-        }
-
-        .btn-close {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-        }
-
-        .drawer-content {
-          flex: 1;
-          overflow-y: auto;
-          padding: 24px;
-        }
-
-        .drawer-section {
-          margin-bottom: 32px;
-        }
-
-        .section-title {
           font-size: 14px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          margin-bottom: 16px;
         }
 
-        .info-row {
+        .period-selector {
           display: flex;
-          justify-content: space-between;
-          padding: 12px 0;
-          border-bottom: 1px solid var(--border);
-        }
-
-        .info-label {
-          color: var(--text-muted);
-        }
-
-        .info-value {
-          font-weight: 600;
-          color: var(--text);
-        }
-
-        .json-viewer {
-          background: var(--bg);
-          padding: 16px;
-          border-radius: 10px;
-          overflow-x: auto;
-          font-family: monospace;
-          font-size: 13px;
-          line-height: 1.6;
-          color: var(--text);
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .refund-form {
-          background: var(--bg);
-          padding: 20px;
-          border-radius: 12px;
-        }
-
-        .form-group {
-          margin-bottom: 16px;
-        }
-
-        .form-label {
-          display: block;
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--text-muted);
-          margin-bottom: 8px;
-          text-transform: uppercase;
-        }
-
-        .form-input, .form-textarea {
-          width: 100%;
-          padding: 12px 16px;
-          border-radius: 10px;
-          border: none;
-          background: var(--card);
-          color: var(--text);
-          font-size: 14px;
-          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-        }
-
-        .form-input:focus, .form-textarea:focus {
-          outline: none;
-        }
-
-        .form-textarea {
-          min-height: 80px;
-          resize: vertical;
-        }
-
-        .btn-refund {
-          width: 100%;
-          padding: 14px;
-          border-radius: 10px;
-          border: none;
-          background: linear-gradient(135deg, #ef4444, #dc2626);
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          gap: 8px;
           margin-top: 16px;
         }
 
-        .btn-refund:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+        .period-btn {
+          padding: 8px 16px;
+          border-radius: 8px;
+          background: var(--card);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          border: 1px solid var(--border);
+          transition: all 0.2s ease;
         }
 
-        .link-order {
-          color: var(--accent);
-          text-decoration: none;
+        .period-btn.active {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+
+        .period-btn:hover {
+          opacity: 0.8;
+        }
+
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 24px;
+          margin-bottom: 32px;
+        }
+
+        .metric-card {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 24px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .metric-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        }
+
+        .metric-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+
+        .metric-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-weight: 600;
+          justify-content: center;
+          color: white;
+          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
         }
 
-        .link-order:hover {
-          text-decoration: underline;
+        .metric-info {
+          flex: 1;
+        }
+
+        .metric-label {
+          font-size: 14px;
+          color: var(--text-muted);
+          font-weight: 500;
+          margin-bottom: 4px;
+        }
+
+        .metric-value {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .metric-subtitle {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-top: 4px;
+        }
+
+        .profit-positive {
+          color: #10b981;
+        }
+
+        .profit-negative {
+          color: #ef4444;
+        }
+
+        .summary-card {
+          background: var(--card);
+          border-radius: 16px;
+          padding: 24px;
+          box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+          margin-bottom: 24px;
+        }
+
+        .summary-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .summary-row {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+        }
+
+        .summary-item {
+          padding: 12px;
+          background: var(--bg);
+          border-radius: 8px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .summary-label {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+
+        .summary-value {
+          color: var(--text);
+          font-weight: 600;
+          font-size: 14px;
         }
       `}</style>
 
-      {error && <Banner type="error">{error.message || 'Failed to load payments'}</Banner>}
+      <div className="p-4 md:p-8">
+        <div className="sales-header">
+          <h1 className="header-title">
+            <TrendingUp className="w-8 h-8" />
+            Financial Overview
+          </h1>
+          <p className="header-subtitle">
+            Track net profit and business performance.
+          </p>
 
-      <div className="payments-header">
-        <h1 className="header-title">
-          <CreditCard className="w-8 h-8" />
-          Payments
-        </h1>
-      </div>
-
-      <div className="payments-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Payment #</th>
-              <th>Order #</th>
-              <th>Provider</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Loading payments...
-                </td>
-              </tr>
-            ) : payments.length === 0 ? (
-              <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  No payments found
-                </td>
-              </tr>
-            ) : (
-              payments.map(payment => {
-                const order = getOrder(payment.order_id);
-                return (
-                  <tr key={payment.id} onClick={() => setSelectedPayment(payment)}>
-                    <td className="payment-id">#{payment.id.slice(0, 8)}</td>
-                    <td>
-                      {order ? order.order_number || `#${order.id.slice(0, 8)}` : payment.order_id}
-                    </td>
-                    <td style={{ textTransform: 'capitalize' }}>{payment.provider}</td>
-                    <td style={{ fontWeight: 700 }}>{moneyZAR(payment.amount)}</td>
-                    <td>
-                      <span
-                        className="status-badge"
-                        style={{
-                          background: payment.status === 'succeeded' ? '#10b98120' : payment.status === 'failed' ? '#ef444420' : '#f59e0b20',
-                          color: payment.status === 'succeeded' ? '#10b981' : payment.status === 'failed' ? '#ef4444' : '#f59e0b'
-                        }}
-                      >
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {dateTime(payment.created_date)}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {selectedPayment && (
-        <div className="drawer-overlay" onClick={() => setSelectedPayment(null)}>
-          <div className="drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <h2 className="drawer-title">Payment Details</h2>
-              <button className="btn-close" onClick={() => setSelectedPayment(null)}>
-                <X className="w-5 h-5" />
+          <div className="period-selector">
+            {[1, 7, 30].map(days => (
+              <button
+                key={days}
+                className={`period-btn ${selectedPeriod === days ? 'active' : ''}`}
+                onClick={() => setSelectedPeriod(days)}
+              >
+                {days === 1 ? 'Today' : `Last ${days} Days`}
               </button>
-            </div>
+            ))}
+          </div>
+        </div>
 
-            <div className="drawer-content">
-              <div className="drawer-section">
-                <h3 className="section-title">Information</h3>
-                <div className="info-row">
-                  <span className="info-label">Payment ID:</span>
-                  <span className="info-value">#{selectedPayment.id.slice(0, 8)}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Order:</span>
-                  <Link
-                    to={createPageUrl(`OrderDetail?id=${selectedPayment.order_id}`)}
-                    className="link-order"
-                    onClick={() => setSelectedPayment(null)}
-                  >
-                    {getOrder(selectedPayment.order_id)?.order_number || `#${selectedPayment.order_id.slice(0, 8)}`}
-                    <ExternalLink className="w-4 h-4" />
-                  </Link>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Provider:</span>
-                  <span className="info-value" style={{ textTransform: 'capitalize' }}>
-                    {selectedPayment.provider}
-                  </span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Amount:</span>
-                  <span className="info-value">{moneyZAR(selectedPayment.amount)}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Status:</span>
-                  <span
-                    className="status-badge"
-                    style={{
-                      background: selectedPayment.status === 'succeeded' ? '#10b98120' : '#ef444420',
-                      color: selectedPayment.status === 'succeeded' ? '#10b981' : '#ef4444'
-                    }}
-                  >
-                    {selectedPayment.status}
-                  </span>
-                </div>
-                <div className="info-row" style={{ borderBottom: 'none' }}>
-                  <span className="info-label">Created:</span>
-                  <span className="info-value">{dateTime(selectedPayment.created_date)}</span>
-                </div>
+        {/* Main Sales Metrics */}
+        <div className="metrics-grid">
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <DollarSign className="w-6 h-6" />
               </div>
+              <div className="metric-info">
+                <div className="metric-label">Total Sales</div>
+                <div className="metric-value">{moneyZAR(data.revenue)}</div>
+                <div className="metric-subtitle">{data.period_label}</div>
+              </div>
+            </div>
+          </div>
 
-              {selectedPayment.raw && (
-                <div className="drawer-section">
-                  <h3 className="section-title">Raw Data</h3>
-                  <div className="json-viewer">
-                    <pre>{JSON.stringify(selectedPayment.raw, null, 2)}</pre>
-                  </div>
-                </div>
-              )}
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <ShoppingCart className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Total Orders</div>
+                <div className="metric-value">{formatNumber(data.orders_count)}</div>
+                <div className="metric-subtitle">{data.period_label}</div>
+              </div>
+            </div>
+          </div>
 
-              {selectedPayment.status === 'succeeded' && (
-                <div className="drawer-section">
-                  <h3 className="section-title">Refund</h3>
-                  <div className="refund-form">
-                    <div className="form-group">
-                      <label className="form-label">Amount (ZAR)</label>
-                      <input
-                        type="number"
-                        className="form-input"
-                        value={refundAmount}
-                        onChange={(e) => setRefundAmount(e.target.value)}
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0.01"
-                        max={(selectedPayment.amount / 100).toFixed(2)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Reason *</label>
-                      <textarea
-                        className="form-textarea"
-                        value={refundReason}
-                        onChange={(e) => setRefundReason(e.target.value)}
-                        placeholder="Enter refund reason..."
-                      />
-                    </div>
-                    <button
-                      className="btn-refund"
-                      onClick={handleRefund}
-                      disabled={refundMutation.isPending}
-                    >
-                      {refundMutation.isPending ? 'Processing...' : 'Process Refund'}
-                    </button>
-                  </div>
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <Target className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Average Order Value</div>
+                <div className="metric-value">{moneyZAR(avgOrderValue)}</div>
+                <div className="metric-subtitle">Per transaction</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <Package className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Items Sold</div>
+                <div className="metric-value">{formatNumber(data.items_sold)}</div>
+                <div className="metric-subtitle">Total quantity</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Net Profit</div>
+                <div className={`metric-value ${data.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
+                  {moneyZAR(data.profit)}
                 </div>
-              )}
+                <div className="metric-subtitle">{data.period_label}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-header">
+              <div className="metric-icon">
+                <Target className="w-6 h-6" />
+              </div>
+              <div className="metric-info">
+                <div className="metric-label">Top Selling</div>
+                <div className="metric-value" style={{ fontSize: '20px' }}>
+                  {displayProductName}
+                </div>
+                <div className="metric-subtitle">{formatNumber(data.top_selling_count)} units sold</div>
+              </div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Financial Summary */}
+        <div className="summary-card">
+          <h2 className="summary-title">
+            <DollarSign className="w-5 h-5" />
+            Financial Breakdown ({data.period_label})
+          </h2>
+          <div className="summary-row">
+            <div className="summary-item">
+              <span className="summary-label">Gross Revenue</span>
+              <span className="summary-value">{moneyZAR(data.revenue)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Discounts</span>
+              <span className="summary-value text-red-500">-{moneyZAR(data.totalDiscounts)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Net Revenue</span>
+              <span className="summary-value">{moneyZAR(data.netRevenue)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Cost of Goods (COGS)</span>
+              <span className="summary-value text-red-500">-{moneyZAR(data.cogs)}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Operating Expenses (Est. 10%)</span>
+              <span className="summary-value text-red-500">-{moneyZAR(data.expenses)}</span>
+            </div>
+            <div className="summary-item" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+              <span className="summary-label font-bold text-gray-900">Net Profit</span>
+              <span className={`summary-value font-bold ${data.profit >= 0 ? 'profit-positive' : 'profit-negative'}`}>
+                {moneyZAR(data.profit)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

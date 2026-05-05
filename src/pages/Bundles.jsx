@@ -29,13 +29,27 @@ export default function Bundles() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      if (!api?.deleteBundle) throw new Error('API not available');
-      await api.deleteBundle(id);
+      // Use Netlify function to bypass client write restrictions
+      const response = await fetch('/.netlify/functions/delete-bundle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to delete bundle');
+      }
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['bundles'] });
       queryClient.invalidateQueries({ queryKey: ['bundle-items'] });
-      showToast('success', 'Bundle deleted successfully');
+      if (result.softDeleted) {
+        showToast('success', 'Bundle removed from view (soft deleted due to dependencies)');
+      } else {
+        showToast('success', 'Bundle deleted successfully');
+      }
     },
     onError: (err) => {
       showToast('error', err.message || 'Failed to delete bundle');
@@ -48,10 +62,13 @@ export default function Bundles() {
   };
 
   const getBundleItemsCount = (bundle) => {
+    if (typeof bundle.items === 'number') return bundle.items;
     return bundle.items?.length || 0;
   };
 
   const filteredBundles = bundles.filter(b => {
+    if (b.status === 'deleted') return false; // Always exclude deleted
+    if (b.name?.startsWith('[DELETED]')) return false; // Always exclude fallback-deleted
     const matchesSearch = b.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -310,6 +327,7 @@ export default function Bundles() {
             <option value="all">All Status</option>
             <option value="draft">Draft</option>
             <option value="active">Active</option>
+            <option value="archived">Archived</option>
           </select>
           <Link to={createPageUrl("BundleNew")} className="btn-primary">
             <Plus className="w-5 h-5" />
@@ -323,7 +341,8 @@ export default function Bundles() {
           <table>
             <thead>
               <tr>
-                <th>Bundle</th>
+                <th>Name</th>
+                <th>Type</th>
                 <th>Status</th>
                 <th>Price</th>
                 <th>Items</th>
@@ -334,11 +353,11 @@ export default function Bundles() {
             <tbody>
               {loading || deleteMutation.isPending ? (
                 <tr>
-                  <td colSpan="6" className="empty-state">Loading bundles...</td>
+                  <td colSpan="7" className="empty-state">Loading bundles...</td>
                 </tr>
               ) : filteredBundles.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="empty-state">
+                  <td colSpan="7" className="empty-state">
                     <div className="empty-state-title">No bundles found</div>
                     <div>{searchTerm || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first bundle to get started'}</div>
                   </td>
@@ -348,6 +367,11 @@ export default function Bundles() {
                   <tr key={bundle.id}>
                     <td>
                       <div className="bundle-name">{bundle.name}</div>
+                    </td>
+                    <td>
+                      <span className="status-badge" style={bundle.product_type === 'bundle' ? { background: '#fef3c720', color: '#d97706' } : { background: '#10b98120', color: '#10b981' }}>
+                        {bundle.product_type === 'bundle' ? 'Bundle' : 'Collection'}
+                      </span>
                     </td>
                     <td>
                       <span className={`status-badge status-${bundle.status}`}>
@@ -368,7 +392,7 @@ export default function Bundles() {
                     <td>{dateShort(bundle.updated_at)}</td>
                     <td>
                       <div className="action-buttons">
-                        <Link to={createPageUrl(`BundleEdit?id=${bundle.id}`)}>
+                        <Link to={`/bundles/${bundle.id}`}>
                           <button className="btn-icon">
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -376,7 +400,7 @@ export default function Bundles() {
                         <button
                           className="btn-icon btn-icon-danger"
                           onClick={() => handleDelete(bundle.id, bundle.name)}
-                          disabled={deleteMutation.isPending} // Disable button during deletion
+                          disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

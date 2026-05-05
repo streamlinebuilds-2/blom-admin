@@ -1,27 +1,81 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Plus, Mail, Phone } from "lucide-react";
+import { Users, Plus, Mail, Phone, Download, ArrowUpDown, Trash2 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { Banner } from "../components/ui/Banner";
 import { api } from "@/components/data/api";
+import { Link } from "react-router-dom";
 
 export default function Contacts() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+  const [searchQuery, setSearchQuery] = useState("");
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: contactsData = [], isLoading, error } = useQuery({
     queryKey: ['contacts'],
-    queryFn: () => [], // Contacts not yet implemented in Supabase adapter
-    enabled: false, // Disabled until implemented
+    queryFn: async () => {
+      return await api.listContacts();
+    },
   });
 
-  const contacts = Array.isArray(contactsData) ? contactsData : [];
+  const contacts = useMemo(() => {
+    let data = Array.isArray(contactsData.data) ? contactsData.data : (Array.isArray(contactsData) ? contactsData : []);
+     
+    // All contacts are now displayed (no local hiding)
+    
+    // Filter
+    if (sourceFilter !== "all") {
+      // Note: source might not be populated in all records yet, adjust as needed
+      // data = data.filter(c => c.source === sourceFilter);
+    }
+
+    if (searchQuery) {
+      const lower = searchQuery.toLowerCase();
+      data = data.filter(c =>
+        (c.full_name && c.full_name.toLowerCase().includes(lower)) ||
+        (c.email && c.email.toLowerCase().includes(lower)) ||
+        (c.phone && c.phone.includes(lower))
+      );
+    }
+
+    // Sort
+    return [...data].sort((a, b) => {
+      if (sortConfig.key === 'full_name') {
+        const nameA = a.full_name || "";
+        const nameB = b.full_name || "";
+        return sortConfig.direction === 'asc'
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      }
+      if (sortConfig.key === 'created_at') {
+        return sortConfig.direction === 'asc'
+          ? new Date(a.created_at) - new Date(b.created_at)
+          : new Date(b.created_at) - new Date(a.created_at);
+      }
+      return 0;
+    });
+  }, [contactsData, sourceFilter, sortConfig, searchQuery]);
+
+  const handleSort = (key) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      throw new Error('Contacts not yet implemented in Supabase adapter');
+      const res = await fetch("/.netlify/functions/contacts-add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
@@ -43,6 +97,70 @@ export default function Contacts() {
     createMutation.mutate(formData);
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (contactId) => {
+      return await api.deleteContact(contactId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      showToast('success', 'Contact deleted successfully');
+    },
+    onError: (error) => {
+      showToast('error', error.message || 'Failed to delete contact');
+    },
+  });
+
+  const handleDeleteContact = (contactId, contactName) => {
+    if (!confirm(`Are you sure you want to permanently delete "${contactName || 'this contact'}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    deleteMutation.mutate(contactId);
+  };
+
+  const handleExportCSV = () => {
+    if (contacts.length === 0) {
+      showToast('error', 'No contacts to export');
+      return;
+    }
+    const headers = ["Name", "Email", "Phone", "Created At"];
+    const rows = contacts.map(c => [
+      c.full_name || "",
+      c.email,
+      c.phone || "",
+      new Date(c.created_at).toLocaleDateString(),
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `contacts-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('success', `Exported ${contacts.length} contacts`);
+  };
+
+  const getSourceLabel = (source) => {
+    const labels = {
+      beauty_club_signup: "Beauty Club",
+      account_creation: "Account",
+      manual: "Manual",
+      order: "Order",
+    };
+    return labels[source] || source;
+  };
+
+  const getSourceColor = (source) => {
+    const colors = {
+      beauty_club_signup: "#e91e63",
+      account_creation: "#2196f3",
+      manual: "#9e9e9e",
+      order: "#4caf50",
+    };
+    return colors[source] || "#9e9e9e";
+  };
+
   return (
     <>
       <style>{`
@@ -50,20 +168,35 @@ export default function Contacts() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        @media (min-width: 768px) {
+          .contacts-header {
+            margin-bottom: 32px;
+          }
         }
 
         .header-title {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--text);
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+        }
+
+        @media (min-width: 768px) {
+          .header-title {
+            font-size: 28px;
+            gap: 12px;
+          }
         }
 
         .btn-add {
-          padding: 12px 20px;
+          padding: 10px 16px;
           border-radius: 10px;
           border: none;
           background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -75,6 +208,13 @@ export default function Contacts() {
           display: flex;
           align-items: center;
           gap: 8px;
+          min-height: 44px;
+        }
+
+        @media (min-width: 768px) {
+          .btn-add {
+            padding: 12px 20px;
+          }
         }
 
         .btn-add:hover {
@@ -89,15 +229,47 @@ export default function Contacts() {
           overflow: hidden;
         }
 
+        .table-scroll-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
         table {
           width: 100%;
           border-collapse: collapse;
+          min-width: 500px;
         }
 
         th {
           text-align: left;
-          padding: 20px 24px;
-          font-size: 12px;
+          padding: 16px 12px;
+          font-size: 11px;
+          white-space: nowrap;
+        }
+
+        @media (min-width: 768px) {
+          th {
+            padding: 20px 24px;
+            font-size: 12px;
+          }
+        }
+
+        td {
+          padding: 16px 12px;
+          font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+          td {
+            padding: 20px 24px;
+            font-size: 14px;
+          }
+        }
+
+        .th-mobile {
+          text-align: left;
+          padding: 16px 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
@@ -219,6 +391,106 @@ export default function Contacts() {
           cursor: pointer;
           box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
         }
+
+        .filter-bar {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .filter-input {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+          min-width: 200px;
+        }
+
+        .btn-export {
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: var(--card);
+          color: var(--text);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .btn-export:hover {
+          transform: translateY(-1px);
+        }
+
+        .contact-count {
+          font-size: 14px;
+          color: var(--text-muted);
+          margin-left: auto;
+        }
+
+        .sort-header {
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          user-select: none;
+        }
+        
+        .sort-header:hover {
+          color: var(--accent);
+        }
+
+        .contact-date {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+        
+        .contact-row {
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .contact-row:hover {
+          background-color: rgba(255,255,255,0.05);
+        }
+
+        .btn-delete {
+          padding: 8px;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          color: white;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+          transition: all 0.2s ease;
+        }
+
+        .btn-delete:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+        }
+
+        .btn-delete:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .delete-cell {
+          text-align: right;
+        }
       `}</style>
 
       <div className="contacts-header">
@@ -232,57 +504,102 @@ export default function Contacts() {
         </button>
       </div>
 
+      <div className="filter-bar">
+        <input
+          type="text"
+          className="filter-input"
+          placeholder="Search contacts..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <button className="btn-export" onClick={handleExportCSV}>
+          <Download className="w-4 h-4" />
+          Export CSV
+        </button>
+        <div className="contact-count">
+          {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
+        </div>
+      </div>
+
       <div className="contacts-list">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+        <div className="table-scroll-wrapper">
+          <table>
+            <thead>
               <tr>
-                <td colSpan="3" className="empty-state">Loading...</td>
+                <th onClick={() => handleSort('full_name')}>
+                  <div className="sort-header">
+                    Name <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th onClick={() => handleSort('created_at')}>
+                  <div className="sort-header">
+                    Signed Up <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </th>
+                <th className="delete-cell">Actions</th>
               </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan="3" className="empty-state">
-                  <div className="empty-state-title">Error loading contacts</div>
-                  <div>{error.message || 'Please try again'}</div>
-                </td>
-              </tr>
-            ) : contacts.length === 0 ? (
-              <tr>
-                <td colSpan="3" className="empty-state">
-                  <div className="empty-state-title">No contacts yet</div>
-                  <div>Contacts feature coming soon</div>
-                </td>
-              </tr>
-            ) : (
-              contacts.map(contact => (
-                <tr key={contact.id}>
-                  <td>
-                    <div className="contact-name">{contact.name || '—'}</div>
-                  </td>
-                  <td>
-                    <div className="contact-info">
-                      <Mail className="w-4 h-4" />
-                      {contact.email}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="contact-info">
-                      <Phone className="w-4 h-4" />
-                      {contact.phone || '—'}
-                    </div>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan="5" className="empty-state">Loading...</td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan="5" className="empty-state">
+                    <div className="empty-state-title">Error loading contacts</div>
+                    <div>{error.message || 'Please try again'}</div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : contacts.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="empty-state">
+                    <div className="empty-state-title">No contacts found</div>
+                  </td>
+                </tr>
+              ) : (
+                contacts.map(contact => (
+                  <tr key={contact.id} className="contact-row">
+                    <td>
+                      <Link to={`/contacts/${contact.user_id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                        <div className="contact-name">{contact.full_name || '—'}</div>
+                      </Link>
+                    </td>
+                    <td>
+                      <div className="contact-info">
+                        <Mail className="w-4 h-4" />
+                        {contact.email}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="contact-info">
+                        <Phone className="w-4 h-4" />
+                        {contact.phone || '—'}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="contact-date">
+                        {new Date(contact.created_at).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="delete-cell">
+                      <button
+                        onClick={() => handleDeleteContact(contact.id, contact.full_name)}
+                        className="btn-delete"
+                        title="Permanently delete contact"
+                        disabled={deleteMutation.isPending}
+                      >
+                        {deleteMutation.isPending ? '...' : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showAddForm && (

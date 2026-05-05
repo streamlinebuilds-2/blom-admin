@@ -1,0 +1,1126 @@
+/* Mobile-first responsive base styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Base reset for better mobile experience */
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Containers - responsive padding */
+.page-container,
+.content-area {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .page-container,
+  .content-area {
+    padding: 2rem;
+  }
+}
+
+/* Tables - horizontal scroll on mobile */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+}
+
+@media (min-width: 768px) {
+  .table-wrapper {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  table {
+    min-width: 600px; /* Allow horizontal scroll */
+  }
+
+  th, td {
+    padding: 12px 8px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Cards - full width on mobile */
+.card,
+.order-card,
+.product-card,
+.stat-card {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* Buttons - larger tap targets */
+button, .btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 768px) {
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-group button,
+  .btn-group .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Table action buttons should stack on mobile */
+  .table-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .table-actions button {
+    width: 100%;
+  }
+}
+
+/* Form inputs - prevent iOS zoom */
+input, select, textarea {
+  font-size: 16px !important; /* Prevent iOS zoom */
+}
+
+@media (min-width: 768px) {
+  input, select, textarea {
+    font-size: 14px !important;
+  }
+}
+
+/* Headers - responsive sizing */
+h1 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+h3 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+@media (min-width: 768px) {
+  h1 { font-size: 32px; }
+  h2 { font-size: 24px; }
+  h3 { font-size: 20px; }
+}
+
+/* Hide/show elements based on screen size */
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: block !important;
+  }
+}
+
+/* Responsive grid utilities */
+.responsive-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Stats grid specific */
+.stats-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Quick links grid */
+.quick-links-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .quick-links-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .quick-links-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Fullscreen preview styles */
+.preview-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  z-index: 9999;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+.preview-fullscreen .close-fullscreen {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  padding: 0.75rem 1.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  min-height: 44px;
+}
+
+.preview-fullscreen .mobile-preview {
+  max-width: 375px;
+  margin: 0 auto;
+  border: 2px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.preview-fullscreen .desktop-preview {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .preview-fullscreen {
+    padding: 1rem;
+  }
+
+  .preview-fullscreen .close-fullscreen {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 14px;
+  }
+}
+
+/* Hide sticky cart in previews */
+.preview-container .sticky-cart-bar,
+.preview-fullscreen .sticky-cart-bar {
+  display: none !important;
+}
+
+/* Responsive form layouts */
+@media (max-width: 768px) {
+  .form-row,
+  .grid.md\\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .product-form-section {
+    padding: 1rem !important;
+    margin-bottom: 1rem;
+  }
+
+  .topbar {
+    padding: 1rem !important;
+  }
+}
+
+/* Drawer responsive */
+@media (max-width: 768px) {
+  .drawer {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .drawer-content {
+    padding: 1rem;
+  }
+}
+
+/* Spin animation for loading */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Touch-friendly spacing */
+@media (max-width: 768px) {
+  .space-y-2 > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .space-y-4 > * + * {
+    margin-top: 1.25rem;
+  }
+}
+
+/* Responsive utility classes */
+.flex-col-mobile {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .flex-col-mobile {
+    flex-direction: column;
+  }
+
+  .flex-col-mobile > * {
+    width: 100%;
+  }
+}
+
+/* Better touch targets for links */
+@media (max-width: 768px) {
+  .nav-item,
+  .quick-link {
+    min-height: 48px;
+  }
+
+  a, button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Prevent text overflow on mobile */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsive images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mobile-friendly scrollbar */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+  }
+}
+
+/* Enhanced mobile responsiveness with horizontal scrolling */
+
+/* Forms and buttons remain properly sized, but allow horizontal scrolling for wide content */
+@media (max-width: 768px) {
+  /* Keep forms properly sized - don't force single column for forms */
+  .product-form-section {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .product-form-input,
+  .product-form-textarea,
+  .product-form-select {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 12px 16px !important;
+  }
+
+  /* Better spacing for form elements */
+  .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  .space-y-6 > * + * {
+    margin-top: 1.5rem !important;
+  }
+
+  /* Variant rows stack better */
+  .variant-row {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .variant-row input,
+  .variant-row .product-form-input {
+    width: 100% !important;
+  }
+
+  /* Button groups stack */
+  .flex-col-mobile {
+    flex-direction: column !important;
+  }
+
+  .flex-col-mobile > * {
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Filters grid becomes single column */
+  .filters-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tables get horizontal scrolling instead of hiding columns */
+  .table-container,
+  .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
+  }
+
+  table {
+    min-width: 600px !important; /* Ensure minimum width for horizontal scroll */
+    font-size: 14px !important;
+  }
+
+  th, td {
+    padding: 12px 16px !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
+  }
+
+  /* Keep all table columns visible - let user scroll horizontally */
+  /* Removed column hiding rules */
+
+  /* Action buttons in tables remain inline */
+  .action-buttons {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .action-buttons button,
+  .action-buttons .btn-icon {
+    min-width: 80px !important;
+    min-height: 36px !important;
+  }
+
+  /* Modal and dialog improvements */
+  .dialog-content,
+  .modal-content {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 2rem auto !important;
+  }
+
+  /* Card layouts */
+  .card,
+  .order-card,
+  .product-card,
+  .stat-card {
+    margin-bottom: 1rem !important;
+  }
+
+  /* Navigation improvements */
+  .nav-item {
+    padding: 12px 16px !important;
+    min-height: 48px !important;
+  }
+
+  /* Topbar adjustments */
+  .topbar-actions {
+    gap: 8px !important;
+  }
+
+  .topbar-actions button,
+  .topbar-actions .theme-toggle {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* Preview improvements */
+  .preview-fullscreen .mobile-preview {
+    max-width: 100% !important;
+    border: none !important;
+  }
+
+  /* Better text truncation for very long content */
+  .text-truncate {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Ensure proper viewport handling */
+  .content-area {
+    padding: 1rem !important;
+  }
+
+  /* Loading states */
+  .loading-spinner {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Horizontal scroll indicators */
+  .table-container::after,
+  .overflow-x-auto::after {
+    content: "⟷ Scroll horizontally to see more";
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding: 4px;
+    background: var(--bg);
+    border-radius: 4px;
+  }
+}
+
+/* Extra small screen adjustments */
+@media (max-width: 480px) {
+  .page-container,
+  .content-area {
+    padding: 0.5rem !important;
+  }
+
+  .product-form-section {
+    padding: 0.75rem !important;
+  }
+
+  .header-title {
+    font-size: 20px !important;
+  }
+
+  .breadcrumb {
+    font-size: 16px !important;
+  }
+
+  /* Stack all buttons vertically */
+  .header-actions,
+  .filter-actions,
+  .btn-group {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .header-actions button,
+  .filter-actions button,
+  .btn-group button {
+    width: 100% !important;
+  }
+}
+
+/* Specific page mobile fixes with horizontal scrolling */
+
+/* Products page - Fix "New Product" button sizing */
+@media (max-width: 768px) {
+  .products-header .header-actions .btn-primary {
+    flex: none !important;
+    width: auto !important;
+    min-width: 140px !important;
+    max-width: 200px !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+  }
+
+  .products-header .header-actions {
+    justify-content: flex-end !important;
+  }
+
+  /* Products table gets horizontal scroll */
+  .products-table .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .products-table table {
+    min-width: 800px !important;
+  }
+}
+
+/* Bundles page - Fix "New Bundle" button visibility */
+@media (max-width: 768px) {
+  .bundles-header .header-actions .btn-primary {
+    flex: none !important;
+    width: auto !important;
+    min-width: 140px !important;
+    max-width: 200px !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    margin-top: 8px !important;
+  }
+
+  .bundles-header .header-actions {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+  }
+
+  .bundles-header .search-box {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* Specials/Coupons page - Horizontal scroll for full table */
+@media (max-width: 768px) {
+  .specials-list {
+    padding: 16px !important;
+  }
+
+  /* Keep all coupon table columns visible - horizontal scroll */
+  .coupon-table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
+  }
+
+  .coupon-table table {
+    min-width: 1000px !important;
+    font-size: 13px !important;
+  }
+
+  .coupon-table th,
+  .coupon-table td {
+    padding: 10px 12px !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
+  }
+
+  /* Coupon form mobile fixes */
+  .create-form {
+    padding: 16px !important;
+  }
+
+  .form-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .product-exclusion-list {
+    max-height: 150px !important;
+  }
+
+  .selected-exclusions {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+}
+
+/* Stock page - Horizontal scroll for full table */
+@media (max-width: 768px) {
+  .stock-header .header-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .stock-header .search-box {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Stock table gets full horizontal scroll */
+  .section-card .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
+  }
+
+  .section-card table {
+    min-width: 900px !important;
+    font-size: 13px !important;
+  }
+
+  .section-card table th,
+  .section-card table td {
+    padding: 10px 14px !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
+  }
+
+  /* Modal fixes */
+  .section-card.w-full.max-w-md {
+    max-width: 95vw !important;
+    margin: 1rem !important;
+  }
+
+  .section-card .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+}
+
+/* Messages page - Horizontal scroll for full table */
+@media (max-width: 768px) {
+  /* Messages table gets horizontal scroll - keep all columns */
+  .section-card .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
+  }
+
+  .section-card table {
+    min-width: 700px !important;
+    font-size: 13px !important;
+  }
+
+  .section-card table th,
+  .section-card table td {
+    padding: 12px 16px !important;
+    white-space: nowrap !important;
+    min-width: 100px !important;
+  }
+
+  /* Better column widths for messages */
+  .section-card table th:nth-child(1) { min-width: 60px !important; } /* # */
+  .section-card table th:nth-child(2) { min-width: 150px !important; } /* Name */
+  .section-card table th:nth-child(3) { min-width: 200px !important; } /* Email */
+  .section-card table th:nth-child(4) { min-width: 200px !important; } /* Subject */
+  .section-card table th:nth-child(5) { min-width: 120px !important; } /* Date */
+  .section-card table th:nth-child(6) { min-width: 120px !important; } /* Actions */
+}
+
+/* Contacts page - Horizontal scroll for full table */
+@media (max-width: 768px) {
+  /* Contacts table gets horizontal scroll - keep all columns */
+  .section-card .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -1rem !important;
+    padding: 0 1rem !important;
+  }
+
+  .section-card table {
+    min-width: 800px !important;
+    font-size: 13px !important;
+  }
+
+  .section-card table th,
+  .section-card table td {
+    padding: 12px 16px !important;
+    white-space: nowrap !important;
+    min-width: 100px !important;
+  }
+
+  /* Better column widths for contacts */
+  .section-card table th:nth-child(1) { min-width: 60px !important; } /* # */
+  .section-card table th:nth-child(2) { min-width: 150px !important; } /* Name */
+  .section-card table th:nth-child(3) { min-width: 200px !important; } /* Email */
+  .section-card table th:nth-child(4) { min-width: 120px !important; } /* Phone */
+  .section-card table th:nth-child(5) { min-width: 120px !important; } /* Date */
+  .section-card table th:nth-child(6) { min-width: 120px !important; } /* Actions */
+}
+
+/* General table improvements for all pages */
+@media (max-width: 768px) {
+  table {
+    font-size: 13px !important;
+  }
+
+  th, td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  /* Better table scrolling */
+  .table-container,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+/* PRODUCT EDIT PAGE - Horizontal scrolling for wide forms while keeping proper sizing */
+
+/* Product Edit Page - Allow horizontal scrolling for very wide forms */
+@media (max-width: 1024px) {
+  /* Content area can scroll horizontally if form is too wide */
+  .content-area {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 1rem !important;
+  }
+
+  /* Form sections remain properly sized */
+  .product-form-section {
+    min-width: 320px !important; /* Minimum readable width */
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Keep form grids responsive but allow horizontal scroll if needed */
+  .grid.gap-4.md\\:grid-cols-2,
+  .grid.gap-4.md\\:grid-cols-3,
+  .grid.gap-4.md\\:grid-cols-4 {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
+  }
+
+  .grid.gap-4.md\\:grid-cols-2 > *,
+  .grid.gap-4.md\\:grid-cols-3 > *,
+  .grid.gap-4.md\\:grid-cols-4 > * {
+    flex: 1 1 300px !important; /* Allow flexing but maintain minimum width */
+    min-width: 280px !important;
+  }
+
+  /* Form inputs - proper sizing */
+  .product-form-input,
+  .product-form-textarea,
+  .product-form-select {
+    width: 100% !important;
+    font-size: 16px !important; /* Prevent zoom */
+    padding: 12px 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Labels remain visible */
+  .product-form-label,
+  label {
+    display: block !important;
+    width: 100% !important;
+    margin-bottom: 8px !important;
+    font-size: 14px !important;
+  }
+
+  /* Array fields stack vertically */
+  .space-y-2 > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  .flex.gap-2 {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .flex.gap-2 > * {
+    width: 100% !important;
+  }
+
+  /* Variant rows stack */
+  .variant-row {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    padding: 1rem !important;
+    width: 100% !important;
+    min-width: 300px !important;
+  }
+
+  .variant-row input,
+  .variant-row .product-form-input {
+    width: 100% !important;
+  }
+
+  .variant-image-upload {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .upload-btn {
+    width: 100% !important;
+    padding: 10px 16px !important;
+    text-align: center !important;
+  }
+
+  /* Buttons remain properly sized */
+  .product-btn-primary,
+  .product-btn-secondary,
+  .product-btn-add {
+    width: 100% !important;
+    min-height: 44px !important;
+    padding: 12px 16px !important;
+  }
+
+  /* Action buttons layout */
+  .flex.items-center.justify-end.gap-3 {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+
+  .flex.items-center.justify-end.gap-3 button {
+    width: 100% !important;
+    min-height: 48px !important;
+  }
+
+  /* Preview section */
+  .flex.gap-2.justify-between {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .flex.gap-2 button {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  /* Mobile preview container */
+  [class*="w-[390px]"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Topbar adjustments */
+  .topbar {
+    padding: 16px !important;
+  }
+
+  .topbar .flex.items-center {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  .font-bold.text-lg {
+    font-size: 16px !important;
+  }
+
+  /* Ensure all sections have proper spacing */
+  .space-y-6 > * + * {
+    margin-top: 1.5rem !important;
+  }
+
+  .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  .space-y-1 > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  /* Checkbox and label alignment */
+  .flex.items-center.gap-3 {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .flex.items-center.gap-3 input[type="checkbox"] {
+    margin-top: 2px !important;
+  }
+
+  /* Small text adjustments */
+  small {
+    display: block !important;
+    margin-top: 4px !important;
+    font-size: 12px !important;
+  }
+
+  /* Error messages */
+  .text-xs.text-red-500 {
+    margin-top: 4px !important;
+    display: block !important;
+  }
+
+  /* Related products section */
+  .flex.gap-2.mb-2 {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .flex.gap-2.mb-2 > * {
+    width: 100% !important;
+  }
+
+  /* Product exclusion list */
+  .product-exclusion-list {
+    max-height: 150px !important;
+    overflow-y: auto !important;
+  }
+
+  .product-exclusion-item {
+    padding: 10px 12px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Selected exclusions */
+  .selected-exclusions {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
+  .selected-exclusion-tag {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* Extra small screens - optimize for very small devices */
+@media (max-width: 480px) {
+  .product-form-section {
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+    min-width: 280px !important;
+  }
+
+  .product-section-title {
+    font-size: 16px !important;
+  }
+
+  .product-section-desc {
+    font-size: 13px !important;
+  }
+
+  .product-form-input,
+  .product-form-textarea,
+  .product-form-select {
+    padding: 10px 12px !important;
+    font-size: 16px !important;
+  }
+
+  /* Optimize spacing for small screens */
+  .space-y-6 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  .space-y-4 > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  .space-y-2 > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  /* Ensure readability */
+  .text-sm {
+    font-size: 13px !important;
+  }
+
+  .text-xs {
+    font-size: 12px !important;
+  }
+}
+
+/* Enhanced mobile touch event handling */
+@media (max-width: 768px) {
+  /* Ensure buttons respond to touch events */
+  button,
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-icon,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .nav-item,
+  .action-buttons button,
+  .header-actions button {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Ensure proper z-index stacking for mobile interactions */
+  .sidebar {
+    z-index: 200 !important;
+  }
+
+  .mobile-overlay {
+    z-index: 150 !important;
+  }
+
+  /* Fix any potential overlay issues */
+  .mobile-overlay {
+    pointer-events: auto !important;
+  }
+
+  /* Ensure dialogs appear above everything on mobile */
+  .dialog-overlay,
+  .modal-overlay {
+    z-index: 1000 !important;
+  }
+
+  /* Prevent horizontal scroll issues */
+  body {
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Better scrolling for content areas */
+  .content-area,
+  .table-container {
+    -webkit-overflow-scrolling: touch;
+  }
+}
