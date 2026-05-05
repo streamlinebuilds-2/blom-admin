@@ -256,7 +256,7 @@ export const handler: Handler = async (event) => {
     const name = String(body.name || '').trim();
     const slug = String(body.slug || '').trim();
     const price = Number(body.price);
-    const stock = Number(body.stock ?? 0);
+    const stock = Number(body.stock ?? body.inventory_quantity ?? 0);
     const out_of_stock = body.out_of_stock === true;
 
     if (!name || !slug) {
