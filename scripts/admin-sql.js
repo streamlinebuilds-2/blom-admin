@@ -68,15 +68,30 @@ async function testAdminAccess() {
     console.log('\n✏️  TEST 3: Testing admin write access...\n');
 
     // Test by reading orders (which might have RLS restrictions)
-    const { data: orders, error: orderError } = await admin
-      .from('orders')
-      .select('id, status, total')
-      .limit(3);
+    // List all columns of course_purchases
+    const { data: columns, error: columnError } = await admin
+      .from('information_schema.columns')
+      .select('column_name')
+      .eq('table_name', 'course_purchases')
+      .eq('table_schema', 'public');
 
-    if (orderError) {
-      console.log(`   ⚠️  Orders table: ${orderError.message}`);
+    if (columnError) {
+      console.log('   ❌ Error listing columns:', columnError.message);
     } else {
-      console.log(`   ✅ Can access orders table (${orders.length} records)`);
+      console.log('   ✅ Columns found:', columns.map(c => c.column_name).join(', '));
+    }
+
+    // Try course_purchases - all records
+    const { data: purchases, error: purchaseError } = await admin
+      .from('course_purchases')
+      .select('*')
+      .limit(10);
+
+    if (purchaseError) {
+      console.log(`   ⚠️  course_purchases table error: ${purchaseError.message}`);
+    } else {
+      console.log(`   ✅ course_purchases records: ${purchases.length}`);
+      console.log(JSON.stringify(purchases, null, 2));
     }
 
     // Test 4: Check what we can do

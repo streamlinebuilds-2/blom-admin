@@ -873,6 +873,9 @@ export default function Orders() {
           cursor: pointer;
           box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
           transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
 
         .pagination-btn:hover:not(:disabled) {
@@ -890,6 +893,20 @@ export default function Orders() {
           font-weight: 600;
           min-width: 120px;
           text-align: center;
+        }
+
+        @media (max-width: 480px) {
+          .pagination {
+            gap: 8px;
+          }
+          .pagination-btn {
+            padding: 10px 14px;
+            font-size: 13px;
+          }
+          .pagination-info {
+            font-size: 13px;
+            min-width: 90px;
+          }
         }
       `}</style>
 

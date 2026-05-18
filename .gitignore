@@ -31,3 +31,8 @@ dist-ssr
 
 # Trae IDE
 .trae/
+
+# Secret dumps — NEVER commit (contain live API keys / tokens)
+keys.txt
+http.txt
+/.js
