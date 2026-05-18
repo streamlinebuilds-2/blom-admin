@@ -383,10 +383,10 @@ export const handler = async (event: any) => {
     const showDiscount = discountAmount > 0.0001
 
     // Shipping line
-    const isFreeShipping = subtotalAmount >= 2000 && shippingAmount === 0
+    const isFreeShipping = subtotalAmount >= 2500 && shippingAmount === 0
     if (isFreeShipping) {
       y = checkPageBreak(y, ITEM_ROW_HEIGHT)
-      drawText("FREE SHIPPING - Order over R2000", left, y, 10)
+      drawText("FREE SHIPPING - Order over R2500", left, y, 10)
       drawRightText("R 0.00", right - 20, y, 10)
       y += ITEM_ROW_HEIGHT
     } else if (shippingAmount > 0) {
