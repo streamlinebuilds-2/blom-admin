@@ -93,9 +93,10 @@ export const handler: Handler = async (e) => {
               (data as any)?.deposit_order?.status === "paid" ||
               !!(data as any)?.deposit_order?.paid_at;
 
-            if ((data as any)?.course_type === "in-person" && orderPaid) return "deposit_paid";
-            if (orderPaid) return "paid";
-            return (data as any)?.invitation_status || "pending";
+            if (!orderPaid) return (data as any)?.invitation_status || "pending";
+            if ((data as any)?.course_type === "in-person")
+              return (data as any)?.payment_kind === "full" ? "full_paid" : "deposit_paid";
+            return "paid";
           })(),
           invoice_url: (data as any)?.deposit_order?.invoice_url || null,
           order: (data as any)?.deposit_order || null,

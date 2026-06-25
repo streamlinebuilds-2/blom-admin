@@ -38,10 +38,10 @@ export default function CourseBookingDetail() {
     }
   };
 
-  const depositPaidAt =
-    booking?.payment_kind === 'deposit'
-      ? (depositOrder?.paid_at || null)
-      : null;
+  // Timestamp the booking was paid (deposit order's paid_at covers both
+  // deposit and full payments, since the full payment is that same order).
+  const paidAt = depositOrder?.paid_at || null;
+  const paidAtLabel = booking?.payment_kind === 'full' ? 'Paid In Full At' : 'Deposit Paid At';
 
   const details = booking?.details || {};
   const owedCents =
@@ -332,8 +332,8 @@ export default function CourseBookingDetail() {
                     <div className="info-value">{owedCents == null ? '-' : money(owedCents)}</div>
                   </div>
                   <div className="info-item">
-                    <div className="info-label">Deposit Paid At</div>
-                    <div className="info-value">{depositPaidAt ? dateTime(depositPaidAt) : '-'}</div>
+                    <div className="info-label">{paidAtLabel}</div>
+                    <div className="info-value">{paidAt ? dateTime(paidAt) : '-'}</div>
                   </div>
                 </div>
               </div>

@@ -76,7 +76,8 @@ export default function CourseBookings() {
         .status-pending { background: #eab30820; color: #ca8a04; }
         .status-sent { background: #3b82f620; color: #3b82f6; }
         .status-failed { background: #dc262620; color: #dc2626; }
-        .status-deposit_paid { background: #05966920; color: #059669; }
+        .status-deposit_paid { background: #eab30820; color: #ca8a04; }
+        .status-full_paid { background: #16a34a20; color: #16a34a; }
         .status-paid { background: #16a34a20; color: #16a34a; }
         
         .btn-action { padding: 6px; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; text-decoration: none; }
@@ -227,6 +228,7 @@ export default function CourseBookings() {
                     <td>
                       <span className={`status-badge status-${booking.booking_status || booking.invitation_status}`}>
                         {booking.booking_status === 'deposit_paid' && <CheckCircle size={12} />}
+                        {booking.booking_status === 'full_paid' && <CheckCircle size={12} />}
                         {booking.booking_status === 'paid' && <CheckCircle size={12} />}
                         {(booking.booking_status || booking.invitation_status) === 'pending' && <Clock size={12} />}
                         {(booking.booking_status || booking.invitation_status) === 'sent' && <CheckCircle size={12} />}
@@ -235,9 +237,11 @@ export default function CourseBookings() {
                           {(
                             booking.booking_status === 'deposit_paid'
                               ? 'DEPOSIT PAID'
-                              : booking.booking_status === 'paid'
-                                ? 'PAID'
-                                : (booking.invitation_status || '-').toUpperCase()
+                              : booking.booking_status === 'full_paid'
+                                ? 'PAID IN FULL'
+                                : booking.booking_status === 'paid'
+                                  ? 'PAID'
+                                  : (booking.invitation_status || '-').toUpperCase()
                           )}
                         </span>
                       </span>

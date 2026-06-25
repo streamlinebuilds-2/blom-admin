@@ -54,12 +54,11 @@ export const handler: Handler = async (e) => {
         item?.orders?.status === "paid" ||
         !!item?.orders?.paid_at;
 
-      const bookingStatus =
-        item?.course_type === "in-person" && orderPaid
-          ? "deposit_paid"
-          : orderPaid
-            ? "paid"
-            : (item?.invitation_status || "pending");
+      const bookingStatus = !orderPaid
+        ? (item?.invitation_status || "pending")
+        : item?.course_type === "in-person"
+          ? (item?.payment_kind === "full" ? "full_paid" : "deposit_paid")
+          : "paid";
 
       return {
         ...item,
@@ -71,7 +70,7 @@ export const handler: Handler = async (e) => {
 
     // Filter and paginate in JS when hiding pending
     const filtered = hidePending
-      ? allItems.filter((i: any) => i.booking_status === "paid" || i.booking_status === "deposit_paid")
+      ? allItems.filter((i: any) => ["paid", "deposit_paid", "full_paid"].includes(i.booking_status))
       : allItems;
 
     const total = filtered.length;
