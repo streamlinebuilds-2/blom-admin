@@ -277,6 +277,7 @@ export function createSupabaseAdapter() {
       if (filters.course_slug) params.append('course_slug', filters.course_slug);
       if (filters.buyer_email) params.append('buyer_email', filters.buyer_email);
       if (filters.invitation_status) params.append('invitation_status', filters.invitation_status);
+      if (filters.hide_pending) params.append('hide_pending', 'true');
       
       const res = await fetch(`/.netlify/functions/admin-course-purchases?${params.toString()}`);
       if (!res.ok) {

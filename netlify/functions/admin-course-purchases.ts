@@ -23,20 +23,16 @@ export const handler: Handler = async (e) => {
     const createdTo = url.searchParams.get("created_to");
     const invitedFrom = url.searchParams.get("invited_from");
     const invitedTo = url.searchParams.get("invited_to");
+    const hidePending = url.searchParams.get("hide_pending") === "true";
 
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    // When hiding pending, fetch a larger batch without pagination so we can
+    // filter by computed booking_status before slicing for the requested page.
+    const fetchAll = hidePending;
+    const from = fetchAll ? 0 : (page - 1) * pageSize;
+    const to = fetchAll ? 999 : from + pageSize - 1;
 
     let query = s.from("course_purchases")
-      .select(`
-        *,
-        orders:order_id (
-          invoice_url,
-          status,
-          payment_status,
-          paid_at
-        )
-      `, { count: "exact" })
+      .select(`*, orders:order_id (invoice_url, status, payment_status, paid_at)`, { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -48,11 +44,11 @@ export const handler: Handler = async (e) => {
     if (invitedFrom) query = query.gte("invited_at", invitedFrom);
     if (invitedTo) query = query.lte("invited_at", invitedTo);
 
-    const { data, error, count } = await query;
+    const { data, error } = await query;
     if (error) throw error;
 
-    // Flatten the invoice_url from the joined order
-    const items = (data || []).map((item: any) => {
+    // Compute booking_status for each row
+    const allItems = (data || []).map((item: any) => {
       const orderPaid =
         item?.orders?.payment_status === "paid" ||
         item?.orders?.status === "paid" ||
@@ -65,20 +61,29 @@ export const handler: Handler = async (e) => {
             ? "paid"
             : (item?.invitation_status || "pending");
 
-      return ({
-      ...item,
-      invoice_url: item.orders?.invoice_url || null,
-      booking_status: bookingStatus,
-      orders: undefined 
+      return {
+        ...item,
+        invoice_url: item.orders?.invoice_url || null,
+        booking_status: bookingStatus,
+        orders: undefined
+      };
     });
-    });
+
+    // Filter and paginate in JS when hiding pending
+    const filtered = hidePending
+      ? allItems.filter((i: any) => i.booking_status === "paid" || i.booking_status === "deposit_paid")
+      : allItems;
+
+    const total = filtered.length;
+    const pageStart = (page - 1) * pageSize;
+    const items = hidePending ? filtered.slice(pageStart, pageStart + pageSize) : filtered;
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         items,
-        total: count || 0,
+        total,
         page,
         pageSize
       })

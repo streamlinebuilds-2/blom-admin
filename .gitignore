@@ -36,3 +36,6 @@ dist-ssr
 keys.txt
 http.txt
 /.js
+
+# Local Netlify folder
+.netlify

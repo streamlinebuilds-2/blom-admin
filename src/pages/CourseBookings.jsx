@@ -15,7 +15,8 @@ export default function CourseBookings() {
     course_slug: '',
     buyer_email: '',
     invitation_status: '',
-    search: ''
+    search: '',
+    hide_pending: true
   });
   const [showFilters, setShowFilters] = useState(false);
 
@@ -43,7 +44,8 @@ export default function CourseBookings() {
       course_slug: '',
       buyer_email: '',
       invitation_status: '',
-      search: ''
+      search: '',
+      hide_pending: true
     });
     setPage(1);
   };
@@ -111,7 +113,7 @@ export default function CourseBookings() {
           >
             <Filter size={16} /> Filters
           </button>
-          {(filters.buyer_email || filters.invitation_status) && (
+          {(filters.buyer_email || filters.invitation_status || !filters.hide_pending) && (
             <button onClick={clearFilters} className="btn-secondary">
               <X size={16} /> Clear Filters
             </button>
@@ -154,6 +156,17 @@ export default function CourseBookings() {
               <option value="sent">Sent</option>
               <option value="failed">Failed</option>
             </select>
+          </div>
+          <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+              <input
+                type="checkbox"
+                checked={filters.hide_pending}
+                onChange={(e) => { setFilters({...filters, hide_pending: e.target.checked}); setPage(1); }}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              Hide unpaid / pending
+            </label>
           </div>
         </div>
       </div>
