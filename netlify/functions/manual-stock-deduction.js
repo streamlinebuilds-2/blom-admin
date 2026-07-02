@@ -176,7 +176,7 @@ export async function handler(event, context) {
         successful++;
         console.log(`✅ Stock deducted: ${product.name} (-${item.quantity}, was ${result.stock_before}, now ${result.stock_after})`);
 
-      } catch (itemError: any) {
+      } catch (itemError) {
         result.error = itemError.message;
         failed++;
       }
@@ -204,7 +204,7 @@ export async function handler(event, context) {
       })
     };
 
-  } catch (error: any) {
+  } catch (error) {
     console.error(`❌ Stock deduction failed:`, error);
     
     return {

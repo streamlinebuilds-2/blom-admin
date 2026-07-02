@@ -633,13 +633,16 @@ export default function BundleEdit() {
     <>
       <style>{`
         /* Product Form Styling - Matching ProductEdit */
-        .topbar {
+        .form-topbar {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
           padding: 24px 32px;
           border-bottom: 2px solid var(--border);
           background: var(--card);
           margin-bottom: 24px;
         }
-        .content-area {
+        .form-content-area {
           padding: 0 32px 32px;
           overflow-y: auto;
         }
@@ -811,7 +814,7 @@ export default function BundleEdit() {
         }
       `}</style>
       <div className="flex h-full flex-col">
-        <div className="topbar">
+        <div className="form-topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
               type="button"
@@ -839,17 +842,17 @@ export default function BundleEdit() {
           <div className="text-sm text-[var(--text-muted)]">Update bundle details and preview changes.</div>
         </div>
 
-        <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="form-content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
           <style>{`
             /* Enhanced mobile responsiveness for BundleEdit - ProductEdit Pattern */
             @media (max-width: 768px) {
-              .content-area {
+              .form-content-area {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
                 padding: 1rem;
               }
 
-              .content-area.grid {
+              .form-content-area.grid {
                 grid-template-columns: 1fr !important;
                 gap: 1rem !important;
               }
@@ -1002,7 +1005,7 @@ export default function BundleEdit() {
             }
 
             @media (max-width: 480px) {
-              .content-area {
+              .form-content-area {
                 padding: 0.5rem !important;
               }
 
@@ -1076,7 +1079,7 @@ export default function BundleEdit() {
 
             /* Landscape mobile optimizations */
             @media (max-width: 768px) and (orientation: landscape) {
-              .content-area {
+              .form-content-area {
                 padding: 0 12px 12px;
               }
 

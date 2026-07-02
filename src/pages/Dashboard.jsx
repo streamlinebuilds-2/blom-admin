@@ -507,7 +507,7 @@ export default function Dashboard() {
             <tbody>
               {isLoadingProducts ? (
                 <tr><td colSpan="4" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading products...</td></tr>
-              ) : productsData.map(product => (
+              ) : (productsData || []).map(product => (
                 <tr key={product.id}>
                   <td className="font-medium">{product.name}</td>
                   <td>
@@ -519,7 +519,7 @@ export default function Dashboard() {
                   <td>{product.stock_qty || 0}</td>
                 </tr>
               ))}
-              {!isLoadingProducts && productsData.length === 0 && (
+              {!isLoadingProducts && (productsData || []).length === 0 && (
                 <tr><td colSpan="4" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>No products found</td></tr>
               )}
             </tbody>

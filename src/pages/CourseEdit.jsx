@@ -342,13 +342,16 @@ export default function CourseEdit() {
   return (
     <>
       <style>{`
-        .topbar {
+        .form-topbar {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
           padding: 24px 32px;
           border-bottom: 2px solid var(--border);
           background: var(--card);
           margin-bottom: 24px;
         }
-        .content-area {
+        .form-content-area {
           padding: 0 32px 32px;
           overflow-y: auto;
         }
@@ -454,7 +457,7 @@ export default function CourseEdit() {
         }
       `}</style>
 
-      <div className="topbar">
+      <div className="form-topbar">
         <button
           type="button"
           className="product-btn-secondary"
@@ -468,7 +471,7 @@ export default function CourseEdit() {
         </button>
       </div>
 
-      <div className="content-area">
+      <div className="form-content-area">
         <form onSubmit={handleSubmit}>
           <section className="product-form-section">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

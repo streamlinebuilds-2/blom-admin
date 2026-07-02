@@ -1131,13 +1131,16 @@ export default function ProductEdit() {
     <>
       <style>{`
         /* Product Form Styling - Matching BundleEditor */
-        .topbar {
+        .form-topbar {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
           padding: 24px 32px;
           border-bottom: 2px solid var(--border);
           background: var(--card);
           margin-bottom: 24px;
         }
-        .content-area {
+        .form-content-area {
           padding: 0 32px 32px;
           overflow-y: auto;
         }
@@ -1363,7 +1366,7 @@ export default function ProductEdit() {
         }
       `}</style>
       <div className="flex h-full flex-col">
-        <div className="topbar">
+        <div className="form-topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
               type="button"
@@ -1391,21 +1394,21 @@ export default function ProductEdit() {
           <div className="text-sm text-[var(--text-muted)]">Update product details and preview the merchandising experience.</div>
         </div>
 
-        <div className="content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="form-content-area grid grid-cols-1 gap-6 xl:grid-cols-2">
           <style>{`
             /* Mobile responsive styles - vertical layout */
             @media (max-width: 768px) {
-              .topbar {
+              .form-topbar {
                 padding: 16px 20px;
                 margin-bottom: 16px;
               }
 
-              .content-area {
+              .form-content-area {
                 padding: 0 16px 32px;
               }
 
               /* Stack form sections vertically */
-              .content-area.grid {
+              .form-content-area.grid {
                 grid-template-columns: 1fr !important;
                 gap: 16px !important;
               }
@@ -1489,7 +1492,7 @@ export default function ProductEdit() {
             }
 
             @media (max-width: 480px) {
-              .content-area {
+              .form-content-area {
                 padding: 0 12px 12px !important;
               }
 
@@ -1552,7 +1555,7 @@ export default function ProductEdit() {
 
             /* Landscape mobile optimizations */
             @media (max-width: 768px) and (orientation: landscape) {
-              .content-area {
+              .form-content-area {
                 padding: 0 12px 12px;
               }
 

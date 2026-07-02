@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import { createPageUrl } from "@/utils";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -140,6 +141,15 @@ function NavGroup({ group, currentPath, isCollapsed, onNavClick }) {
   );
 }
 
+function formatPageName(pathname) {
+  if (pathname === '/' || pathname === '/dashboard') return 'Dashboard';
+  const segment = pathname.split('/').filter(Boolean)[0] || 'dashboard';
+  return segment
+    .replace(/-/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -150,6 +160,7 @@ export default function Layout({ children, currentPageName }) {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
   }, []);
 
   const toggleTheme = () => {
@@ -157,35 +168,37 @@ export default function Layout({ children, currentPageName }) {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
   return (
     <ToastProvider>
       <style>{`
         :root {
-          --bg: #e0e0e0;
-          --card: #e0e0e0;
-          --text: #333333;
-          --text-muted: #666666;
-          --border: #d1d1d1;
-          --accent: #6EC1FF;
-          --accent-2: #FF77E9;
-          --shadow-light: rgba(255, 255, 255, 0.7);
-          --shadow-dark: rgba(0, 0, 0, 0.15);
+          --bg: hsl(var(--background));
+          --card: hsl(var(--card));
+          --text: hsl(var(--foreground));
+          --text-muted: hsl(var(--muted-foreground));
+          --border: hsl(var(--border));
+          --accent: hsl(var(--primary));
+          --accent-2: hsl(var(--primary));
+          --accent-foreground: hsl(var(--primary-foreground));
+          --hover-bg: hsl(var(--secondary));
+          /* Backward-compat shim: pages not yet migrated off the old neumorphic
+             dual-shadow pattern still reference these two vars. Tuned so the
+             existing "6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light)"
+             declarations collapse into one subtle flat elevation shadow instead
+             of the old embossed look, until each page gets its own pass. */
+          --shadow-dark: rgba(0, 0, 0, 0.08);
+          --shadow-light: rgba(0, 0, 0, 0);
         }
 
-        [data-theme="dark"] {
-          --bg: #2a2a2a;
-          --card: #2a2a2a;
-          --text: #e0e0e0;
-          --text-muted: #999999;
-          --border: #3a3a3a;
-          --shadow-light: rgba(255, 255, 255, 0.05);
-          --shadow-dark: rgba(0, 0, 0, 0.3);
+        .dark {
+          --shadow-dark: rgba(0, 0, 0, 0.4);
         }
 
         * {
-          transition: background-color 0.3s ease, box-shadow 0.3s ease;
+          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
 
         body {
@@ -203,7 +216,7 @@ export default function Layout({ children, currentPageName }) {
 
         .sidebar {
           width: ${sidebarCollapsed ? '80px' : '240px'};
-          background: var(--bg);
+          background: var(--card);
           border-right: 1px solid var(--border);
           display: flex;
           flex-direction: column;
@@ -229,20 +242,18 @@ export default function Layout({ children, currentPageName }) {
           gap: 12px;
           font-size: 20px;
           font-weight: 700;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
+          color: var(--text);
         }
 
         .logo-icon {
           width: 32px;
           height: 32px;
           border-radius: 8px;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          background: var(--accent);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: var(--accent-foreground);
           flex-shrink: 0;
         }
 
@@ -292,23 +303,21 @@ export default function Layout({ children, currentPageName }) {
           padding: ${sidebarCollapsed ? '16px' : '12px 16px'};
           color: var(--text);
           text-decoration: none;
-          border-radius: 12px;
+          border-radius: 8px;
           font-size: 14px;
           font-weight: 500;
           position: relative;
-          background: var(--bg);
-          box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
-          transition: all 0.3s ease;
+          background: transparent;
+          transition: background-color 0.15s ease, color 0.15s ease;
         }
 
         .nav-item:hover {
-          box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+          background: var(--hover-bg);
         }
 
         .nav-item.active {
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          color: white;
-          box-shadow: 3px 3px 8px var(--shadow-dark), -3px -3px 8px var(--shadow-light);
+          background: var(--accent);
+          color: var(--accent-foreground);
         }
 
         .nav-item.active::before {
@@ -319,12 +328,13 @@ export default function Layout({ children, currentPageName }) {
           transform: translateY(-50%);
           width: 3px;
           height: 60%;
-          background: white;
+          background: var(--accent-foreground);
           border-radius: 0 3px 3px 0;
         }
 
         .main-content {
           flex: 1;
+          min-width: 0;
           margin-left: ${sidebarCollapsed ? '80px' : '240px'};
           transition: margin-left 0.3s ease;
           display: flex;
@@ -333,13 +343,12 @@ export default function Layout({ children, currentPageName }) {
 
         .topbar {
           height: 72px;
-          background: var(--bg);
+          background: var(--card);
           border-bottom: 1px solid var(--border);
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 0 32px;
-          box-shadow: 3px 3px 8px var(--shadow-dark), -3px -3px 8px var(--shadow-light);
           position: sticky;
           top: 0;
           z-index: 50;
@@ -356,20 +365,19 @@ export default function Layout({ children, currentPageName }) {
           min-height: 44px;
           width: 44px;
           height: 44px;
-          border-radius: 10px;
-          background: var(--bg);
-          border: none;
+          border-radius: 8px;
+          background: var(--card);
+          border: 1px solid var(--border);
           color: var(--text);
           cursor: pointer;
           display: none;
           align-items: center;
           justify-content: center;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
           flex-shrink: 0;
         }
 
-        .menu-button:active {
-          box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+        .menu-button:hover {
+          background: var(--hover-bg);
         }
 
         .menu-button.mobile-menu {
@@ -410,24 +418,24 @@ export default function Layout({ children, currentPageName }) {
           min-height: 44px;
           width: 44px;
           height: 44px;
-          border-radius: 10px;
-          background: var(--bg);
-          border: none;
+          border-radius: 8px;
+          background: var(--card);
+          border: 1px solid var(--border);
           color: var(--text);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
           flex-shrink: 0;
         }
 
-        .theme-toggle:active {
-          box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+        .theme-toggle:hover {
+          background: var(--hover-bg);
         }
 
         .content-area {
           flex: 1;
+          min-width: 0;
           padding: 32px;
           overflow-y: auto;
         }
@@ -497,7 +505,7 @@ export default function Layout({ children, currentPageName }) {
               <div className="logo-icon">
                 <Package className="w-5 h-5" />
               </div>
-              {!sidebarCollapsed && <span>ShopAdmin</span>}
+              {!sidebarCollapsed && <span>BLOM Admin</span>}
             </div>
           </div>
           
@@ -530,12 +538,7 @@ export default function Layout({ children, currentPageName }) {
               </button>
 
               <h1 className="breadcrumb">
-                {currentPageName || (location.pathname === '/' ? 'Dashboard' : location.pathname.split('/').pop() || 'Dashboard')}
-                {(currentPageName === 'Dashboard' || location.pathname === '/') && (
-                  <span style={{ marginLeft: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
-                    Test Push
-                  </span>
-                )}
+                {currentPageName || formatPageName(location.pathname)}
               </h1>
             </div>
 
@@ -550,7 +553,14 @@ export default function Layout({ children, currentPageName }) {
           </header>
 
           <main className="content-area">
-            {children}
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              {children}
+            </motion.div>
           </main>
         </div>
       </div>

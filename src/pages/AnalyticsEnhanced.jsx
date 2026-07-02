@@ -194,12 +194,12 @@ export default function AnalyticsEnhanced() {
 
     // Key Performance Indicators
     const kpis = {
-      avgOrderValue: summary.avgOrderValue,
-      avgProfitPerTransaction: summary.avgProfitPerTransaction,
-      conversionRate: conversions.conversionRate,
-      customerLifetimeValue: conversions.customerLifetimeValue,
+      avgOrderValue: summary.avgOrderValue || 0,
+      avgProfitPerTransaction: summary.avgProfitPerTransaction || 0,
+      conversionRate: conversions.conversionRate || 0,
+      customerLifetimeValue: conversions.customerLifetimeValue || 0,
       inventoryTurnover: inventory.activeProducts > 0 ? (summary.totalOrders / inventory.activeProducts) : 0,
-      repeatCustomerRate: customers.repeatCustomerRate
+      repeatCustomerRate: customers.repeatCustomerRate || 0
     };
 
     return {

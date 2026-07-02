@@ -161,7 +161,7 @@ const AuthenticatedApp = () => {
   console.log('AuthenticatedApp: Rendering main app');
   // Render the main app
   return (
-    <LayoutWrapper currentPageName={mainPageKey}>
+    <LayoutWrapper>
       <Routes>
         {/* Dashboard */}
         <Route path="/" element={<MainPage />} />
