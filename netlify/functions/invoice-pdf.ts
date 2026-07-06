@@ -19,6 +19,24 @@ function money(n: any) {
   return "R " + Number(n || 0).toFixed(2)
 }
 
+// pdf-lib StandardFonts only encode WinAnsi (CP1252); emoji, warning signs,
+// non-Latin scripts and smart punctuation make drawText throw and 500 the whole
+// invoice. Normalize common punctuation to ASCII, then strip anything still
+// unencodable so a stray glyph in a name/address/product title can never break it.
+function sanitizeWinAnsi(value: any): string {
+  if (value === null || value === undefined) return ""
+  return String(value)
+    .replace(/[‘’‚′]/g, "'")
+    .replace(/[“”„″]/g, '"')
+    .replace(/[–—−]/g, "-")
+    .replace(/…/g, "...")
+    .replace(/[•●·]/g, "-")
+    .replace(/ /g, " ")
+    .replace(/[^\x20-\x7E\xA1-\xFF]/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim()
+}
+
 function safeParseJson(value: any) {
   if (value == null) return null
   if (typeof value === "object") return value
@@ -195,14 +213,14 @@ export const handler = async (event: any) => {
 
     // Helper functions
     const drawText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
-      page.drawText(String(text), { x, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
+      page.drawText(sanitizeWinAnsi(text), { x, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
     const drawLine = (x1: number, y1: number, x2: number, y2: number, page = currentPage) => {
       page.drawLine({ start: { x: x1, y: PAGE_HEIGHT - y1 }, end: { x: x2, y: PAGE_HEIGHT - y2 }, thickness: 1, color: rgb(0.9, 0.92, 0.95) })
     }
     const drawRightText = (text: string, x: number, yPos: number, size = 12, bold = false, color = rgb(0.1, 0.1, 0.15), page = currentPage) => {
-      const textWidth = (bold ? fontBold : font).widthOfTextAtSize(String(text), size)
-      page.drawText(String(text), { x: x - textWidth, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
+      const textWidth = (bold ? fontBold : font).widthOfTextAtSize(sanitizeWinAnsi(text), size)
+      page.drawText(sanitizeWinAnsi(text), { x: x - textWidth, y: PAGE_HEIGHT - yPos, size, font: bold ? fontBold : font, color })
     }
 
     // Function to add a new page
@@ -334,7 +352,7 @@ export const handler = async (event: any) => {
 
       // Truncate long product names to fit on one line
       const maxNameWidth = right - 180
-      let displayName = name + variant
+      let displayName = sanitizeWinAnsi(name + variant)
       const nameWidth = font.widthOfTextAtSize(displayName, 10)
       if (nameWidth > maxNameWidth) {
         // Truncate and add ellipsis
