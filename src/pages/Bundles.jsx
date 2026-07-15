@@ -259,7 +259,7 @@ export default function Bundles() {
         }
 
         .btn-icon:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .btn-icon:active {

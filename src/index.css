@@ -5,6 +5,12 @@
 /* Slate & Berry — flat modern palette (light/dark) */
 @layer base {
   :root {
+    /* Tells the browser which palette to paint UA-rendered widgets with —
+       native <select> popups, scrollbars, form controls. Without this the
+       option list is painted light while <option> inherits the app's
+       foreground colour, which renders white-on-white in dark mode. */
+    color-scheme: light;
+
     --background: 0 0% 98%;
     --foreground: 240 6% 10%;
     --card: 0 0% 100%;
@@ -13,6 +19,12 @@
     --popover-foreground: 240 6% 10%;
     --primary: 336 74% 35%;
     --primary-foreground: 0 0% 98%;
+    /* Berry tuned for use as TEXT rather than as a fill. --primary is picked so
+       that --primary-foreground reads on top of it; that same colour used as
+       text on --background only reaches 3.2:1 in dark mode. This token keeps the
+       brand hue but stays >=4.5:1 against --background and --card in both themes.
+       Light: 7.6:1. */
+    --primary-readable: 336 74% 35%;
     --secondary: 240 5% 95%;
     --secondary-foreground: 240 6% 10%;
     --muted: 240 5% 95%;
@@ -40,6 +52,8 @@
     --sidebar-ring: 336 74% 35%;
   }
   .dark {
+    color-scheme: dark;
+
     --background: 240 6% 9%;
     --foreground: 0 0% 95%;
     --card: 240 6% 12%;
@@ -48,6 +62,10 @@
     --popover-foreground: 0 0% 95%;
     --primary: 340 70% 45%;
     --primary-foreground: 0 0% 98%;
+    /* Lifted berry: 6.3:1 on --background, 5.7:1 on --card. The 45% primary
+       only manages 3.2:1 as text here, which is the burgundy-on-black that is
+       hard to read. Fills keep --primary, so the brand colour is unchanged. */
+    --primary-readable: 340 80% 68%;
     --secondary: 240 5% 16%;
     --secondary-foreground: 0 0% 95%;
     --muted: 240 5% 16%;
@@ -104,6 +122,25 @@
   textarea,
   select {
     font-size: 16px;
+  }
+
+  /* Native <select> popups are painted by the browser, so they ignore the
+     colours set on the closed control. Selects across the admin set
+     `color: var(--text)`, which each <option> inherits — against the popup's
+     own background that renders as light-on-light in dark mode. Pin both
+     halves to the popover tokens so the list tracks the active theme.
+     Firefox on Windows needs these explicitly; Chromium mostly resolves it
+     from color-scheme above. */
+  select option,
+  select optgroup {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+
+  /* Keeps a disabled option distinguishable without dropping it to the
+     unreadable contrast the inherited colour produced. */
+  select option:disabled {
+    color: hsl(var(--muted-foreground));
   }
 
   /* Minimum touch targets for mobile - 44x44px */

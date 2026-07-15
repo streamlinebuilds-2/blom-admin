@@ -170,7 +170,7 @@ export default function SupabaseDebug() {
         }
 
         .status-loading {
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .products-list {

@@ -98,7 +98,7 @@ export default function CourseBookingDetail() {
 
         .btn-back:hover {
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .order-title-section { flex: 1; }
@@ -196,7 +196,7 @@ export default function CourseBookingDetail() {
         }
 
         .info-link {
-          color: var(--accent);
+          color: var(--accent-text);
           font-weight: 600;
           text-decoration: none;
           transition: color 0.2s ease;

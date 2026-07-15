@@ -182,7 +182,7 @@ export default function Dashboard() {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--accent);
+          color: var(--accent-text);
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
@@ -284,13 +284,13 @@ export default function Dashboard() {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--accent);
+          color: var(--accent-text);
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
           transition: all 0.2s ease;
         }
 
         .quick-link:hover .quick-link-icon {
-          color: var(--accent);
+          color: var(--accent-text);
           transform: scale(1.05);
         }
 
@@ -337,7 +337,7 @@ export default function Dashboard() {
 
         .view-all-link {
           font-size: 14px;
-          color: var(--accent);
+          color: var(--accent-text);
           text-decoration: none;
           font-weight: 600;
           display: flex;

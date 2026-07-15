@@ -194,7 +194,7 @@ export default function MessageDetail() {
 
     .btn-back:hover {
       box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-      color: var(--accent);
+      color: var(--accent-text);
     }
 
     .message-title-section {
@@ -266,7 +266,7 @@ export default function MessageDetail() {
 
     .btn-secondary:hover {
       box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-      color: var(--accent);
+      color: var(--accent-text);
     }
 
     .btn-danger {
@@ -335,7 +335,7 @@ export default function MessageDetail() {
     }
 
     .info-link {
-      color: var(--accent);
+      color: var(--accent-text);
       font-weight: 600;
       text-decoration: none;
       transition: color 0.2s ease;

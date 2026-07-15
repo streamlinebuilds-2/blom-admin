@@ -128,7 +128,7 @@ export default function Analytics() {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--accent);
+          color: var(--accent-text);
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
         .metric-info { flex: 1; }
@@ -212,7 +212,7 @@ export default function Analytics() {
           justify-content: center;
           font-size: 14px;
           font-weight: 700;
-          color: var(--accent);
+          color: var(--accent-text);
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 

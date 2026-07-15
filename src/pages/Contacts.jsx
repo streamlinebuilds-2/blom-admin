@@ -445,7 +445,7 @@ export default function Contacts() {
         }
         
         .sort-header:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .contact-date {
