@@ -236,13 +236,18 @@ export const handler: Handler = async (e) => {
 
     let enrichedItems = (items || []).map((it: any) => {
       const qty = Number(it.quantity ?? 0) || 0;
+      // A stored unit_price_cents of 0 means "not populated" (create-order.ts only
+      // writes the Rands column), not "this item is free" — a real free item would
+      // also have unit_price 0/null and fall through to the same 0 result anyway.
+      const unitCentsRaw = asCents(it.unit_price_cents);
       const unitCents =
-        asCents(it.unit_price_cents) ??
+        (unitCentsRaw && unitCentsRaw > 0 ? unitCentsRaw : null) ??
         asRandsToCents(it.unit_price) ??
         asRandsToCents(it.price) ??
         null;
+      const lineCentsRaw = asCents(it.line_total_cents);
       const lineCents =
-        asCents(it.line_total_cents) ??
+        (lineCentsRaw && lineCentsRaw > 0 ? lineCentsRaw : null) ??
         asRandsToCents(it.line_total) ??
         (unitCents != null ? unitCents * qty : null);
 
