@@ -9,7 +9,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { setupIframeMessaging } from './lib/iframe-messaging';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import AdminLogin from '@/components/AdminLogin';
 import { setAPI } from '@/components/data/api'
 import { createSupabaseAdapter } from '@/components/data/supabaseAdapter'
 import { createMockAdapter } from '@/components/data/mockAdapter'
@@ -133,8 +133,8 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 
 const AuthenticatedApp = () => {
   console.log('AuthenticatedApp: Rendering');
-  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated, navigateToLogin } = useAuth();
-  console.log('AuthenticatedApp: Auth state:', { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated });
+  const { isLoadingAuth, isLoadingPublicSettings, isAuthenticated } = useAuth();
+  console.log('AuthenticatedApp: Auth state:', { isLoadingAuth, isLoadingPublicSettings, isAuthenticated });
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -146,17 +146,7 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Handle authentication errors
-  if (authError) {
-    console.log('AuthenticatedApp: Auth error:', authError);
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
-    }
-  }
+  if (!isAuthenticated) return <AdminLogin />;
 
   console.log('AuthenticatedApp: Rendering main app');
   // Render the main app

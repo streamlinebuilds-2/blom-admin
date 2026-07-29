@@ -1,6 +1,5 @@
 // Use singleton from lib/supabase to avoid multiple clients
 import { supabase } from '@/lib/supabase';
-import { appParams } from '@/lib/app-params';
 
 // Helper to throw on Supabase errors, but return empty array for list functions on error
 function ensure(data, error) {
@@ -17,10 +16,10 @@ function ensureArray(data, error) {
   return Array.isArray(data) ? data : [];
 }
 
-function adminAuthHeaders() {
-  return appParams.token
-    ? { Authorization: `Bearer ${appParams.token}` }
-    : {};
+async function adminAuthHeaders() {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 // Helper to ensure how_to_use is always an array
@@ -32,7 +31,7 @@ function ensureHowToUseArray(howToUse) {
     try {
       const parsed = JSON.parse(howToUse);
       if (Array.isArray(parsed)) return parsed;
-    } catch (e) {
+    } catch {
       // Not JSON, so split by newlines and filter empty strings
       return howToUse.split('\n').map(item => item.trim()).filter(Boolean);
     }
@@ -287,7 +286,7 @@ export function createSupabaseAdapter() {
       if (filters.hide_pending) params.append('hide_pending', 'true');
       
       const res = await fetch(`/.netlify/functions/admin-course-purchases?${params.toString()}`, {
-        headers: adminAuthHeaders(),
+        headers: await adminAuthHeaders(),
       });
       if (!res.ok) {
         throw new Error(`Failed to fetch course purchases: ${res.statusText}`);
@@ -303,7 +302,7 @@ export function createSupabaseAdapter() {
       const params = new URLSearchParams();
       params.append('id', id);
       const res = await fetch(`/.netlify/functions/admin-course-purchase?${params.toString()}`, {
-        headers: adminAuthHeaders(),
+        headers: await adminAuthHeaders(),
       });
       if (!res.ok) {
         throw new Error(`Failed to fetch course purchase: ${res.statusText}`);

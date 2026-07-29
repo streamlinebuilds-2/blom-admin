@@ -1,6 +1,6 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
-import { adminCorsHeaders, requireBase44User } from "./_lib/require-base44-user";
+import { adminCorsHeaders, requireAdminUser } from "./_lib/require-admin-user";
 
 const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -17,7 +17,7 @@ export const handler: Handler = async (e) => {
     };
   }
 
-  const auth = await requireBase44User(e);
+  const auth = await requireAdminUser(e);
   if (!auth.ok) return auth.response;
 
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
