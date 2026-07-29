@@ -183,16 +183,17 @@ export default function CourseBookings() {
                 <th>Package / Date</th>
                 <th>Amount Paid</th>
                 <th>Status</th>
+                <th>Course Benefit</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan="7" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading bookings...</td></tr>
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading bookings...</td></tr>
               ) : error ? (
-                <tr><td colSpan="7" style={{ padding: '60px', textAlign: 'center', color: '#ef4444' }}>Error: {error.message}</td></tr>
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: '#ef4444' }}>Error: {error.message}</td></tr>
               ) : bookings.length === 0 ? (
-                <tr><td colSpan="7" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>No bookings found.</td></tr>
+                <tr><td colSpan="8" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>No bookings found.</td></tr>
               ) : (
                 bookings.map((booking) => (
                   <tr key={booking.id}>
@@ -245,6 +246,20 @@ export default function CourseBookings() {
                           )}
                         </span>
                       </span>
+                    </td>
+                    <td>
+                      {booking.course_benefit ? (
+                        <div>
+                          <span className={`status-badge status-${booking.course_benefit.status}`}>
+                            {String(booking.course_benefit.status).toUpperCase()}
+                          </span>
+                          <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {booking.course_benefit.coupon_code} · No expiry
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>

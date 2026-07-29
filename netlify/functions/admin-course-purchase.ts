@@ -80,6 +80,15 @@ export const handler: Handler = async (e) => {
 
     if (error) throw error;
 
+    const { data: courseBenefit, error: benefitError } = await s
+      .from("course_benefits")
+      .select("id,coupon_code,status,claimed_at,redeemed_at,revoked_at,created_at")
+      .eq("course_purchase_id", id)
+      .maybeSingle();
+    if (benefitError) {
+      console.warn("Course benefit could not be loaded:", benefitError.message);
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -99,6 +108,7 @@ export const handler: Handler = async (e) => {
             return "paid";
           })(),
           invoice_url: (data as any)?.deposit_order?.invoice_url || null,
+          course_benefit: courseBenefit || null,
           order: (data as any)?.deposit_order || null,
           deposit_order: (data as any)?.deposit_order || null,
           balance_order: (data as any)?.balance_order || null,

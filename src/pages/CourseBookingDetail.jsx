@@ -337,6 +337,32 @@ export default function CourseBookingDetail() {
                   </div>
                 </div>
               </div>
+
+              {booking.course_benefit && (
+                <div className="section-card">
+                  <h3 className="section-title">Petal Paste Course Benefit</h3>
+                  <div className="booking-info">
+                    <div className="info-item">
+                      <div className="info-label">Status</div>
+                      <div className="info-value">{String(booking.course_benefit.status).toUpperCase()}</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">Coupon Code</div>
+                      <div className="info-value">{booking.course_benefit.coupon_code}</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">Expiry</div>
+                      <div className="info-value">Never expires</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">Redeemed</div>
+                      <div className="info-value">
+                        {booking.course_benefit.redeemed_at ? dateTime(booking.course_benefit.redeemed_at) : 'Not yet'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="order-sidebar">

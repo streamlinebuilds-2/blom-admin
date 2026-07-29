@@ -47,6 +47,23 @@ export const handler: Handler = async (e) => {
     const { data, error } = await query;
     if (error) throw error;
 
+    const purchaseIds = (data || []).map((item: any) => item.id).filter(Boolean);
+    const benefitsByPurchaseId = new Map<string, any>();
+    if (purchaseIds.length > 0) {
+      const { data: benefits, error: benefitsError } = await s
+        .from("course_benefits")
+        .select("id,course_purchase_id,coupon_code,status,claimed_at,redeemed_at,revoked_at")
+        .in("course_purchase_id", purchaseIds);
+
+      if (benefitsError) {
+        console.warn("Course benefits could not be loaded:", benefitsError.message);
+      } else {
+        (benefits || []).forEach((benefit: any) => {
+          benefitsByPurchaseId.set(benefit.course_purchase_id, benefit);
+        });
+      }
+    }
+
     // Compute booking_status for each row
     const allItems = (data || []).map((item: any) => {
       const orderPaid =
@@ -63,6 +80,7 @@ export const handler: Handler = async (e) => {
       return {
         ...item,
         invoice_url: item.orders?.invoice_url || null,
+        course_benefit: benefitsByPurchaseId.get(item.id) || null,
         booking_status: bookingStatus,
         orders: undefined
       };
