@@ -1,13 +1,29 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import { adminCorsHeaders, requireBase44User } from "./_lib/require-base44-user";
 
 const s = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 export const handler: Handler = async (e) => {
+  if (e.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: adminCorsHeaders, body: "" };
+  }
+
+  if (e.httpMethod !== "GET") {
+    return {
+      statusCode: 405,
+      headers: adminCorsHeaders,
+      body: JSON.stringify({ ok: false, error: "Method not allowed" }),
+    };
+  }
+
+  const auth = await requireBase44User(e);
+  if (!auth.ok) return auth.response;
+
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: adminCorsHeaders,
       body: JSON.stringify({ ok: false, error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }),
     };
   }
@@ -19,7 +35,7 @@ export const handler: Handler = async (e) => {
     if (!id) {
       return {
         statusCode: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: adminCorsHeaders,
         body: JSON.stringify({ ok: false, error: "Missing id" }),
       };
     }
@@ -91,7 +107,7 @@ export const handler: Handler = async (e) => {
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: adminCorsHeaders,
       body: JSON.stringify({
         ok: true,
         item: {
@@ -119,7 +135,7 @@ export const handler: Handler = async (e) => {
     console.error("Error in admin-course-purchase:", err);
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: adminCorsHeaders,
       body: JSON.stringify({ ok: false, error: err.message || String(err) }),
     };
   }
