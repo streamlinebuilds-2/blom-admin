@@ -113,6 +113,10 @@ export default function OrderDetail() {
     asCentsColumn(order?.discount_cents) ??
     asRandsToCents(order?.discount) ??
     0;
+  const isWomensDayPromotion = order?.coupon_code === 'WOMENSDAY2026';
+  const discountLabel = isWomensDayPromotion
+    ? "Women's Day Promotion"
+    : `Coupon${order?.coupon_code ? ` (${order.coupon_code})` : ''}`;
   const totalCents =
     asCentsColumn(order?.total_cents) ??
     asRandsToCents(order?.total) ??
@@ -561,7 +565,7 @@ export default function OrderDetail() {
           ` : ''}
           ${receiptDiscountCents > 0 ? `
             <div class="summary-row coupon-discount">
-              <span>Coupon Discount:</span>
+              <span>${discountLabel}:</span>
               <span>-${formatMoney(receiptDiscountCents)}</span>
             </div>
           ` : ''}
@@ -1236,7 +1240,7 @@ export default function OrderDetail() {
                     <tr>
                       <td colSpan={2} className="py-0 px-3"></td>
                       <td className="text-right py-2 px-3 text-sm text-green-600">
-                        Coupon {order.coupon_code ? `(${order.coupon_code})` : ''}
+                        {discountLabel}
                       </td>
                       <td className="text-right py-2 px-3 text-sm font-medium text-green-600">
                         -{formatMoney(discountCents)}
