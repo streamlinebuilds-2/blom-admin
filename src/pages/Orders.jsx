@@ -19,17 +19,19 @@ export default function Orders() {
     dateTo: '',
     fulfillmentType: '',
     status: '',
-    search: ''
+    search: '',
+    view: 'paid'
   });
   const [showFilters, setShowFilters] = useState(false);
 
   const { data: ordersResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['orders', currentPage, filters.status, filters.search, filters.fulfillmentType],
+    queryKey: ['orders', currentPage, filters.status, filters.search, filters.fulfillmentType, filters.view],
     queryFn: async () => {
       const params = new URLSearchParams({ page: currentPage, size: PAGE_SIZE });
       if (filters.status) params.set('status', filters.status);
       if (filters.search) params.set('search', filters.search);
       if (filters.fulfillmentType) params.set('fulfillment', filters.fulfillmentType);
+      if (filters.view && filters.view !== 'paid') params.set('view', filters.view);
       const res = await fetch(`/.netlify/functions/admin-orders?${params}`);
       if (!res.ok) throw new Error('Failed to fetch orders');
       const json = await res.json();
@@ -234,7 +236,7 @@ export default function Orders() {
   // Reset page when server-side filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters.status, filters.search, filters.fulfillmentType]);
+  }, [filters.status, filters.search, filters.fulfillmentType, filters.view]);
 
   // Clear filters
   const clearFilters = () => {
@@ -243,7 +245,8 @@ export default function Orders() {
       dateTo: '',
       fulfillmentType: '',
       status: '',
-      search: ''
+      search: '',
+      view: 'paid'
     });
   };
 
@@ -927,7 +930,7 @@ export default function Orders() {
           >
             <Filter size={16} /> Filters
           </button>
-          {(filters.dateFrom || filters.dateTo || filters.fulfillmentType || filters.status || filters.search) && (
+          {(filters.dateFrom || filters.dateTo || filters.fulfillmentType || filters.status || filters.search || filters.view !== 'paid') && (
             <button onClick={clearFilters} className="btn-secondary">
               <X size={16} /> Clear Filters
             </button>
@@ -1006,6 +1009,19 @@ export default function Orders() {
             </select>
           </div>
           
+          <div className="filter-group">
+            <label className="filter-label">Payment</label>
+            <select
+              className="filter-select"
+              value={filters.view}
+              onChange={(e) => setFilters({...filters, view: e.target.value})}
+            >
+              <option value="paid">Paid only (default)</option>
+              <option value="unpaid">Unpaid / needs attention</option>
+              <option value="all">All orders</option>
+            </select>
+          </div>
+
           <div className="filter-group">
             <label className="filter-label">Status</label>
             <select

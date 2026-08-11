@@ -112,6 +112,7 @@ export const handler: Handler = async (e) => {
     const size = Math.min(Number(url.searchParams.get("size") || 20), 100);
     const status = url.searchParams.get("status") || "";
     const fulfillment = url.searchParams.get("fulfillment") || "";
+    const view = (url.searchParams.get("view") || "paid").toLowerCase();
     const search = (url.searchParams.get("search") || "").trim();
     const from = (page - 1) * size;
     const to = from + size - 1;
@@ -124,8 +125,21 @@ export const handler: Handler = async (e) => {
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    // Filter for paid orders: payment_status = 'paid' OR status = 'paid'
-    query = query.or('payment_status.eq.paid,status.in.(paid,packed,collected,out_for_delivery,delivered)');
+    // Payment view. Default is unchanged (paid only) so nothing regresses.
+    //
+    // 'unpaid' exists because orders that never settle are otherwise invisible on
+    // every page of this list even though they are in the database: EFT customers
+    // who abandon checkout and pay by bank transfer, and card/Payflex payments
+    // whose callback never lands. Two real payments (R570 + R575) sat unseen for
+    // days in Aug 2026 before anyone noticed.
+    const SETTLED_STATUSES = 'paid,packed,collected,out_for_delivery,delivered';
+    if (view === 'unpaid') {
+      query = query
+        .or('payment_status.is.null,payment_status.neq.paid')
+        .or(`status.is.null,status.not.in.(${SETTLED_STATUSES})`);
+    } else if (view !== 'all') {
+      query = query.or(`payment_status.eq.paid,status.in.(${SETTLED_STATUSES})`);
+    }
 
     // Filter out archived orders from the main list
     query = query.or('archived.is.null,archived.eq.false');
