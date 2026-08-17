@@ -28,6 +28,7 @@ export const handler: Handler = async (e) => {
       .from("order_items")
       .select(`
         product_id,
+        bundle_id,
         qty,
         quantity,
         line_total_cents,
@@ -46,11 +47,15 @@ export const handler: Handler = async (e) => {
           customer_email,
           archived
         ),
-        products!inner (
+        products (
           id,
           name,
           cost_price_cents,
           stock_qty
+        ),
+        bundles (
+          id,
+          name
         )
       `)
       .gte("orders.created_at", fromIso)
@@ -68,14 +73,24 @@ export const handler: Handler = async (e) => {
     const productAnalytics: Record<string, any> = {};
     
     (orderItems || []).forEach((item: any) => {
-      const pId = item.product_id;
-      
-      if (!pId || !item.products?.name) return; 
+      // A line item is either a product or a bundle. Bundles live outside the `products`
+      // table, so they arrive with product_id null and bundle_id set -- before this they
+      // were dropped by an inner join and never showed up in reporting at all. Course
+      // items have neither id and are still skipped.
+      const isBundle = !item.product_id && !!item.bundle_id;
+      const entityId = item.product_id || item.bundle_id;
+      const entityName = isBundle ? item.bundles?.name : item.products?.name;
+
+      if (!entityId || !entityName) return;
+
+      // Namespace bundle keys so a bundle can never collide with a product id.
+      const pId = isBundle ? `bundle:${entityId}` : entityId;
 
       if (!productAnalytics[pId]) {
         productAnalytics[pId] = {
-          id: pId,
-          name: item.products?.name,
+          id: entityId,
+          isBundle,
+          name: entityName,
           totalUnitsSold: 0,
           totalRevenueCents: 0,
           totalOrders: 0,
@@ -101,9 +116,14 @@ export const handler: Handler = async (e) => {
         analytics.uniqueCustomers.add(item.orders.customer_email);
       }
       
-      const costPrice = item.products?.cost_price_cents || 0;
-      analytics.estimatedCOGS += (costPrice * qty);
-      analytics.estimatedProfitCents += (revenueCents - (costPrice * qty));
+      // Bundles carry no cost_price_cents, so their margin is genuinely unknown. Leave
+      // COGS and profit at 0 rather than counting the full sale as profit, which would
+      // inflate the dashboard's profit figures. Units and revenue are still exact.
+      if (!isBundle) {
+        const costPrice = item.products?.cost_price_cents || 0;
+        analytics.estimatedCOGS += (costPrice * qty);
+        analytics.estimatedProfitCents += (revenueCents - (costPrice * qty));
+      }
       
       const orderDate = new Date(item.orders?.created_at).toISOString().split('T')[0];
       analytics.dailySales[orderDate] = (analytics.dailySales[orderDate] || 0) + qty;
