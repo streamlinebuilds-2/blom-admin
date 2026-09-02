@@ -8,6 +8,7 @@ import { ReviewSection } from '@/components/product-page/ReviewSection';
 import { PaymentMethods } from '@/components/product-page/PaymentMethods';
 import { StickyCart } from '@/components/product-page/StickyCart';
 import { cartStore, showNotification } from '@/lib/cart';
+import { FREE_SHIPPING_THRESHOLD_LABEL } from '@/lib/shipping';
 import { ShareButton } from '@/components/product-page/ShareButton';
 import { 
   Star, 
@@ -400,7 +401,7 @@ export const ProductPageTemplate: React.FC<ProductPageTemplateProps> = ({ produc
                 <div className="space-y-3 py-6 border-t border-gray-200">
                   <div className="flex items-center gap-3">
                     <Truck className="h-5 w-5 text-gray-600 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">Free shipping on orders over R1500</span>
+                    <span className="text-sm text-gray-700">Free shipping on orders over {FREE_SHIPPING_THRESHOLD_LABEL}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <Shield className="h-5 w-5 text-gray-600 flex-shrink-0" />

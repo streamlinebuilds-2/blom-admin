@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { supabase } from "../lib/supabase";
+import { FREE_SHIPPING_THRESHOLD_LABEL, qualifiedForFreeShipping } from "../lib/shipping";
 
 const toNumberLoose = (value) => {
   if (value === undefined || value === null) return Number.NaN;
@@ -368,9 +369,8 @@ export default function OrderDetail() {
     const receiptWindow = window.open('', '_blank');
     const formatMoney = (amount) => `R${(amount / 100).toFixed(2)}`;
     
-    // Check if order has free shipping threshold
-    const subtotalForThreshold = subtotalCents || 0;
-    const hasFreeShipping = subtotalForThreshold >= 200000; // R2000 in cents
+    // Check if order qualified for free delivery
+    const hasFreeShipping = qualifiedForFreeShipping(subtotalCents);
     
     // Extract order values safely
     const receiptSubtotalCents = subtotalCents || 0;
@@ -559,7 +559,7 @@ export default function OrderDetail() {
           </div>
           ${hasFreeShipping ? `
             <div class="summary-row free-shipping">
-              <span>FREE SHIPPING - Order over R2000</span>
+              <span>FREE SHIPPING - Order over ${FREE_SHIPPING_THRESHOLD_LABEL}</span>
               <span></span>
             </div>
           ` : ''}

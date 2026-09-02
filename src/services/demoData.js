@@ -34,7 +34,7 @@ export const demoOrders = [
     buyer_phone: '+27 83 987 6543',
     created_at: '2025-11-27T15:30:00Z',
     subtotal_cents: 89000, // R890.00
-    shipping_cents: 0, // Free shipping over R2000
+    shipping_cents: 0, // Free shipping over R2800
     discount_cents: 5000, // R50.00 coupon
     total_cents: 84000, // R840.00
     fulfillment_type: 'collection',

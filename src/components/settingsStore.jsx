@@ -1,4 +1,6 @@
 // Settings store with localStorage persistence
+import { SHIPPING_FLAT_RATE_CENTS, FREE_SHIPPING_THRESHOLD_CENTS } from '../lib/shipping';
+
 const STORAGE_KEY = 'blom.settings.v1';
 
 const defaultSettings = {
@@ -40,7 +42,8 @@ const defaultSettings = {
     payout: true
   },
   shipping: {
-    freeShippingThreshold: 50000, // R500 in cents
+    flatRate: SHIPPING_FLAT_RATE_CENTS, // R150 in cents
+    freeShippingThreshold: FREE_SHIPPING_THRESHOLD_CENTS, // R2800 in cents
     liquidSurcharge: 2000, // R20 in cents
     ruralSurcharge: 3000 // R30 in cents
   }
