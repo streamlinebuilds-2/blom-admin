@@ -181,7 +181,7 @@ export default function BundleEditor({ bundle, onSave, onCancel, isSaving, title
         .preview-tab.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; box-shadow: inset 2px 2px 4px rgba(0,0,0,0.3); }
         .view-toggle { display: flex; gap: 8px; }
         .view-btn { width: 40px; height: 40px; border-radius: 10px; border: none; background: var(--card); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light); }
-        .view-btn.active { color: var(--accent); box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light); }
+        .view-btn.active { color: var(--accent-text); box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light); }
         .preview-container { background: var(--card); border-radius: 16px; padding: 32px; box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light); display: flex; justify-content: center; }
         .preview-wrapper { width: ${containerWidth}; max-width: 100%; }
         .product-card { background: var(--bg); border-radius: 16px; overflow: hidden; box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light); }

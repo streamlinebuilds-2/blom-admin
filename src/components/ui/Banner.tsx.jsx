@@ -34,7 +34,7 @@ export function Banner({ type = 'info', children }: BannerProps) {
 
         .banner-info {
           border-left: 4px solid var(--accent);
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .banner-warning {

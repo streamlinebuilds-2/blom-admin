@@ -238,7 +238,7 @@ export default function Courses() {
         }
 
         .btn-icon:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .btn-icon:active {

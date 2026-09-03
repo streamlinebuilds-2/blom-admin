@@ -200,7 +200,7 @@ export default function Messages() {
 
     .btn-secondary:hover {
       box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-      color: var(--accent);
+      color: var(--accent-text);
     }
 
     .messages-table-card {
@@ -285,7 +285,7 @@ export default function Messages() {
 
     .action-btn:hover {
       box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-      color: var(--accent);
+      color: var(--accent-text);
     }
 
     .empty-state {
@@ -336,7 +336,7 @@ export default function Messages() {
 
     .pagination-btn:hover:not(:disabled) {
       box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
-      color: var(--accent);
+      color: var(--accent-text);
     }
 
     .pagination-btn:disabled {

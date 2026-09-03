@@ -521,7 +521,7 @@ export default function Specials() {
         }
 
         .preview-new-price {
-          color: var(--accent);
+          color: var(--accent-text);
           font-weight: 700;
           font-size: 18px;
         }
@@ -676,7 +676,7 @@ export default function Specials() {
           font-family: monospace;
           font-weight: 700;
           font-size: 15px;
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .exclusion-tag {
@@ -759,7 +759,7 @@ export default function Specials() {
         }
 
         .action-btn:hover {
-          color: var(--accent);
+          color: var(--accent-text);
           background: var(--bg);
         }
 

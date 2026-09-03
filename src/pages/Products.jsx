@@ -549,7 +549,7 @@ export default function Products() {
         }
 
         .btn-icon:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .btn-icon:active {
@@ -806,7 +806,7 @@ export default function Products() {
             display: block;
             text-align: center;
             font-size: 14px;
-            color: var(--accent);
+            color: var(--accent-text);
             padding: 12px 0;
             opacity: 1;
             font-weight: 700;

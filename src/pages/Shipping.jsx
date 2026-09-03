@@ -231,7 +231,7 @@ export default function Shipping() {
         }
 
         .link-order {
-          color: var(--accent);
+          color: var(--accent-text);
           text-decoration: none;
           display: flex;
           align-items: center;

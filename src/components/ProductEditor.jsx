@@ -425,7 +425,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
         }
 
         .view-btn.active {
-          color: var(--accent);
+          color: var(--accent-text);
           box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
         }
 
@@ -625,7 +625,7 @@ export default function ProductEditor({ product, onSave, onCancel, isSaving, tit
           content: '•';
           position: absolute;
           left: 8px;
-          color: var(--accent);
+          color: var(--accent-text);
           font-weight: 700;
         }
 

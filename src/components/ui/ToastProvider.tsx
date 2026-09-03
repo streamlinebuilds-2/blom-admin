@@ -96,7 +96,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
         .toast-info {
           border-left: 4px solid var(--accent);
-          color: var(--accent);
+          color: var(--accent-text);
         }
 
         .toast-warning {

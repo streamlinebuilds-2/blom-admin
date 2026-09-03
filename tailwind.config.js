@@ -22,7 +22,10 @@ module.exports = {
   			},
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				foreground: 'hsl(var(--primary-foreground))',
+  				// For berry text on a page background (text-primary-readable).
+  				// primary.DEFAULT is a fill and only reads under primary.foreground.
+  				readable: 'hsl(var(--primary-readable))'
   			},
   			secondary: {
   				DEFAULT: 'hsl(var(--secondary))',

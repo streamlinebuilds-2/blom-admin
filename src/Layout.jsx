@@ -183,6 +183,10 @@ export default function Layout({ children, currentPageName }) {
           --accent: hsl(var(--primary));
           --accent-2: hsl(var(--primary));
           --accent-foreground: hsl(var(--primary-foreground));
+          /* Use for berry-coloured TEXT. --accent is a fill colour: it is only
+             legible under --accent-foreground, and drops to 3.2:1 when used as
+             text on a dark background. */
+          --accent-text: hsl(var(--primary-readable));
           --hover-bg: hsl(var(--secondary));
           /* Backward-compat shim: pages not yet migrated off the old neumorphic
              dual-shadow pattern still reference these two vars. Tuned so the

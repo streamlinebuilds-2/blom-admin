@@ -391,7 +391,7 @@ export default function PriceUpdates() {
         }
 
         .price-new {
-          color: var(--accent);
+          color: var(--accent-text);
           font-weight: 700;
         }
 
